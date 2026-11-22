@@ -15,11 +15,11 @@ function setupDatabase() {
   
   const tables = {
     'Users': ['id', 'name', 'email', 'phone', 'role', 'status', 'createdAt'],
-    'Master_Products': ['id', 'name_en', 'name_te', 'category', 'brand_en', 'brand_te', 'inner_wt_kg', 'inner_count', 'outer_wt_kg', 'stock_physical', 'stock_reserved', 'price_bag', 'cost_bag'],
+    'Master_Products': ['id', 'name_en', 'name_te', 'category', 'brand_en', 'brand_te', 'inner_wt_kg', 'inner_count', 'outer_wt_kg', 'stock_physical', 'stock_reserved', 'price_bag', 'cost_bag', 'retail_price_bag'],
     'Master_Customers': ['id', 'name_en', 'name_te', 'phone', 'business_en', 'business_te', 'address_en', 'address_te', 'current_due'],
     'Master_Suppliers': ['id', 'business_en', 'business_te', 'owner_en', 'owner_te', 'bank_name', 'account_no', 'ifsc_code', 'nickname_en', 'nickname_te'],
-    'Master_Orders_Sales': ['id', 'order_no', 'customer_id', 'customer_name', 'customer_phone', 'date', 'total_bags', 'total_weight_kg', 'grand_total', 'payment_mode', 'status', 'approved_by'],
-    'Pending_Orders': ['id', 'order_no', 'customer_id', 'customer_name', 'date', 'total_bags', 'grand_total', 'status', 'submitted_by'],
+    'Master_Orders_Sales': ['id', 'order_no', 'customer_id', 'customer_name', 'customer_phone', 'date', 'total_bags', 'total_weight_kg', 'subtotal', 'discount', 'grand_total', 'payment_mode', 'status', 'approved_by'],
+    'Pending_Orders': ['id', 'order_no', 'customer_id', 'customer_name', 'date', 'total_bags', 'discount', 'grand_total', 'status', 'submitted_by'],
     'Master_Purchases': ['id', 'purchase_no', 'supplier_id', 'date', 'total_bags', 'grand_total', 'reference_bill']
   };
 
@@ -116,20 +116,37 @@ function doPost(e) {
       const targetSheetName = order.status === 'APPROVED' ? 'Master_Orders_Sales' : 'Pending_Orders';
       const sheet = ss.getSheetByName(targetSheetName);
       
-      sheet.appendRow([
-        order.id,
-        order.orderNumber,
-        order.customerId,
-        order.customerName,
-        order.customerPhone || '',
-        order.orderDate || new Date().toISOString(),
-        order.totalOuterBags || 0,
-        order.totalWeightKg || 0,
-        order.grandTotal || 0,
-        order.paymentMode || 'CREDIT',
-        order.status,
-        order.submittedByRole || 'STAFF'
-      ]);
+      if (order.status === 'APPROVED') {
+        sheet.appendRow([
+          order.id,
+          order.orderNumber,
+          order.customerId,
+          order.customerName,
+          order.customerPhone || '',
+          order.orderDate || new Date().toISOString(),
+          order.totalOuterBags || 0,
+          order.totalWeightKg || 0,
+          order.subtotal || 0,
+          order.discount || 0,
+          order.grandTotal || 0,
+          order.paymentMode || 'CREDIT',
+          order.status,
+          order.submittedByRole || 'STAFF'
+        ]);
+      } else {
+        sheet.appendRow([
+          order.id,
+          order.orderNumber,
+          order.customerId,
+          order.customerName,
+          order.orderDate || new Date().toISOString(),
+          order.totalOuterBags || 0,
+          order.discount || 0,
+          order.grandTotal || 0,
+          order.status,
+          order.submittedByRole || 'STAFF'
+        ]);
+      }
 
       return createResponse({ status: 'success', message: 'Order recorded in ' + targetSheetName, orderId: order.id });
     }
@@ -230,10 +247,10 @@ function doPost(e) {
 
       for (let i = 1; i < data.length; i++) {
         if (data[i][0] === p.id) {
-          sheet.getRange(i + 1, 1, 1, 13).setValues([[
+          sheet.getRange(i + 1, 1, 1, 14).setValues([[
             p.id, p.name, p.nameTe || '', p.category, p.brandOrMill || '', p.brandOrMillTe || '',
             p.innerBagWeightKg, p.innerBagsPerOuter, p.outerBagTotalKg, p.stockPhysicalOuter, p.stockReservedOuter,
-            p.wholesalePriceBag, p.costPricePerBag
+            p.wholesalePriceBag, p.costPricePerBag, p.retailPriceBag || 0
           ]]);
           found = true;
           break;
@@ -244,7 +261,7 @@ function doPost(e) {
         sheet.appendRow([
           p.id, p.name, p.nameTe || '', p.category, p.brandOrMill || '', p.brandOrMillTe || '',
           p.innerBagWeightKg, p.innerBagsPerOuter, p.outerBagTotalKg, p.stockPhysicalOuter, p.stockReservedOuter,
-          p.wholesalePriceBag, p.costPricePerBag
+          p.wholesalePriceBag, p.costPricePerBag, p.retailPriceBag || 0
         ]);
       }
       return createResponse({ status: 'success', message: 'Product inventory saved to sheet' });

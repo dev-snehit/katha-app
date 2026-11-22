@@ -34,6 +34,7 @@ export async function exportMasterExcelFile(
     { header: 'Loose Packets', key: 'stockLooseInner', width: 16 },
     { header: 'Cost Price / Bag (Rs.)', key: 'costPricePerBag', width: 20 },
     { header: 'Wholesale Price / Bag (Rs.)', key: 'wholesalePriceBag', width: 24 },
+    { header: 'Retail Price / Bag (Rs.)', key: 'retailPriceBag', width: 24 },
   ];
 
   products.forEach((p) => {
@@ -52,6 +53,7 @@ export async function exportMasterExcelFile(
       stockLooseInner: p.stockLooseInner,
       costPricePerBag: p.costPricePerBag,
       wholesalePriceBag: p.wholesalePriceBag,
+      retailPriceBag: p.retailPriceBag || p.wholesalePriceBag || 0,
     });
   });
 
@@ -123,6 +125,7 @@ export async function exportMasterExcelFile(
     { header: 'Customer Phone', key: 'customerPhone', width: 18 },
     { header: 'Total Bags', key: 'totalOuterBags', width: 14 },
     { header: 'Total Weight (kg)', key: 'totalWeightKg', width: 18 },
+    { header: 'Discount (Rs.)', key: 'discount', width: 16 },
     { header: 'Grand Total (Rs.)', key: 'grandTotal', width: 18 },
     { header: 'Payment Mode', key: 'paymentMode', width: 16 },
     { header: 'Order Status', key: 'status', width: 18 },
@@ -140,6 +143,7 @@ export async function exportMasterExcelFile(
       customerPhone: o.customerPhone,
       totalOuterBags: o.totalOuterBags,
       totalWeightKg: o.totalWeightKg,
+      discount: o.discount || 0,
       grandTotal: o.grandTotal,
       paymentMode: o.paymentMode,
       status: o.status,

@@ -20,9 +20,9 @@ export const AuthView: React.FC = () => {
 
   const [mode, setMode] = useState<'LOGIN' | 'REGISTER'>('LOGIN');
   
-  // Login Form
-  const [loginEmail, setLoginEmail] = useState('dev.snehit@gmail.com');
-  const [loginPassword, setLoginPassword] = useState('admin');
+  // Login Form (Zero auto-fill)
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
 
@@ -220,10 +220,21 @@ export const AuthView: React.FC = () => {
               <div className="p-3 bg-amber-50/80 rounded-2xl border border-amber-200/60 text-[11px] text-amber-800 flex items-start gap-2">
                 <ShieldCheck className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                 <div>
-                  <span className="font-bold">Root Admin Access:</span> Use{' '}
-                  <code className="font-semibold text-amber-900 bg-amber-100/60 px-1 py-0.5 rounded">dev.snehit@gmail.com</code>{' '}
-                  with password{' '}
-                  <code className="font-semibold text-amber-900 bg-amber-100/60 px-1 py-0.5 rounded">admin</code>.
+                  {language === 'TE' ? (
+                    <>
+                      <span className="font-bold">అడ్మిన్ లాగిన్:</span>{' '}
+                      <code className="font-semibold text-amber-900 bg-amber-100/60 px-1 py-0.5 rounded">dev.snehit@gmail.com</code>{' '}
+                      (పాస్‌వర్డ్:{' '}
+                      <code className="font-semibold text-amber-900 bg-amber-100/60 px-1 py-0.5 rounded">admin</code>)
+                    </>
+                  ) : (
+                    <>
+                      <span className="font-bold">Root Admin Access:</span> Use{' '}
+                      <code className="font-semibold text-amber-900 bg-amber-100/60 px-1 py-0.5 rounded">dev.snehit@gmail.com</code>{' '}
+                      with password{' '}
+                      <code className="font-semibold text-amber-900 bg-amber-100/60 px-1 py-0.5 rounded">admin</code>.
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -308,16 +319,16 @@ export const AuthView: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  {language === 'TE' ? 'పాత్ర (Role)' : 'Requested Role'}
+                  {language === 'TE' ? 'కోరుకున్న పాత్ర' : 'Requested Role'}
                 </label>
                 <select
                   value={regRole}
                   onChange={(e) => setRegRole(e.target.value as Role)}
                   className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-medium text-slate-800 focus:bg-white focus:outline-none focus:border-[#FF5A36] transition-all"
                 >
-                  <option value="STAFF">Warehouse / Counter Staff</option>
-                  <option value="OWNER">Partner / Owner</option>
-                  <option value="CUSTOMER">Buyer / Customer Representative</option>
+                  <option value="STAFF">{language === 'TE' ? 'గోడౌన్ / కౌంటర్ సిబ్బంది' : 'Warehouse / Counter Staff'}</option>
+                  <option value="OWNER">{language === 'TE' ? 'భాగస్వామి / వ్యాపార యజమాని' : 'Partner / Business Owner'}</option>
+                  <option value="CUSTOMER">{language === 'TE' ? 'కస్టమర్ ప్రతినిధి' : 'Customer Representative'}</option>
                 </select>
               </div>
 

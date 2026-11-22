@@ -46,7 +46,7 @@ export const ExportCenterView: React.FC = () => {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
-          {t.nav.exportCenter} (నివేదికలు & ఎగుమతులు)
+          {language === 'TE' ? 'రిపోర్టులు & ఎగుమతులు' : 'Export & Reports'}
         </h1>
         <p className="text-slate-500 text-sm mt-0.5">
           Generate print-ready PDFs and download the locked Master Excel workbook on demand

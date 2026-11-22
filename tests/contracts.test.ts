@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { CustomerSchema, SupplierSchema, ProductSchema, UserSchema, INITIAL_ADMIN_USER } from '../src/contracts';
+import { CustomerSchema, SupplierSchema, ProductSchema, UserSchema, OrderSchema, INITIAL_ADMIN_USER } from '../src/contracts';
 
 describe('Shared Zod Contracts & Validations', () => {
   it('validates pre-seeded master admin user', () => {
@@ -39,18 +39,55 @@ describe('Shared Zod Contracts & Validations', () => {
     expect(() => SupplierSchema.parse(invalidIfsc)).toThrow();
   });
 
-  it('validates product packaging multipliers', () => {
+  it('validates product 3 pricing values (Purchase, Wholesale, Retail)', () => {
     const validProduct = {
       id: '123e4567-e89b-12d3-a456-426614174002',
-      name: 'Suji Ravva',
-      category: 'SUJI_RAVVA',
-      innerBagWeightKg: 1.0,
-      innerBagsPerOuter: 25,
-      outerBagTotalKg: 25.0,
-      costPricePerBag: 900,
-      wholesalePriceBag: 1050,
-      pricePerInnerBag: 45,
+      name: 'Sona Masoori Raw Rice',
+      category: 'RICE',
+      innerBagWeightKg: 26.0,
+      innerBagsPerOuter: 1,
+      outerBagTotalKg: 26.0,
+      costPricePerBag: 1300, // Purchase Value
+      wholesalePriceBag: 1450, // Wholesale Value
+      retailPriceBag: 1550, // Retail Value
+      pricePerInnerBag: 1550,
     };
-    expect(() => ProductSchema.parse(validProduct)).not.toThrow();
+    const parsed = ProductSchema.parse(validProduct);
+    expect(parsed.costPricePerBag).toBe(1300);
+    expect(parsed.wholesalePriceBag).toBe(1450);
+    expect(parsed.retailPriceBag).toBe(1550);
+  });
+
+  it('validates order with custom discount application', () => {
+    const orderWithDiscount = {
+      id: 'ord-test-discount',
+      orderNumber: 'ORD-5501',
+      customerId: 'cust-1',
+      customerName: 'Balaji Kirana',
+      customerPhone: '9848022338',
+      orderDate: new Date().toISOString(),
+      status: 'PENDING_REVIEW' as const,
+      totalOuterBags: 10,
+      totalWeightKg: 260,
+      items: [{
+        productId: 'prod-1',
+        productName: 'Rice',
+        unitType: 'OUTER_BAG' as const,
+        quantity: 10,
+        unitPrice: 1450,
+        lineTotal: 14500,
+      }],
+      subtotal: 14500,
+      hamaliCharges: 80,
+      transportCharges: 120,
+      discount: 200, // Custom discount
+      grandTotal: 14500, // 14500 + 80 + 120 - 200 = 14500
+      paymentMode: 'CREDIT' as const,
+      submittedByRole: 'STAFF' as const,
+      createdAt: new Date().toISOString(),
+    };
+    const parsed = OrderSchema.parse(orderWithDiscount);
+    expect(parsed.discount).toBe(200);
+    expect(parsed.grandTotal).toBe(14500);
   });
 });

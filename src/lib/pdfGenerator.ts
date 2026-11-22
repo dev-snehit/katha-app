@@ -30,17 +30,19 @@ export function generateSalesReportPDF(
     ord.totalOuterBags.toString(),
     ord.items.map((i) => `${i.productName} (${i.quantity})`).join(', '),
     ord.paymentMode,
+    ord.discount ? `Rs. ${ord.discount.toLocaleString()}` : '-',
     `Rs. ${ord.grandTotal.toLocaleString()}`
   ]);
 
   const grandTotal = orders.reduce((sum, o) => sum + o.grandTotal, 0);
   const totalBags = orders.reduce((sum, o) => sum + o.totalOuterBags, 0);
+  const totalDiscount = orders.reduce((sum, o) => sum + (o.discount || 0), 0);
 
   autoTable(doc, {
     startY: 38,
-    head: [['Order #', 'Date', 'Customer', 'Phone', 'Bags', 'Commodities', 'Payment', 'Total (Rs.)']],
+    head: [['Order #', 'Date', 'Customer', 'Phone', 'Bags', 'Commodities', 'Payment', 'Discount', 'Total (Rs.)']],
     body: tableRows,
-    foot: [['TOTALS', '', '', '', `${totalBags} Bags`, '', '', `Rs. ${grandTotal.toLocaleString()}`]],
+    foot: [['TOTALS', '', '', '', `${totalBags} Bags`, '', '', `Rs. ${totalDiscount.toLocaleString()}`, `Rs. ${grandTotal.toLocaleString()}`]],
     theme: 'grid',
     headStyles: { fillColor: [22, 163, 74] }, // Brand Green
     footStyles: { fillColor: [30, 41, 59], fontStyle: 'bold' },

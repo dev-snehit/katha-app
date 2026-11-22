@@ -11,19 +11,21 @@
 Katha Wholesale is a specialized web application engineered for wholesale commodity merchants trading in Rice, Flours (Wheat Ravva, Suji Ravva, Maida), and Groceries. It runs 100% free on **GitHub Pages**, synchronizes with a **Master Google Sheet** via Google Apps Script, and features a high-end mobile-first UI.
 
 ### Key Functional Pillars:
-1. **Zero Dummy/Sample Data**: Starts 100% clean with zero mock commodities, customers, suppliers, or orders. All data entered by the user is real and persists locally via `localStorage` and remotely in Google Sheets.
-2. **Pre-Seeded Master Administrator**: Root administrator account pre-configured for **Snehit Tadepalli** (`dev.snehit@gmail.com`, Role: `ADMIN`, Status: `APPROVED`).
-3. **Session Authentication & Admin Sign-In Requirement**: Every time the application is opened, users (including root Admin Snehit Tadepalli) must sign in via a dedicated mobile-first Sign In / Register screen (`AuthView.tsx`) to unlock access. A prominent Sign Out button allows locking the session immediately.
-4. **User Registration & Admin Approval Gate**: New users register with their Full Name, Email, 10-digit Mobile, Desired Role, and Password. Accounts remain in `PENDING_APPROVAL` until Admin Snehit Tadepalli approves or denies them in the Admin Portal.
-5. **Real-Time Google Sheets Two-Way Synchronization**: Live background synchronization engine (`src/lib/syncService.ts`) connects transactions directly to Google Apps Script (`backend/Code.gs`). Automatically pushes orders, stock changes, customers, and suppliers to Google Sheets without CORS preflight failures, with real-time sync status badges (🟢 Synced / 🟡 Syncing / 🔴 Error / ⚪ Unlinked) and manual 1-click "Sync All".
-6. **Dynamic Multi-Item Order Builder (`+ Add Item`)**: Allows orders and sales to contain multiple commodity line items at different quantities in a single bill, with dynamic calculation of bags, metric weight in kg, hamali, and freight.
-7. **Mobile-First CRM / Pipeline UI**: Inspired by modern pipeline interfaces (coral-orange accents `#FF5A36`, multi-segment progress strip, 2-letter pastel avatar badges, and a sticky mobile bottom navigation bar).
-8. **Zero Native Alerts (`AlertDialog.tsx`)**: Completely eliminated browser `alert()` and `confirm()` dialogs in favor of a sleek, accessible, responsive modal dialog supporting `info`, `success`, `warning`, `danger`, and `confirm` types.
-9. **Two-Stage Stock Reservation**: Stock is marked `RESERVED` upon order creation to prevent overselling on the shop floor; permanently `DEDUCTED` when the Owner approves.
-10. **Bilingual Engine (English & Telugu)**: Full interface toggling between English and **తెలుగు** with automatic English fallback (`item.nameTe || item.name`).
-11. **Customer & Supplier Directories**: Mandatory 10-digit mobile number with 1-click WhatsApp (`wa.me`) billing, plus supplier bank account details and reference nicknames.
-12. **Three Date & Date-Range PDF Exports**: Daily/Period Sales Report, Item-Wise Number Tally (`1 + 4 + 5 = 10 Bags`), and Closing Stock Position Report.
-13. **Client-Side Master Excel Generator**: In-browser export of `master_records.xlsx` with formula cells protected.
+1. **Zero Dummy/Sample Data & Zero Auto-Fill**: Starts 100% clean with zero mock commodities, customers, suppliers, or orders. All forms start blank with **zero auto-filled values or dummy quantities**, ensuring pristine merchant data entry.
+2. **Three-Tier Pricing on Purchase Records**: Every commodity / purchase entry captures 3 essential wholesale pricing metrics: **Purchase Value / Cost Price** (Mill rate), **Wholesale Value** (Selling rate to sub-dealers/Kirana), and **Retail Value** (Counter sales rate).
+3. **Modifiable Sale Values & Custom Bill Discounts**: Order and bill items have fully editable sale rates, plus an optional **Custom Discount (₹)** input that dynamically reduces the grand total on bills, invoices, PDFs, and remote Google Sheets.
+4. **Strict Language Isolation (Zero Mixed Language on UI)**: When a specific language (English or తెలుగు) is selected, **no other language is visible on UI elements**. All labels, badges, buttons, options, and footers render exclusively in the active language.
+5. **Pre-Seeded Master Administrator**: Root administrator account pre-configured for **Snehit Tadepalli** (`dev.snehit@gmail.com`, Role: `ADMIN`, Status: `APPROVED`).
+6. **Session Authentication & Admin Sign-In Requirement**: Every time the application is opened, users (including root Admin Snehit Tadepalli) must sign in via a dedicated mobile-first Sign In / Register screen (`AuthView.tsx`) to unlock access. A prominent Sign Out button allows locking the session immediately.
+7. **User Registration & Admin Approval Gate**: New users register with their Full Name, Email, 10-digit Mobile, Desired Role, and Password. Accounts remain in `PENDING_APPROVAL` until Admin Snehit Tadepalli approves or denies them in the Admin Portal.
+8. **Real-Time Google Sheets Two-Way Synchronization**: Live background synchronization engine (`src/lib/syncService.ts`) connects transactions directly to Google Apps Script (`backend/Code.gs`). Automatically pushes orders, stock changes, customers, and suppliers to Google Sheets without CORS preflight failures, with real-time sync status badges (🟢 Synced / 🟡 Syncing / 🔴 Error / ⚪ Unlinked) and manual 1-click "Sync All".
+9. **Dynamic Multi-Item Order Builder (`+ Add Item`)**: Allows orders and sales to contain multiple commodity line items at different quantities in a single bill, with dynamic calculation of bags, metric weight in kg, hamali, and freight.
+10. **Mobile-First CRM / Pipeline UI**: Inspired by modern pipeline interfaces (coral-orange accents `#FF5A36`, multi-segment progress strip, 2-letter pastel avatar badges, and a sticky mobile bottom navigation bar).
+11. **Zero Native Alerts (`AlertDialog.tsx`)**: Completely eliminated browser `alert()` and `confirm()` dialogs in favor of a sleek, accessible, responsive modal dialog supporting `info`, `success`, `warning`, `danger`, and `confirm` types.
+12. **Two-Stage Stock Reservation**: Stock is marked `RESERVED` upon order creation to prevent overselling on the shop floor; permanently `DEDUCTED` when the Owner approves.
+13. **Customer & Supplier Directories**: Mandatory 10-digit mobile number with 1-click WhatsApp (`wa.me`) billing, plus supplier bank account details and reference nicknames.
+14. **Three Date & Date-Range PDF Exports**: Daily/Period Sales Report, Item-Wise Number Tally (`1 + 4 + 5 = 10 Bags`), and Closing Stock Position Report.
+15. **Client-Side Master Excel Generator**: In-browser export of `master_records.xlsx` with formula cells protected.
 
 ---
 

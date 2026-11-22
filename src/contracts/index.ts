@@ -97,8 +97,9 @@ export const ProductSchema = z.object({
   stockReservedOuter: z.number().int().nonnegative().default(0),
   stockLooseInner: z.number().int().nonnegative().default(0),
   stockLooseKg: z.number().nonnegative().default(0),
-  costPricePerBag: z.number().nonnegative(),
-  wholesalePriceBag: z.number().nonnegative(),
+  costPricePerBag: z.number().nonnegative(), // Purchase Value
+  wholesalePriceBag: z.number().nonnegative(), // Wholesale Value
+  retailPriceBag: z.number().nonnegative().optional(), // Retail Value
   pricePerInnerBag: z.number().nonnegative(),
 });
 export type Product = z.infer<typeof ProductSchema>;
@@ -132,6 +133,7 @@ export const OrderSchema = z.object({
   subtotal: z.number().nonnegative(),
   hamaliCharges: z.number().nonnegative().default(0),
   transportCharges: z.number().nonnegative().default(0),
+  discount: z.number().nonnegative().default(0),
   grandTotal: z.number().nonnegative(),
   paymentMode: PaymentModeEnum.default('CREDIT'),
   vehicleNumber: z.string().optional(),

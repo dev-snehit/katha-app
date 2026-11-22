@@ -70,14 +70,16 @@ export const CustomerDirectoryView: React.FC = () => {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-              Customer Directory (ఖాతాదారులు)
+              {language === 'TE' ? 'ఖాతాదారుల జాబితా' : 'Customer Directory'}
             </h1>
             <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-900 text-white">
-              {customers.length} clients
+              {customers.length} {language === 'TE' ? 'మంది' : 'clients'}
             </span>
           </div>
           <p className="text-xs text-slate-400 font-medium mt-0.5">
-            Retailers, kirana shops, and catering buyers with mandatory WhatsApp numbers
+            {language === 'TE' 
+              ? 'కిరాణా దుకాణాలు, హోటళ్ళు మరియు రిటైలర్ల వివరాలు'
+              : 'Retailers, kirana shops, and catering buyers with mandatory WhatsApp numbers'}
           </p>
         </div>
 
@@ -86,7 +88,7 @@ export const CustomerDirectoryView: React.FC = () => {
           className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white font-black text-sm px-6 py-3 rounded-full shadow-lg shadow-orange-500/25 transition-all active:scale-95"
         >
           <Plus className="w-4 h-4 stroke-[3]" />
-          <span>+ Add Customer (కస్టమర్ చేర్చండి)</span>
+          <span>{language === 'TE' ? '+ కస్టమర్‌ను చేర్చండి' : '+ Add Customer'}</span>
         </button>
       </div>
 
@@ -191,7 +193,7 @@ export const CustomerDirectoryView: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
           <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 border border-slate-100">
             <h2 className="text-xl font-black text-slate-900 mb-4">
-              Add Customer (కస్టమర్ చేర్చండి)
+              {language === 'TE' ? 'కొత్త కస్టమర్‌ను చేర్చండి' : 'Add New Customer'}
             </h2>
 
             {error && (
@@ -203,12 +205,12 @@ export const CustomerDirectoryView: React.FC = () => {
             <form onSubmit={handleAddCustomer} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Customer Name (English) *
+                  {language === 'TE' ? 'కస్టమర్ పేరు (ఇంగ్లీష్) *' : 'Customer Name (English) *'}
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Sri Balaji Kirana Stores"
+                  placeholder={language === 'TE' ? 'ఉదా: Sri Balaji Kirana Stores' : 'e.g. Sri Balaji Kirana Stores'}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="w-full text-xs font-medium border border-slate-300 rounded-xl p-3 outline-none focus:border-orange-500"
@@ -217,11 +219,11 @@ export const CustomerDirectoryView: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Customer Name (తెలుగు) - Optional
+                  {language === 'TE' ? 'కస్టమర్ పేరు (తెలుగు) - ఐచ్ఛికం' : 'Customer Name (Regional) - Optional'}
                 </label>
                 <input
                   type="text"
-                  placeholder="ఉదా: శ్రీ బాలాజీ కిరాణా స్టోర్స్"
+                  placeholder={language === 'TE' ? 'ఉదా: శ్రీ బాలాజీ కిరాణా స్టోర్స్' : 'e.g. Regional Script'}
                   value={nameTe}
                   onChange={(e) => setNameTe(e.target.value)}
                   className="w-full text-xs font-medium border border-slate-300 rounded-xl p-3 outline-none focus:border-orange-500 font-telugu"

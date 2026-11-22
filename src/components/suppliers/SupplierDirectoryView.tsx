@@ -64,14 +64,16 @@ export const SupplierDirectoryView: React.FC = () => {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-              Supplier Directory (రైస్ మిల్లులు)
+              {language === 'TE' ? 'సప్లయర్లు & మిల్లుల జాబితా' : 'Supplier Directory'}
             </h1>
             <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-900 text-white">
-              {suppliers.length} mills
+              {suppliers.length} {language === 'TE' ? 'మిల్లులు' : 'mills'}
             </span>
           </div>
           <p className="text-xs text-slate-400 font-medium mt-0.5">
-            Rice mills and suppliers with bank accounts and reference nicknames
+            {language === 'TE' 
+              ? 'రైస్ మిల్లులు, బ్యాంక్ ఖాతా వివరాలు మరియు నిక్ నేమ్స్'
+              : 'Rice mills and suppliers with bank accounts and reference nicknames'}
           </p>
         </div>
 
@@ -80,7 +82,7 @@ export const SupplierDirectoryView: React.FC = () => {
           className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white font-black text-sm px-6 py-3 rounded-full shadow-lg shadow-orange-500/25 transition-all active:scale-95"
         >
           <Plus className="w-4 h-4 stroke-[3]" />
-          <span>+ Add Supplier (సప్లయర్ చేర్చండి)</span>
+          <span>{language === 'TE' ? '+ సప్లయర్‌ను చేర్చండి' : '+ Add Supplier'}</span>
         </button>
       </div>
 
@@ -174,18 +176,18 @@ export const SupplierDirectoryView: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
           <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 border border-slate-100">
             <h2 className="text-xl font-black text-slate-900 mb-4">
-              Add Supplier (సప్లయర్ చేర్చండి)
+              {language === 'TE' ? 'కొత్త సప్లయర్‌ను చేర్చండి' : 'Add New Supplier'}
             </h2>
 
             <form onSubmit={handleAddSupplier} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Business Name (English) *
+                  {language === 'TE' ? 'వ్యాపార పేరు (ఇంగ్లీష్) *' : 'Business Name (English) *'}
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Sri Lalitha Rice Industries"
+                  placeholder={language === 'TE' ? 'ఉదా: Sri Lalitha Rice Industries' : 'e.g. Sri Lalitha Rice Industries'}
                   value={businessName}
                   onChange={(e) => setBusinessName(e.target.value)}
                   className="w-full text-xs font-medium border border-slate-300 rounded-xl p-3 outline-none focus:border-orange-500"
@@ -194,11 +196,11 @@ export const SupplierDirectoryView: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Business Name (తెలుగు) - Optional
+                  {language === 'TE' ? 'వ్యాపార పేరు (తెలుగు) - ఐచ్ఛికం' : 'Business Name (Regional) - Optional'}
                 </label>
                 <input
                   type="text"
-                  placeholder="ఉదా: శ్రీ లలిత రైస్ ఇండస్ట్రీస్"
+                  placeholder={language === 'TE' ? 'ఉదా: శ్రీ లలిత రైస్ ఇండస్ట్రీస్' : 'e.g. Regional Script'}
                   value={businessNameTe}
                   onChange={(e) => setBusinessNameTe(e.target.value)}
                   className="w-full text-xs font-medium border border-slate-300 rounded-xl p-3 outline-none focus:border-orange-500 font-telugu"

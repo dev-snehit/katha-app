@@ -207,9 +207,10 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
                   <RefreshCw className="w-3 h-3 text-slate-400" />
                 )}
                 <span className="hidden sm:inline">
-                  {syncStatus === 'SYNCED' ? 'Sheet Synced' :
-                   syncStatus === 'SYNCING' || isManualSyncing ? 'Syncing...' :
-                   syncStatus === 'ERROR' ? 'Sync Error' : 'Link Sheet'}
+                  {syncStatus === 'SYNCED' ? (language === 'TE' ? 'షీట్ సింక్ అయింది' : 'Sheet Synced') :
+                   syncStatus === 'SYNCING' || isManualSyncing ? (language === 'TE' ? 'సింక్ అవుతోంది...' : 'Syncing...') :
+                   syncStatus === 'ERROR' ? (language === 'TE' ? 'సింక్ లోపం' : 'Sync Error') : 
+                   (language === 'TE' ? 'షీట్ లింక్ చేయండి' : 'Link Sheet')}
                 </span>
               </button>
 
@@ -245,7 +246,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
                   <button
                     onClick={() => setIsSignOutDialogOpen(true)}
                     className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-full transition-colors"
-                    title="Sign Out"
+                    title={language === 'TE' ? 'లాగౌట్' : 'Sign Out'}
                   >
                     <LogOut className="w-4 h-4" />
                   </button>
@@ -256,7 +257,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
               <button
                 onClick={onOpenSettings}
                 className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-full transition-colors"
-                title="Google Sheet Connection Settings"
+                title={language === 'TE' ? 'గూగుల్ షీట్ సెట్టింగ్స్' : 'Google Sheet Connection Settings'}
               >
                 <Settings className="w-4 h-4" />
               </button>
@@ -281,7 +282,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
               </span>
             )}
           </div>
-          <span>Orders</span>
+          <span>{language === 'TE' ? 'ఆర్డర్లు' : 'Orders'}</span>
         </button>
 
         <button
@@ -291,7 +292,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
           }`}
         >
           <Package className="w-5 h-5" />
-          <span>Stock</span>
+          <span>{language === 'TE' ? 'స్టాక్' : 'Stock'}</span>
         </button>
 
         <button
@@ -301,7 +302,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
           }`}
         >
           <Users className="w-5 h-5" />
-          <span>Clients</span>
+          <span>{language === 'TE' ? 'కస్టమర్లు' : 'Clients'}</span>
         </button>
 
         <button
@@ -311,7 +312,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
           }`}
         >
           <Building2 className="w-5 h-5" />
-          <span>Mills</span>
+          <span>{language === 'TE' ? 'మిల్లులు' : 'Mills'}</span>
         </button>
 
         <button
@@ -321,7 +322,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
           }`}
         >
           <FileSpreadsheet className="w-5 h-5" />
-          <span>Reports</span>
+          <span>{language === 'TE' ? 'రిపోర్టులు' : 'Reports'}</span>
         </button>
 
         {currentUser?.role === 'ADMIN' && (
@@ -332,7 +333,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
             }`}
           >
             <ShieldCheck className="w-5 h-5" />
-            <span>Admin</span>
+            <span>{language === 'TE' ? 'అడ్మిన్' : 'Admin'}</span>
           </button>
         )}
       </div>
@@ -342,9 +343,11 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
         isOpen={isSignOutDialogOpen}
         onClose={() => setIsSignOutDialogOpen(false)}
         type="warning"
-        title="Sign Out of Katha Wholesale?"
-        message="You will need to sign in with your credentials to unlock the workspace again."
-        actionText="Yes, Sign Out"
+        title={language === 'TE' ? 'కథా హోల్‌సేల్ నుండి లాగౌట్ అవ్వాలా?' : 'Sign Out of Katha Wholesale?'}
+        message={language === 'TE' 
+          ? 'వర్క్‌స్పేస్‌ను తిరిగి అన్‌లాక్ చేయడానికి మీ పాస్‌వర్డ్‌తో లాగిన్ అవ్వాలి.'
+          : 'You will need to sign in with your credentials to unlock the workspace again.'}
+        actionText={language === 'TE' ? 'అవును, లాగౌట్ చేయి' : 'Yes, Sign Out'}
         onAction={logout}
       />
     </>
