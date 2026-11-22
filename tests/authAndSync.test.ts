@@ -24,6 +24,42 @@ describe('Authentication & Session Gate', () => {
     expect(state.currentUser?.name).toBe('Snehit Tadepalli');
   });
 
+  it('allows first-time admin to login with shorthand email dev.snehit@gmail', () => {
+    const result = useAppStore.getState().login('dev.snehit@gmail', 'admin');
+    expect(result.success).toBe(true);
+    expect(result.user?.role).toBe('ADMIN');
+    expect(result.user?.status).toBe('APPROVED');
+    expect(useAppStore.getState().isAuthenticated).toBe(true);
+  });
+
+  it('requires any new admin to raise access and remain pending until approved', () => {
+    const newAdminId = 'new-admin-uuid-1';
+    useAppStore.getState().registerUser({
+      id: newAdminId,
+      name: 'Second Admin',
+      email: 'admin2@example.com',
+      phone: '9848012345',
+      role: 'ADMIN',
+      status: 'PENDING_APPROVAL',
+      password: 'adminpassword',
+      createdAt: new Date().toISOString()
+    });
+
+    // Trying to login immediately should be blocked
+    const loginAttempt = useAppStore.getState().login('admin2@example.com', 'adminpassword');
+    expect(loginAttempt.success).toBe(false);
+    expect(loginAttempt.message).toContain('pending approval');
+
+    // Root admin dev.snehit@gmail approves the new admin
+    useAppStore.getState().approveUser(newAdminId);
+
+    // Now new admin can login with ADMIN role
+    const approvedLogin = useAppStore.getState().login('admin2@example.com', 'adminpassword');
+    expect(approvedLogin.success).toBe(true);
+    expect(approvedLogin.user?.role).toBe('ADMIN');
+    expect(approvedLogin.user?.status).toBe('APPROVED');
+  });
+
   it('rejects incorrect password for admin', () => {
     const result = useAppStore.getState().login('dev.snehit@gmail.com', 'wrongpassword');
     expect(result.success).toBe(false);

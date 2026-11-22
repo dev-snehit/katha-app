@@ -77,11 +77,12 @@ function saveToStorage<T>(key: string, value: T): void {
   }
 }
 
-// Initial pre-seeded users (ensures root admin is always present)
+// Initial pre-seeded users (ensures root admin is always present as first-time registered admin)
 const storedUsers = loadFromStorage<User[]>('users', []);
-const initialUsers = storedUsers.some(u => u.email === INITIAL_ADMIN_USER.email)
-  ? storedUsers
-  : [INITIAL_ADMIN_USER, ...storedUsers];
+const hasRootAdmin = storedUsers.some(
+  (u) => u.email.toLowerCase() === INITIAL_ADMIN_USER.email.toLowerCase() || u.email.toLowerCase() === 'dev.snehit@gmail'
+);
+const initialUsers = hasRootAdmin ? storedUsers : [INITIAL_ADMIN_USER, ...storedUsers];
 
 const initialBackendUrl = loadFromStorage<string>('backendUrl', '');
 
@@ -92,9 +93,19 @@ export const useAppStore = create<AppState>((set, get) => ({
   users: initialUsers,
 
   login: (email: string, password: string) => {
-    const cleanEmail = email.trim().toLowerCase();
+    let cleanEmail = email.trim().toLowerCase();
+    if (cleanEmail.endsWith('@gmail')) {
+      cleanEmail += '.com';
+    }
     const cleanPass = password.trim();
-    const user = get().users.find((u) => u.email.toLowerCase() === cleanEmail);
+    const user = get().users.find((u) => {
+      const uEmail = u.email.toLowerCase();
+      return (
+        uEmail === cleanEmail ||
+        ((cleanEmail === 'dev.snehit@gmail.com' || cleanEmail === 'dev.snehit@gmail') &&
+          (uEmail === 'dev.snehit@gmail.com' || uEmail === 'dev.snehit@gmail'))
+      );
+    });
 
     if (!user) {
       return { success: false, message: 'No registered account found with this email address.' };

@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 
 export const AuthView: React.FC = () => {
-  const { login, registerUser, language, setLanguage } = useAppStore();
+  const { login, registerUser, users, language, setLanguage } = useAppStore();
 
   const [mode, setMode] = useState<'LOGIN' | 'REGISTER'>('LOGIN');
   
@@ -48,27 +48,56 @@ export const AuthView: React.FC = () => {
     setRegError(null);
     setRegSuccess(null);
 
+    let cleanRegEmail = regEmail.trim().toLowerCase();
+    if (cleanRegEmail.endsWith('@gmail')) {
+      cleanRegEmail += '.com';
+    }
+
     if (!regName.trim() || regName.length < 2) {
-      setRegError('Please provide your full name (minimum 2 characters).');
+      setRegError(language === 'TE' ? 'దయచేసి మీ పూర్తి పేరును నమోదు చేయండి.' : 'Please provide your full name (minimum 2 characters).');
       return;
     }
-    if (!regEmail.includes('@') || !regEmail.includes('.')) {
-      setRegError('Please enter a valid email address.');
+    if (!cleanRegEmail.includes('@') || (!cleanRegEmail.includes('.') && !cleanRegEmail.endsWith('@gmail'))) {
+      setRegError(language === 'TE' ? 'దయచేసి సరైన ఇమెయిల్ చిరునామాను నమోదు చేయండి.' : 'Please enter a valid email address.');
       return;
     }
     if (!/^[6-9]\d{9}$/.test(regPhone.trim())) {
-      setRegError('Please enter a valid 10-digit Indian mobile number (e.g., 9876543210).');
+      setRegError(language === 'TE' ? 'దయచేసి సరైన 10 అంకెల మొబైల్ నంబరును నమోదు చేయండి.' : 'Please enter a valid 10-digit Indian mobile number (e.g., 9876543210).');
       return;
     }
     if (regPassword.length < 4) {
-      setRegError('Password must be at least 4 characters long.');
+      setRegError(language === 'TE' ? 'పాస్‌వర్డ్ కనీసం 4 అక్షరాలు ఉండాలి.' : 'Password must be at least 4 characters long.');
+      return;
+    }
+
+    // Check if account already registered
+    const existing = users.find(
+      (u) =>
+        u.email.toLowerCase() === cleanRegEmail ||
+        ((cleanRegEmail === 'dev.snehit@gmail.com' || cleanRegEmail === 'dev.snehit@gmail') &&
+          (u.email.toLowerCase() === 'dev.snehit@gmail.com' || u.email.toLowerCase() === 'dev.snehit@gmail'))
+    );
+    if (existing) {
+      if (existing.status === 'APPROVED') {
+        setRegError(
+          language === 'TE'
+            ? 'ఈ ఇమెయిల్ ఇప్పటికే నమోదై ఆమోదించబడింది. దయచేసి లాగిన్ అవ్వండి.'
+            : 'An account with this email is already registered and approved. Please switch to Sign In.'
+        );
+      } else {
+        setRegError(
+          language === 'TE'
+            ? 'ఈ ఇమెయిల్‌తో రిజిస్ట్రేషన్ అభ్యర్థన ఇప్పటికే సమీక్షలో ఉంది.'
+            : 'An access request for this email is already pending review.'
+        );
+      }
       return;
     }
 
     const newUser = {
       id: crypto.randomUUID(),
       name: regName.trim(),
-      email: regEmail.trim().toLowerCase(),
+      email: cleanRegEmail,
       phone: regPhone.trim(),
       role: regRole,
       status: 'PENDING_APPROVAL' as const,
@@ -183,7 +212,9 @@ export const AuthView: React.FC = () => {
                 <div className="relative">
                   <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
                   <input
-                    type="email"
+                    type="text"
+                    inputMode="email"
+                    autoCapitalize="none"
                     required
                     value={loginEmail}
                     onChange={(e) => setLoginEmail(e.target.value)}
@@ -308,6 +339,7 @@ export const AuthView: React.FC = () => {
                   <option value="STAFF">{language === 'TE' ? 'గోడౌన్ / కౌంటర్ సిబ్బంది' : 'Warehouse / Counter Staff'}</option>
                   <option value="OWNER">{language === 'TE' ? 'భాగస్వామి / వ్యాపార యజమాని' : 'Partner / Business Owner'}</option>
                   <option value="CUSTOMER">{language === 'TE' ? 'కస్టమర్ ప్రతినిధి' : 'Customer Representative'}</option>
+                  <option value="ADMIN">{language === 'TE' ? 'అడ్మినిస్ట్రేటర్' : 'Administrator'}</option>
                 </select>
               </div>
 
