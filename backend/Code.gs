@@ -14,7 +14,8 @@ function setupDatabase() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   
   const tables = {
-    'Users': ['id', 'name', 'email', 'phone', 'role', 'status', 'createdAt'],
+    'Users': ['id', 'name', 'email', 'phone', 'role', 'status', 'createdAt', 'passwordHash'],
+    'User_Registrations': ['id', 'name', 'email', 'phone', 'requested_role', 'status', 'registered_at', 'temp_password_sent'],
     'Master_Products': ['id', 'name_en', 'name_te', 'category', 'brand_en', 'brand_te', 'inner_wt_kg', 'inner_count', 'outer_wt_kg', 'stock_physical', 'stock_reserved', 'price_bag', 'cost_bag', 'retail_price_bag'],
     'Master_Customers': ['id', 'name_en', 'name_te', 'phone', 'business_en', 'business_te', 'address_en', 'address_te', 'current_due'],
     'Master_Suppliers': ['id', 'business_en', 'business_te', 'owner_en', 'owner_te', 'bank_name', 'account_no', 'ifsc_code', 'nickname_en', 'nickname_te'],
@@ -46,6 +47,39 @@ function setupDatabase() {
       new Date().toISOString()
     ]);
   }
+
+  // Lock and protect all specified database sheets by default
+  lockDatabaseSheets(ss, Object.keys(tables));
+}
+
+/**
+ * Locks specified sheets by default so human viewers cannot alter cell records.
+ * Only the automated Google Apps Script execution engine retains full read/write permission.
+ */
+function lockDatabaseSheets(ss, sheetNames) {
+  for (let i = 0; i < sheetNames.length; i++) {
+    const name = sheetNames[i];
+    const sheet = ss.getSheetByName(name);
+    if (sheet) {
+      const protections = sheet.getProtections(SpreadsheetApp.ProtectionType.SHEET);
+      if (protections.length === 0) {
+        try {
+          const protection = sheet.protect().setDescription('Katha Wholesale Managed - Locked by Default');
+          protection.setWarningOnly(false);
+          const me = Session.getEffectiveUser();
+          if (me) {
+            protection.removeEditors(protection.getEditors());
+            protection.addEditor(me);
+          }
+        } catch (err) {
+          try {
+            const protection = sheet.protect().setDescription('Katha Wholesale Managed - Protected');
+            protection.setWarningOnly(true);
+          } catch (innerErr) {}
+        }
+      }
+    }
+  }
 }
 
 function doGet(e) {
@@ -61,6 +95,33 @@ function doGet(e) {
         message: 'Katha Backend is online and connected',
         timestamp: new Date().toISOString()
       });
+    }
+
+    if (action === 'getData') {
+      const result = {};
+      const sheetNames = ['Users', 'Master_Products', 'Master_Customers', 'Master_Suppliers', 'Master_Orders_Sales', 'Pending_Orders', 'Master_Purchases'];
+      
+      for (const name of sheetNames) {
+        const sheet = ss.getSheetByName(name);
+        if (sheet && sheet.getLastRow() > 1) {
+          const rows = sheet.getDataRange().getValues();
+          const headers = rows[0];
+          result[name] = rows.slice(1).map(row => {
+            const obj = {};
+            headers.forEach((h, i) => obj[h] = row[i]);
+            return obj;
+          });
+        } else {
+          result[name] = [];
+        }
+      }
+      return createResponse({ status: 'success', data: result });
+    }
+
+    if (action === 'lockSheets') {
+      const sheetNames = ['Users', 'Master_Products', 'Master_Customers', 'Master_Suppliers', 'Master_Orders_Sales', 'Pending_Orders', 'Master_Purchases'];
+      lockDatabaseSheets(ss, sheetNames);
+      return createResponse({ status: 'success', message: 'Sheets locked and protected by default' });
     }
 
     if (action === 'getData') {
@@ -108,6 +169,33 @@ function doPost(e) {
         message: 'Katha Backend is online and connected',
         timestamp: new Date().toISOString()
       });
+    }
+
+    if (action === 'getData') {
+      const result = {};
+      const sheetNames = ['Users', 'Master_Products', 'Master_Customers', 'Master_Suppliers', 'Master_Orders_Sales', 'Pending_Orders', 'Master_Purchases'];
+      
+      for (const name of sheetNames) {
+        const sheet = ss.getSheetByName(name);
+        if (sheet && sheet.getLastRow() > 1) {
+          const rows = sheet.getDataRange().getValues();
+          const headers = rows[0];
+          result[name] = rows.slice(1).map(row => {
+            const obj = {};
+            headers.forEach((h, i) => obj[h] = row[i]);
+            return obj;
+          });
+        } else {
+          result[name] = [];
+        }
+      }
+      return createResponse({ status: 'success', data: result });
+    }
+
+    if (action === 'lockSheets') {
+      const sheetNames = ['Users', 'Master_Products', 'Master_Customers', 'Master_Suppliers', 'Master_Orders_Sales', 'Pending_Orders', 'Master_Purchases'];
+      lockDatabaseSheets(ss, sheetNames);
+      return createResponse({ status: 'success', message: 'Sheets locked and protected by default' });
     }
 
     // --- Order Operations ---
@@ -270,28 +358,136 @@ function doPost(e) {
     // --- User Operations ---
     if (action === 'registerUser') {
       const user = body.user;
-      const sheet = ss.getSheetByName('Users');
-      sheet.appendRow([
-        user.id,
-        user.name,
-        user.email,
-        user.phone,
-        user.role,
-        user.status || 'PENDING_APPROVAL',
-        new Date().toISOString()
-      ]);
-      return createResponse({ status: 'success', message: 'User registration recorded in Users tab' });
+      const tempPass = body.tempPassword || '';
+      
+      // 1. Record registration in dedicated User_Registrations sheet
+      const regSheet = ss.getSheetByName('User_Registrations');
+      if (regSheet) {
+        regSheet.appendRow([
+          user.id,
+          user.name,
+          user.email,
+          user.phone,
+          user.role,
+          user.status || 'PENDING_APPROVAL',
+          new Date().toISOString(),
+          tempPass ? 'SENT' : 'NO'
+        ]);
+      }
+
+      // 2. Also register in Users sheet with hashed password
+      const userSheet = ss.getSheetByName('Users');
+      if (userSheet) {
+        userSheet.appendRow([
+          user.id,
+          user.name,
+          user.email,
+          user.phone,
+          user.role,
+          user.status || 'PENDING_APPROVAL',
+          new Date().toISOString(),
+          user.passwordHash || ''
+        ]);
+      }
+
+      // 3. Send automated confirmation email with temporary password
+      if (tempPass && user.email) {
+        try {
+          MailApp.sendEmail({
+            to: user.email,
+            subject: 'Katha Wholesale - Access Request & Temporary Sign-In Code',
+            body: 'Hello ' + user.name + ',\n\n' +
+                  'Your registration request for Katha Wholesale has been received.\n\n' +
+                  'Temporary Password: ' + tempPass + '\n\n' +
+                  'Security Notice: For your account protection, you will be required to choose a new permanent password on your first sign-in.\n\n' +
+                  'Regards,\nKatha Wholesale Enterprise'
+          });
+        } catch (mailErr) {
+          console.warn('MailApp delivery error:', mailErr);
+        }
+      }
+
+      return createResponse({ 
+        status: 'success', 
+        message: 'Registration recorded in User_Registrations sheet and confirmation email dispatched',
+        userId: user.id 
+      });
+    }
+
+    if (action === 'forgotPassword') {
+      const { email, tempPassword, passwordHash } = body;
+      const userSheet = ss.getSheetByName('Users');
+      if (userSheet && email) {
+        const uData = userSheet.getDataRange().getValues();
+        for (let i = 1; i < uData.length; i++) {
+          if (uData[i][2] && uData[i][2].toString().toLowerCase() === email.toLowerCase()) {
+            if (passwordHash) {
+              userSheet.getRange(i + 1, 8).setValue(passwordHash);
+            }
+            break;
+          }
+        }
+      }
+
+      if (tempPassword && email) {
+        try {
+          MailApp.sendEmail({
+            to: email,
+            subject: 'Katha Wholesale - Temporary Password Reset Code',
+            body: 'Hello,\n\n' +
+                  'A password reset request was initiated for your Katha Wholesale account.\n\n' +
+                  'Your Temporary Password: ' + tempPassword + '\n\n' +
+                  'Please sign in with this temporary password. You will be prompted immediately to set your new permanent password.\n\n' +
+                  'Regards,\nKatha Wholesale Enterprise'
+          });
+        } catch (mailErr) {
+          console.warn('Password reset email error:', mailErr);
+        }
+      }
+      return createResponse({ status: 'success', message: 'Temporary reset password sent' });
+    }
+
+    if (action === 'resetPassword') {
+      const { email, newPasswordHash } = body;
+      const userSheet = ss.getSheetByName('Users');
+      if (userSheet && email && newPasswordHash) {
+        const uData = userSheet.getDataRange().getValues();
+        for (let i = 1; i < uData.length; i++) {
+          if (uData[i][2] && uData[i][2].toString().toLowerCase() === email.toLowerCase()) {
+            userSheet.getRange(i + 1, 8).setValue(newPasswordHash);
+            return createResponse({ status: 'success', message: 'Password hash successfully updated' });
+          }
+        }
+      }
+      return createResponse({ status: 'success', message: 'Password reset recorded' });
     }
 
     if (action === 'approveUser') {
       const { userId, newStatus, role } = body;
-      const sheet = ss.getSheetByName('Users');
-      const data = sheet.getDataRange().getValues();
-      for (let i = 1; i < data.length; i++) {
-        if (data[i][0] === userId) {
-          if (newStatus) sheet.getRange(i + 1, 6).setValue(newStatus);
-          if (role) sheet.getRange(i + 1, 5).setValue(role);
-          return createResponse({ status: 'success', message: 'User status updated' });
+      
+      // Update in User_Registrations
+      const regSheet = ss.getSheetByName('User_Registrations');
+      if (regSheet) {
+        const rData = regSheet.getDataRange().getValues();
+        for (let i = 1; i < rData.length; i++) {
+          if (rData[i][0] === userId) {
+            if (newStatus) regSheet.getRange(i + 1, 6).setValue(newStatus);
+            if (role) regSheet.getRange(i + 1, 5).setValue(role);
+            break;
+          }
+        }
+      }
+
+      // Update in Users
+      const userSheet = ss.getSheetByName('Users');
+      if (userSheet) {
+        const data = userSheet.getDataRange().getValues();
+        for (let i = 1; i < data.length; i++) {
+          if (data[i][0] === userId) {
+            if (newStatus) userSheet.getRange(i + 1, 6).setValue(newStatus);
+            if (role) userSheet.getRange(i + 1, 5).setValue(role);
+            return createResponse({ status: 'success', message: 'User status updated' });
+          }
         }
       }
       return createResponse({ status: 'error', message: 'User not found' });

@@ -37,7 +37,8 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
     orders, 
     syncStatus, 
     lastSyncTime,
-    syncAllToGoogleSheets 
+    syncAllToGoogleSheets,
+    connectAndHydrateServer 
   } = useAppStore();
   
   const [isSignOutDialogOpen, setIsSignOutDialogOpen] = useState(false);
@@ -48,12 +49,8 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
   const pendingCount = orders.filter((o) => o.status === 'PENDING_REVIEW').length;
 
   const handleManualSync = async () => {
-    if (syncStatus === 'UNLINKED') {
-      onOpenSettings();
-      return;
-    }
     setIsManualSyncing(true);
-    await syncAllToGoogleSheets();
+    await connectAndHydrateServer();
     setIsManualSyncing(false);
   };
 
@@ -70,24 +67,24 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
     <>
       {/* Top Main Navbar */}
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-sm">
-        <div className="max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16 gap-2 sm:gap-4">
+        <div className="max-w-7xl mx-auto px-2.5 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-14 sm:h-16 gap-1.5 sm:gap-4">
             
             {/* Brand Logo & Name */}
-            <div className="flex items-center gap-2.5">
-              <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#FF5A36] to-[#FF8155] flex items-center justify-center text-white shadow-md shadow-orange-500/20 shrink-0">
-                <Flame className="w-5 h-5 fill-white" />
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-gradient-to-tr from-[#FF5A36] to-[#FF8155] flex items-center justify-center text-white shadow-md shadow-orange-500/20 shrink-0">
+                <Flame className="w-4 h-4 sm:w-5 sm:h-5 fill-white" />
               </div>
               <div className="flex flex-col">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-base sm:text-lg font-black tracking-tight text-slate-900">
+                  <span className="text-sm sm:text-lg font-black tracking-tight text-slate-900">
                     Katha <span className="text-[#FF5A36]">CRM</span>
                   </span>
                   <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full bg-orange-50 text-orange-700 border border-orange-200">
                     <Sparkles className="w-2.5 h-2.5" /> Mandi OS
                   </span>
                 </div>
-                <span className="text-[11px] text-slate-400 font-medium -mt-0.5 line-clamp-1">
+                <span className="hidden sm:block text-[11px] text-slate-400 font-medium -mt-0.5 line-clamp-1">
                   {t.tagline}
                 </span>
               </div>
@@ -175,8 +172,8 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
               )}
             </nav>
 
-            {/* Right Controls: Sync Pill, Language, User Profile & Settings */}
-            <div className="flex items-center gap-1.5 sm:gap-2.5">
+            {/* Right Controls: Sync Pill, Language, User Profile & Settings (Mobile Optimized) */}
+            <div className="flex items-center gap-1 sm:gap-2">
               
               {/* Google Sheets Sync Indicator Pill */}
               <button
@@ -187,7 +184,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
                   syncStatus === 'ERROR' ? 'Sync failed. Click to test connection in Settings.' :
                   'Click to connect your Google Sheet'
                 }
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-bold border transition-all ${
+                className={`inline-flex items-center gap-1.5 p-1.5 sm:px-2.5 sm:py-1.5 rounded-full text-[11px] font-bold border transition-all ${
                   syncStatus === 'SYNCED'
                     ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
                     : syncStatus === 'SYNCING' || isManualSyncing
@@ -198,42 +195,42 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
                 }`}
               >
                 {syncStatus === 'SYNCING' || isManualSyncing ? (
-                  <RefreshCw className="w-3 h-3 animate-spin text-amber-600" />
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-600" />
                 ) : syncStatus === 'SYNCED' ? (
-                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                 ) : syncStatus === 'ERROR' ? (
-                  <AlertCircle className="w-3 h-3 text-rose-600" />
+                  <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
                 ) : (
-                  <RefreshCw className="w-3 h-3 text-slate-400" />
+                  <RefreshCw className="w-3.5 h-3.5 text-slate-400" />
                 )}
-                <span className="hidden sm:inline">
-                  {syncStatus === 'SYNCED' ? (language === 'TE' ? 'షీట్ సింక్ అయింది' : 'Sheet Synced') :
+                <span className="hidden sm:inline text-[11px]">
+                  {syncStatus === 'SYNCED' ? (language === 'TE' ? 'సర్వర్ కనెక్ట్ అయింది' : 'Server Connected') :
                    syncStatus === 'SYNCING' || isManualSyncing ? (language === 'TE' ? 'సింక్ అవుతోంది...' : 'Syncing...') :
-                   syncStatus === 'ERROR' ? (language === 'TE' ? 'సింక్ లోపం' : 'Sync Error') : 
-                   (language === 'TE' ? 'షీట్ లింక్ చేయండి' : 'Link Sheet')}
+                   syncStatus === 'ERROR' ? (language === 'TE' ? 'రీకనెక్ట్ చేస్తోంది...' : 'Reconnecting...') : 
+                   (language === 'TE' ? 'సర్వర్ కనెక్ట్' : 'Connect Server')}
                 </span>
               </button>
 
               {/* Language Selector Dropdown */}
-              <div className="inline-flex items-center gap-1 bg-slate-100 px-2.5 py-1.5 rounded-full border border-slate-200">
-                <Globe className="w-3.5 h-3.5 text-slate-500" />
+              <div className="inline-flex items-center gap-0.5 sm:gap-1 bg-slate-100 px-1.5 sm:px-2.5 py-1 sm:py-1.5 rounded-full border border-slate-200">
+                <Globe className="hidden sm:inline w-3 h-3 text-slate-500" />
                 <select
                   aria-label={t.common.language}
                   value={language}
                   onChange={(e) => setLanguage(e.target.value as 'EN' | 'TE')}
-                  className="bg-transparent text-[11px] sm:text-xs font-bold text-slate-800 outline-none cursor-pointer"
+                  className="bg-transparent text-[10px] sm:text-xs font-bold text-slate-800 outline-none cursor-pointer"
                 >
                   <option value="EN">EN</option>
-                  <option value="TE">తెలుగు</option>
+                  <option value="TE">తె</option>
                 </select>
               </div>
 
               {/* Current User Badge & Sign Out */}
               {currentUser && (
-                <div className="flex items-center gap-1.5 pl-1">
+                <div className="flex items-center gap-1 pl-0.5">
                   <div 
                     title={`${currentUser.name} (${currentUser.role})`}
-                    className="flex items-center gap-1.5 bg-orange-50 border border-orange-200/80 rounded-full pl-1.5 pr-2.5 py-1"
+                    className="flex items-center gap-1 bg-orange-50 border border-orange-200/80 rounded-full p-0.5 sm:pl-1.5 sm:pr-2.5 sm:py-1"
                   >
                     <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-[#FF5A36] to-[#FF8155] text-white flex items-center justify-center text-[10px] font-black">
                       {getUserInitials(currentUser.name)}
@@ -245,10 +242,10 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
 
                   <button
                     onClick={() => setIsSignOutDialogOpen(true)}
-                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-full transition-colors"
+                    className="p-1 sm:p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-full transition-colors"
                     title={language === 'TE' ? 'లాగౌట్' : 'Sign Out'}
                   >
-                    <LogOut className="w-4 h-4" />
+                    <LogOut className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   </button>
                 </div>
               )}
@@ -256,7 +253,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
               {/* Settings Button */}
               <button
                 onClick={onOpenSettings}
-                className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-full transition-colors"
+                className="p-1 sm:p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-full transition-colors"
                 title={language === 'TE' ? 'గూగుల్ షీట్ సెట్టింగ్స్' : 'Google Sheet Connection Settings'}
               >
                 <Settings className="w-4 h-4" />

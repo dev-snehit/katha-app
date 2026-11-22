@@ -36,6 +36,8 @@ export const UserSchema = z.object({
   status: UserStatusEnum.default('PENDING_APPROVAL'),
   createdAt: z.string().datetime(),
   password: z.string().optional(),
+  passwordHash: z.string().optional(),
+  mustResetPassword: z.boolean().default(false).optional(),
 });
 export type User = z.infer<typeof UserSchema>;
 
@@ -48,7 +50,9 @@ export const INITIAL_ADMIN_USER: User = {
   role: 'ADMIN',
   status: 'APPROVED',
   createdAt: '2026-01-01T00:00:00.000Z',
-  password: 'admin'
+  password: 'admin',
+  passwordHash: '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918',
+  mustResetPassword: false
 };
 
 // --- Customer Contract ---

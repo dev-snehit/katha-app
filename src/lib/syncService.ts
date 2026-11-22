@@ -100,3 +100,57 @@ export async function pingGoogleSheet(backendUrl: string): Promise<SyncResponse>
     };
   }
 }
+
+export async function pullFromGoogleSheet(backendUrl: string): Promise<SyncResponse & { data?: any }> {
+  if (!backendUrl || !backendUrl.trim().startsWith('http')) {
+    return {
+      success: false,
+      error: 'Google Sheet Webhook URL is not configured.'
+    };
+  }
+
+  try {
+    // 1. Try CORS-safe POST first (avoids preflight issues with text/plain body)
+    const postRes = await pushToGoogleSheet(backendUrl, 'getData');
+    if (postRes.success && postRes.details?.data) {
+      return {
+        success: true,
+        data: postRes.details.data,
+        message: 'Database loaded from Google Sheet'
+      };
+    }
+
+    // 2. Fallback to GET
+    const getUrl = new URL(backendUrl.trim());
+    getUrl.searchParams.set('action', 'getData');
+    const response = await fetch(getUrl.toString(), {
+      method: 'GET',
+      mode: 'cors',
+      redirect: 'follow'
+    });
+
+    if (!response.ok) {
+      return {
+        success: false,
+        error: `HTTP error: ${response.status} ${response.statusText}`
+      };
+    }
+
+    const json = await response.json();
+    return {
+      success: json.status === 'success' || json.status === 'ok',
+      data: json.data,
+      message: json.message || 'Database loaded from Google Sheet'
+    };
+  } catch (err: any) {
+    console.warn('[Katha Sync] pullFromGoogleSheet error:', err);
+    return {
+      success: false,
+      error: err.message || 'Failed to pull data from Google Sheet'
+    };
+  }
+}
+
+export async function lockRemoteSheets(backendUrl: string): Promise<SyncResponse> {
+  return pushToGoogleSheet(backendUrl, 'lockSheets');
+}

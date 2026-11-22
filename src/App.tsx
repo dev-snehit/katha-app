@@ -13,7 +13,14 @@ import { useAppStore } from './store/useAppStore';
 export default function App() {
   const [activeTab, setActiveTab] = useState('orders');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const { language, isAuthenticated, currentUser } = useAppStore();
+  const { language, isAuthenticated, currentUser, connectAndHydrateServer } = useAppStore();
+
+  // Establish persistent server connection & hydrate latest Google Sheet data upon authentication
+  React.useEffect(() => {
+    if (isAuthenticated) {
+      connectAndHydrateServer();
+    }
+  }, [isAuthenticated, connectAndHydrateServer]);
 
   // Authentication Gate: Require sign in every time the application is opened
   if (!isAuthenticated || !currentUser) {

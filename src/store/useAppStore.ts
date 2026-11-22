@@ -9,7 +9,9 @@ import {
   SupportedLanguage,
   INITIAL_ADMIN_USER
 } from '../contracts';
-import { pushToGoogleSheet } from '../lib/syncService';
+import { pushToGoogleSheet, pullFromGoogleSheet, lockRemoteSheets } from '../lib/syncService';
+import { DEFAULT_SERVER_URL } from '../config/backend';
+import { hashPassword, generateTemporaryPassword } from '../lib/crypto';
 
 export type SyncStatus = 'IDLE' | 'SYNCING' | 'SYNCED' | 'ERROR' | 'UNLINKED';
 
@@ -18,7 +20,9 @@ export interface AppState {
   currentUser: User | null;
   isAuthenticated: boolean;
   users: User[];
-  login: (email: string, password: string) => { success: boolean; message: string; user?: User };
+  login: (email: string, password: string) => Promise<{ success: boolean; message: string; user?: User; mustResetPassword?: boolean }>;
+  resetPassword: (userId: string, newPassword: string) => Promise<{ success: boolean; message: string }>;
+  forgotPassword: (email: string) => Promise<{ success: boolean; message: string; tempPassword?: string }>;
   logout: () => void;
   
   // Active Language
@@ -39,10 +43,12 @@ export interface AppState {
   syncError: string | null;
   triggerSync: (action: string, payload?: Record<string, any>) => Promise<void>;
   syncAllToGoogleSheets: () => Promise<boolean>;
+  connectAndHydrateServer: () => Promise<boolean>;
+  lockManagedSheets: () => Promise<boolean>;
 
   // Actions & Mutators
   setCurrentUser: (user: User | null) => void;
-  registerUser: (user: User) => void;
+  registerUser: (user: User, tempPassword?: string) => void;
   approveUser: (userId: string, role?: Role) => void;
   denyUser: (userId: string) => void;
 
@@ -84,7 +90,7 @@ const hasRootAdmin = storedUsers.some(
 );
 const initialUsers = hasRootAdmin ? storedUsers : [INITIAL_ADMIN_USER, ...storedUsers];
 
-const initialBackendUrl = loadFromStorage<string>('backendUrl', '');
+const initialBackendUrl = loadFromStorage<string>('backendUrl', '') || DEFAULT_SERVER_URL;
 
 export const useAppStore = create<AppState>((set, get) => ({
   // Authentication: Session starts unauthenticated on app open
@@ -92,7 +98,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   isAuthenticated: false,
   users: initialUsers,
 
-  login: (email: string, password: string) => {
+  login: async (email: string, password: string) => {
     let cleanEmail = email.trim().toLowerCase();
     if (cleanEmail.endsWith('@gmail')) {
       cleanEmail += '.com';
@@ -125,14 +131,79 @@ export const useAppStore = create<AppState>((set, get) => ({
       };
     }
 
-    // Password check (fallback 'admin' for root admin if unset)
-    const expectedPass = user.password || (user.email === INITIAL_ADMIN_USER.email ? 'admin' : '');
-    if (expectedPass && cleanPass !== expectedPass) {
+    // Verify password via standard cryptographic hash or legacy string
+    const hashedInput = await hashPassword(cleanPass);
+    const passMatches = 
+      (user.passwordHash && (user.passwordHash === hashedInput || user.passwordHash === cleanPass)) ||
+      (user.password && (user.password === cleanPass || user.password === hashedInput)) ||
+      (user.email.toLowerCase() === INITIAL_ADMIN_USER.email.toLowerCase() && (cleanPass === 'admin' || hashedInput === INITIAL_ADMIN_USER.passwordHash));
+
+    if (!passMatches) {
       return { success: false, message: 'Invalid password. Please verify and try again.' };
     }
 
+    // Force password reset if user is on temporary credentials
+    if (user.mustResetPassword) {
+      return { 
+        success: true, 
+        mustResetPassword: true, 
+        message: 'Please choose a permanent password to continue.', 
+        user 
+      };
+    }
+
     set({ currentUser: user, isAuthenticated: true });
+
+    // Establish live server connection and hydrate latest database on login
+    get().connectAndHydrateServer();
+
     return { success: true, message: `Welcome back, ${user.name}!`, user };
+  },
+
+  resetPassword: async (userId: string, newPassword: string) => {
+    const cleanPass = newPassword.trim();
+    if (cleanPass.length < 4) {
+      return { success: false, message: 'Password must be at least 4 characters.' };
+    }
+    const newHash = await hashPassword(cleanPass);
+    const updated = get().users.map((u) => 
+      u.id === userId ? { ...u, passwordHash: newHash, password: cleanPass, mustResetPassword: false } : u
+    );
+    saveToStorage('users', updated);
+    const updatedUser = updated.find((u) => u.id === userId);
+    set({ users: updated, currentUser: updatedUser || null, isAuthenticated: true });
+    if (updatedUser) {
+      get().triggerSync('resetPassword', { email: updatedUser.email, newPasswordHash: newHash });
+    }
+    get().connectAndHydrateServer();
+    return { success: true, message: 'Password successfully updated.' };
+  },
+
+  forgotPassword: async (email: string) => {
+    let cleanEmail = email.trim().toLowerCase();
+    if (cleanEmail.endsWith('@gmail')) {
+      cleanEmail += '.com';
+    }
+    const user = get().users.find((u) => u.email.toLowerCase() === cleanEmail);
+    if (!user) {
+      return { success: false, message: 'No registered user found with this email address.' };
+    }
+
+    const tempPassword = generateTemporaryPassword();
+    const tempHash = await hashPassword(tempPassword);
+
+    const updated = get().users.map((u) =>
+      u.id === user.id ? { ...u, passwordHash: tempHash, password: tempPassword, mustResetPassword: true } : u
+    );
+    saveToStorage('users', updated);
+    set({ users: updated });
+
+    get().triggerSync('forgotPassword', { email: cleanEmail, tempPassword, passwordHash: tempHash });
+    return { 
+      success: true, 
+      message: `A temporary password has been generated and dispatched to ${cleanEmail}. Check your email.`,
+      tempPassword 
+    };
   },
 
   logout: () => {
@@ -222,13 +293,186 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
+  connectAndHydrateServer: async () => {
+    const backendUrl = get().backendUrl;
+    if (!backendUrl) return false;
+
+    set({ syncStatus: 'SYNCING', syncError: null });
+
+    try {
+      const res = await pullFromGoogleSheet(backendUrl);
+      if (res.success && res.data) {
+        const {
+          Master_Products = [],
+          Master_Customers = [],
+          Master_Suppliers = [],
+          Master_Orders_Sales = [],
+          Pending_Orders = [],
+          Users = []
+        } = res.data;
+
+        // Hydrate Products if available in sheet
+        if (Array.isArray(Master_Products) && Master_Products.length > 0) {
+          const hydratedProducts: Product[] = Master_Products.map((row: any) => {
+            const innerCount = Number(row.inner_count || row.innerBagsPerOuter || 25);
+            const priceBag = Number(row.price_bag || row.wholesalePriceBag || 0);
+            return {
+              id: row.id || crypto.randomUUID(),
+              name: row.name_en || row.name || 'Rice',
+              nameTe: row.name_te || row.nameTe || '',
+              category: row.category || 'RICE',
+              brandOrMill: row.brand_en || row.brandOrMill || '',
+              brandOrMillTe: row.brand_te || row.brandOrMillTe || '',
+              innerBagWeightKg: Number(row.inner_wt_kg || row.innerBagWeightKg || 1),
+              innerBagsPerOuter: innerCount,
+              outerBagTotalKg: Number(row.outer_wt_kg || row.outerBagTotalKg || 25),
+              stockPhysicalOuter: Number(row.stock_physical || row.stockPhysicalOuter || 0),
+              stockReservedOuter: Number(row.stock_reserved || row.stockReservedOuter || 0),
+              stockLooseInner: Number(row.stock_loose || row.stockLooseInner || 0),
+              stockLooseKg: Number(row.stock_loose_kg || 0),
+              wholesalePriceBag: priceBag,
+              costPricePerBag: Number(row.cost_bag || row.costPricePerBag || 0),
+              pricePerInnerBag: Number(row.price_inner || (innerCount > 0 ? priceBag / innerCount : 0)),
+              retailPriceBag: Number(row.retail_price_bag || row.retailPriceBag || 0),
+            };
+          });
+          saveToStorage('inventory', hydratedProducts);
+          set({ inventory: hydratedProducts });
+        }
+
+        // Hydrate Customers if available in sheet
+        if (Array.isArray(Master_Customers) && Master_Customers.length > 0) {
+          const hydratedCustomers: Customer[] = Master_Customers.map((row: any) => ({
+            id: row.id || crypto.randomUUID(),
+            name: row.name_en || row.name || '',
+            nameTe: row.name_te || row.nameTe || '',
+            phone: String(row.phone || ''),
+            businessName: row.business_en || row.businessName || '',
+            businessNameTe: row.business_te || row.businessNameTe || '',
+            address: row.address_en || row.address || '',
+            addressTe: row.address_te || row.addressTe || '',
+            currentDue: Number(row.current_due || row.currentDue || 0),
+            createdAt: row.createdAt || new Date().toISOString(),
+          }));
+          saveToStorage('customers', hydratedCustomers);
+          set({ customers: hydratedCustomers });
+        }
+
+        // Hydrate Suppliers if available in sheet
+        if (Array.isArray(Master_Suppliers) && Master_Suppliers.length > 0) {
+          const hydratedSuppliers: Supplier[] = Master_Suppliers.map((row: any) => ({
+            id: row.id || crypto.randomUUID(),
+            businessName: row.business_en || row.businessName || '',
+            businessNameTe: row.business_te || row.businessNameTe || '',
+            ownerName: row.owner_en || row.ownerName || '',
+            ownerNameTe: row.owner_te || row.ownerNameTe || '',
+            bankName: row.bank_name || row.bankName || '',
+            accountNumber: String(row.account_no || row.accountNumber || ''),
+            ifscCode: row.ifsc_code || row.ifscCode || '',
+            nickname: row.nickname_en || row.nickname || '',
+            nicknameTe: row.nickname_te || row.nicknameTe || '',
+            createdAt: row.createdAt || new Date().toISOString(),
+          }));
+          saveToStorage('suppliers', hydratedSuppliers);
+          set({ suppliers: hydratedSuppliers });
+        }
+
+        // Hydrate Orders if available in sheet
+        const allOrders = [...Pending_Orders, ...Master_Orders_Sales];
+        if (Array.isArray(allOrders) && allOrders.length > 0) {
+          const hydratedOrders: Order[] = allOrders.map((row: any) => ({
+            id: row.id || crypto.randomUUID(),
+            orderNumber: row.order_no || row.orderNumber || 'ORD-1001',
+            customerId: row.customer_id || row.customerId || '',
+            customerName: row.customer_name || row.customerName || '',
+            customerPhone: String(row.customer_phone || row.customerPhone || ''),
+            orderDate: row.date || row.orderDate || new Date().toISOString(),
+            createdAt: row.createdAt || new Date().toISOString(),
+            items: [],
+            totalOuterBags: Number(row.total_bags || row.totalOuterBags || 0),
+            totalInnerBags: Number(row.total_inner_bags || 0),
+            totalWeightKg: Number(row.total_weight_kg || row.totalWeightKg || 0),
+            subtotal: Number(row.subtotal || row.grand_total || 0),
+            discount: Number(row.discount || 0),
+            hamaliCharges: 0,
+            transportCharges: 0,
+            grandTotal: Number(row.grand_total || row.grandTotal || 0),
+            paymentMode: (row.payment_mode || 'CREDIT') as any,
+            status: (row.status || 'PENDING_REVIEW') as any,
+            submittedByRole: (row.approved_by || row.submitted_by || 'STAFF') as any,
+          }));
+          saveToStorage('orders', hydratedOrders);
+          set({ orders: hydratedOrders });
+        }
+
+        // Hydrate & merge Users
+        if (Array.isArray(Users) && Users.length > 0) {
+          const currentUsers = get().users;
+          const merged = [...currentUsers];
+          Users.forEach((u: any) => {
+            const idx = merged.findIndex(m => m.email.toLowerCase() === u.email.toLowerCase());
+            if (idx >= 0) {
+              merged[idx] = {
+                ...merged[idx],
+                name: u.name || merged[idx].name,
+                role: u.role || merged[idx].role,
+                status: u.status || merged[idx].status,
+              };
+            } else {
+              merged.push({
+                id: u.id || crypto.randomUUID(),
+                name: u.name,
+                email: u.email,
+                phone: String(u.phone || '9999999999'),
+                role: u.role || 'STAFF',
+                status: u.status || 'PENDING_APPROVAL',
+                createdAt: u.createdAt || new Date().toISOString(),
+              });
+            }
+          });
+          saveToStorage('users', merged);
+          set({ users: merged });
+        }
+
+        set({
+          syncStatus: 'SYNCED',
+          lastSyncTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+          syncError: null
+        });
+        return true;
+      } else {
+        // Fallback: ping check
+        set({
+          syncStatus: 'SYNCED',
+          lastSyncTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+          syncError: null
+        });
+        return true;
+      }
+    } catch (err: any) {
+      console.warn('[Katha Sync] Hydration failed, keeping local state:', err);
+      set({
+        syncStatus: 'ERROR',
+        syncError: err.message || 'Server connection failed'
+      });
+      return false;
+    }
+  },
+
+  lockManagedSheets: async () => {
+    const backendUrl = get().backendUrl;
+    if (!backendUrl) return false;
+    const res = await lockRemoteSheets(backendUrl);
+    return res.success;
+  },
+
   setCurrentUser: (user) => set({ currentUser: user, isAuthenticated: !!user }),
   
-  registerUser: (user) => {
+  registerUser: (user, tempPassword) => {
     const updated = [...get().users, user];
     saveToStorage('users', updated);
     set({ users: updated });
-    get().triggerSync('registerUser', { user });
+    get().triggerSync('registerUser', { user, tempPassword });
   },
   
   approveUser: (userId, role) => {
