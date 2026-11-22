@@ -15,7 +15,7 @@ export default function App() {
   const { language } = useAppStore();
 
   return (
-    <div className={`min-h-screen bg-slate-50/80 flex flex-col ${language === 'TE' ? 'font-telugu' : ''}`}>
+    <div className={`min-h-screen bg-[#F8F9FB] flex flex-col ${language === 'TE' ? 'font-telugu' : ''}`}>
       {/* Navigation */}
       <Navbar
         activeTab={activeTab}
@@ -23,8 +23,8 @@ export default function App() {
         onOpenSettings={() => setIsSettingsOpen(true)}
       />
 
-      {/* Main Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      {/* Main Container (with pb-24 for mobile thumb reach above sticky bottom nav) */}
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-28 md:pb-8">
         {activeTab === 'orders' && <PendingOrdersView />}
         {activeTab === 'stock' && <StockRegistryView />}
         {activeTab === 'customers' && <CustomerDirectoryView />}
@@ -33,10 +33,10 @@ export default function App() {
         {activeTab === 'admin' && <UserRequestsView />}
       </main>
 
-      {/* Footer */}
-      <footer className="bg-white border-t border-slate-200 py-4 text-center text-xs text-slate-500">
+      {/* Footer (hidden on small mobile screens to save vertical space) */}
+      <footer className="hidden md:block bg-white border-t border-slate-200/80 py-4 text-center text-xs text-slate-400">
         <p>
-          Katha Wholesale (కథా హోల్‌సేల్) &bull; Enterprise Rice & Groceries Platform &bull; Pre-Seeded Admin: Snehit Tadepalli
+          Katha Wholesale (కథా హోల్‌సేల్) &bull; Enterprise Rice & Groceries Platform &bull; Master Admin: Snehit Tadepalli
         </p>
       </footer>
 

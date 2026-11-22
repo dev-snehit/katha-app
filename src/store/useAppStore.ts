@@ -19,7 +19,7 @@ export interface AppState {
   language: SupportedLanguage;
   setLanguage: (lang: SupportedLanguage) => void;
   
-  // Domain entities
+  // Domain entities (CLEAN SLATE: Zero dummy data)
   orders: Order[];
   inventory: Product[];
   customers: Customer[];
@@ -46,186 +46,70 @@ export interface AppState {
   unpackProduct: (productId: string) => void;
 }
 
-// Initial Sample Data for Rice & Groceries
-const initialProducts: Product[] = [
-  {
-    id: 'prod-rice-1',
-    name: 'Sona Masoori Rice (Raw Old)',
-    nameTe: 'సోనా మసూరి పాత బియ్యం',
-    category: 'RICE',
-    brandOrMill: 'Sri Lalitha',
-    brandOrMillTe: 'శ్రీ లలిత',
-    innerBagWeightKg: 26.0,
-    innerBagsPerOuter: 1,
-    outerBagTotalKg: 26.0,
-    stockPhysicalOuter: 120,
-    stockReservedOuter: 0,
-    stockLooseInner: 0,
-    stockLooseKg: 0,
-    costPricePerBag: 1380,
-    wholesalePriceBag: 1480,
-    pricePerInnerBag: 1480,
-  },
-  {
-    id: 'prod-rice-2',
-    name: 'Broken Rice / Tukda (Coarse)',
-    nameTe: 'నూకలు (దొడ్డు)',
-    category: 'BROKEN_RICE',
-    brandOrMill: 'Local Mill',
-    brandOrMillTe: 'లోకల్ మిల్లు',
-    innerBagWeightKg: 50.0,
-    innerBagsPerOuter: 1,
-    outerBagTotalKg: 50.0,
-    stockPhysicalOuter: 80,
-    stockReservedOuter: 0,
-    stockLooseInner: 0,
-    stockLooseKg: 0,
-    costPricePerBag: 1100,
-    wholesalePriceBag: 1250,
-    pricePerInnerBag: 1250,
-  },
-  {
-    id: 'prod-ravva-1',
-    name: 'Suji Ravva (Bombay Ravva)',
-    nameTe: 'సూజీ రవ్వ (బొంబాయి రవ్వ)',
-    category: 'SUJI_RAVVA',
-    brandOrMill: 'Naga Brand',
-    brandOrMillTe: 'నాగా బ్రాండ్',
-    innerBagWeightKg: 1.0,
-    innerBagsPerOuter: 25,
-    outerBagTotalKg: 25.0,
-    stockPhysicalOuter: 60,
-    stockReservedOuter: 0,
-    stockLooseInner: 12,
-    stockLooseKg: 0,
-    costPricePerBag: 920,
-    wholesalePriceBag: 1040,
-    pricePerInnerBag: 45,
-  },
-  {
-    id: 'prod-maida-1',
-    name: 'Maida (Bakery Special)',
-    nameTe: 'మైదా (బేకరీ స్పెషల్)',
-    category: 'MAIDA',
-    brandOrMill: 'Silver Coin',
-    brandOrMillTe: 'సిల్వర్ కాయిన్',
-    innerBagWeightKg: 50.0,
-    innerBagsPerOuter: 1,
-    outerBagTotalKg: 50.0,
-    stockPhysicalOuter: 45,
-    stockReservedOuter: 0,
-    stockLooseInner: 0,
-    stockLooseKg: 0,
-    costPricePerBag: 1600,
-    wholesalePriceBag: 1750,
-    pricePerInnerBag: 1750,
-  }
-];
+// LocalStorage Persistence Helpers
+const STORAGE_PREFIX = 'katha_wholesale_';
 
-const initialCustomers: Customer[] = [
-  {
-    id: 'cust-1',
-    name: 'Sri Balaji Kirana & General Stores',
-    nameTe: 'శ్రీ బాలాజీ కిరాణా స్టోర్స్',
-    phone: '9848022338',
-    businessName: 'Balaji Traders',
-    businessNameTe: 'బాలాజీ ట్రేడర్స్',
-    address: 'Shop #4, Market Road, Secunderabad',
-    addressTe: 'షాప్ #4, మార్కెట్ రోడ్, సికింద్రాబాద్',
-    currentDue: 24500,
-    createdAt: '2026-01-10T10:00:00.000Z'
-  },
-  {
-    id: 'cust-2',
-    name: 'Lakshmi Prasanna Supermarket',
-    nameTe: 'లక్ష్మీ ప్రసన్న సూపర్ మార్కెట్',
-    phone: '9849112233',
-    businessName: 'Prasanna Retail',
-    businessNameTe: 'ప్రసన్న రిటైల్',
-    address: 'Near Clock Tower, Warangal',
-    addressTe: 'క్లాక్ టవర్ దగ్గర, వరంగల్',
-    currentDue: 58000,
-    createdAt: '2026-01-12T11:00:00.000Z'
+function loadFromStorage<T>(key: string, defaultValue: T): T {
+  try {
+    const raw = localStorage.getItem(STORAGE_PREFIX + key);
+    return raw ? JSON.parse(raw) : defaultValue;
+  } catch {
+    return defaultValue;
   }
-];
+}
 
-const initialSuppliers: Supplier[] = [
-  {
-    id: 'supp-1',
-    businessName: 'Sri Lalitha Rice Industries Pvt Ltd',
-    businessNameTe: 'శ్రీ లలిత రైస్ ఇండస్ట్రీస్',
-    ownerName: 'M. Venkateswara Rao',
-    ownerNameTe: 'ఎం. వెంకటేశ్వరరావు',
-    bankName: 'State Bank of India',
-    accountNumber: '30291823901',
-    ifscCode: 'SBIN0001234',
-    nickname: 'Lalitha Mill SBI',
-    nicknameTe: 'లలిత మిల్లు ఎస్బీఐ',
-    createdAt: '2026-01-05T09:00:00.000Z'
+function saveToStorage<T>(key: string, value: T): void {
+  try {
+    localStorage.setItem(STORAGE_PREFIX + key, JSON.stringify(value));
+  } catch {
+    // ignore
   }
-];
-
-const initialOrders: Order[] = [
-  {
-    id: 'ord-101',
-    orderNumber: 'ORD-2026-0001',
-    customerId: 'cust-1',
-    customerName: 'Sri Balaji Kirana & General Stores',
-    customerNameTe: 'శ్రీ బాలాజీ కిరాణా స్టోర్స్',
-    customerPhone: '9848022338',
-    orderDate: '2026-11-22T08:30:00.000Z',
-    status: 'PENDING_REVIEW',
-    totalOuterBags: 15,
-    totalInnerBags: 0,
-    totalWeightKg: 390,
-    items: [
-      {
-        productId: 'prod-rice-1',
-        productName: 'Sona Masoori Rice (Raw Old)',
-        productNameTe: 'సోనా మసూరి పాత బియ్యం',
-        unitType: 'OUTER_BAG',
-        quantity: 15,
-        unitPrice: 1480,
-        lineTotal: 22200
-      }
-    ],
-    subtotal: 22200,
-    hamaliCharges: 120,
-    transportCharges: 200,
-    grandTotal: 22520,
-    paymentMode: 'CREDIT',
-    vehicleNumber: 'TS 09 UA 4567',
-    driverPhone: '9988776655',
-    submittedByRole: 'STAFF',
-    createdAt: '2026-11-22T08:30:00.000Z'
-  }
-];
+}
 
 export const useAppStore = create<AppState>((set) => ({
   currentUser: INITIAL_ADMIN_USER,
-  users: [INITIAL_ADMIN_USER],
-  language: 'EN',
-  setLanguage: (lang) => set({ language: lang }),
+  users: loadFromStorage<User[]>('users', [INITIAL_ADMIN_USER]),
+  language: loadFromStorage<SupportedLanguage>('lang', 'EN'),
+  setLanguage: (lang) => {
+    saveToStorage('lang', lang);
+    set({ language: lang });
+  },
   
-  orders: initialOrders,
-  inventory: initialProducts,
-  customers: initialCustomers,
-  suppliers: initialSuppliers,
+  // Clean empty state: zero mock/sample data
+  orders: loadFromStorage<Order[]>('orders', []),
+  inventory: loadFromStorage<Product[]>('inventory', []),
+  customers: loadFromStorage<Customer[]>('customers', []),
+  suppliers: loadFromStorage<Supplier[]>('suppliers', []),
 
-  backendUrl: '',
-  setBackendUrl: (url) => set({ backendUrl: url }),
+  backendUrl: loadFromStorage<string>('backendUrl', ''),
+  setBackendUrl: (url) => {
+    saveToStorage('backendUrl', url);
+    set({ backendUrl: url });
+  },
 
   setCurrentUser: (user) => set({ currentUser: user }),
   
-  registerUser: (user) => set((state) => ({ users: [...state.users, user] })),
+  registerUser: (user) => set((state) => {
+    const updated = [...state.users, user];
+    saveToStorage('users', updated);
+    return { users: updated };
+  }),
   
-  approveUser: (userId, role) => set((state) => ({
-    users: state.users.map((u) => (u.id === userId ? { ...u, status: 'APPROVED', ...(role ? { role } : {}) } : u))
-  })),
+  approveUser: (userId, role) => set((state) => {
+    const updated = state.users.map((u) => 
+      u.id === userId ? { ...u, status: 'APPROVED' as const, ...(role ? { role } : {}) } : u
+    );
+    saveToStorage('users', updated);
+    return { users: updated };
+  }),
 
-  denyUser: (userId) => set((state) => ({
-    users: state.users.map((u) => (u.id === userId ? { ...u, status: 'DENIED' } : u))
-  })),
+  denyUser: (userId) => set((state) => {
+    const updated = state.users.map((u) => 
+      u.id === userId ? { ...u, status: 'DENIED' as const } : u
+    );
+    saveToStorage('users', updated);
+    return { users: updated };
+  }),
 
   addOrder: (order) => set((state) => {
     // Reserve stock for items in the order
@@ -240,8 +124,12 @@ export const useAppStore = create<AppState>((set) => ({
       return prod;
     });
 
+    const updatedOrders = [order, ...state.orders];
+    saveToStorage('orders', updatedOrders);
+    saveToStorage('inventory', updatedInventory);
+
     return {
-      orders: [order, ...state.orders],
+      orders: updatedOrders,
       inventory: updatedInventory,
     };
   }),
@@ -271,27 +159,57 @@ export const useAppStore = create<AppState>((set) => ({
       return c;
     });
 
+    const updatedOrders = state.orders.map((o) => 
+      o.id === orderId ? { ...o, status: 'APPROVED' as const, approvedByRole } : o
+    );
+
+    saveToStorage('orders', updatedOrders);
+    saveToStorage('inventory', updatedInventory);
+    saveToStorage('customers', updatedCustomers);
+
     return {
-      orders: state.orders.map((o) => (o.id === orderId ? { ...o, status: 'APPROVED', approvedByRole } : o)),
+      orders: updatedOrders,
       inventory: updatedInventory,
       customers: updatedCustomers,
     };
   }),
 
-  markOrderDispatched: (orderId, vehicleNo) => set((state) => ({
-    orders: state.orders.map((o) => (o.id === orderId ? { ...o, status: 'DISPATCHED', ...(vehicleNo ? { vehicleNumber: vehicleNo } : {}) } : o))
-  })),
+  markOrderDispatched: (orderId, vehicleNo) => set((state) => {
+    const updated = state.orders.map((o) => 
+      o.id === orderId ? { ...o, status: 'DISPATCHED' as const, ...(vehicleNo ? { vehicleNumber: vehicleNo } : {}) } : o
+    );
+    saveToStorage('orders', updated);
+    return { orders: updated };
+  }),
 
-  markOrderDelivered: (orderId) => set((state) => ({
-    orders: state.orders.map((o) => (o.id === orderId ? { ...o, status: 'DELIVERED' } : o))
-  })),
+  markOrderDelivered: (orderId) => set((state) => {
+    const updated = state.orders.map((o) => 
+      o.id === orderId ? { ...o, status: 'DELIVERED' as const } : o
+    );
+    saveToStorage('orders', updated);
+    return { orders: updated };
+  }),
 
-  addCustomer: (customer) => set((state) => ({ customers: [...state.customers, customer] })),
-  addSupplier: (supplier) => set((state) => ({ suppliers: [...state.suppliers, supplier] })),
-  addProduct: (product) => set((state) => ({ inventory: [...state.inventory, product] })),
+  addCustomer: (customer) => set((state) => {
+    const updated = [...state.customers, customer];
+    saveToStorage('customers', updated);
+    return { customers: updated };
+  }),
+
+  addSupplier: (supplier) => set((state) => {
+    const updated = [...state.suppliers, supplier];
+    saveToStorage('suppliers', updated);
+    return { suppliers: updated };
+  }),
+
+  addProduct: (product) => set((state) => {
+    const updated = [...state.inventory, product];
+    saveToStorage('inventory', updated);
+    return { inventory: updated };
+  }),
   
-  unpackProduct: (productId) => set((state) => ({
-    inventory: state.inventory.map((p) => {
+  unpackProduct: (productId) => set((state) => {
+    const updated = state.inventory.map((p) => {
       if (p.id === productId && p.stockPhysicalOuter > 0) {
         return {
           ...p,
@@ -300,6 +218,8 @@ export const useAppStore = create<AppState>((set) => ({
         };
       }
       return p;
-    })
-  }))
+    });
+    saveToStorage('inventory', updated);
+    return { inventory: updated };
+  })
 }));
