@@ -15,11 +15,12 @@ Katha Wholesale is a specialized web application engineered for wholesale commod
 2. **Pre-Seeded Master Administrator**: Root administrator account pre-configured for **Snehit Tadepalli** (`dev.snehit@gmail.com`, Role: `ADMIN`, Status: `APPROVED`).
 3. **Dynamic Multi-Item Order Builder (`+ Add Item`)**: Allows orders and sales to contain multiple commodity line items at different quantities in a single bill, with dynamic calculation of bags, metric weight in kg, hamali, and freight.
 4. **Mobile-First CRM / Pipeline UI**: Inspired by modern pipeline interfaces (coral-orange accents `#FF5A36`, multi-segment progress strip, 2-letter pastel avatar badges, and a sticky mobile bottom navigation bar).
-5. **Two-Stage Stock Reservation**: Stock is marked `RESERVED` upon order creation to prevent overselling on the shop floor; permanently `DEDUCTED` when the Owner approves.
-6. **Bilingual Engine (English & Telugu)**: Full interface toggling between English and **తెలుగు** with automatic English fallback (`item.nameTe || item.name`).
-7. **Customer & Supplier Directories**: Mandatory 10-digit mobile number with 1-click WhatsApp (`wa.me`) billing, plus supplier bank account details and reference nicknames.
-8. **Three Date & Date-Range PDF Exports**: Daily/Period Sales Report, Item-Wise Number Tally (`1 + 4 + 5 = 10 Bags`), and Closing Stock Position Report.
-9. **Client-Side Master Excel Generator**: In-browser export of `master_records.xlsx` with formula cells protected.
+5. **Zero Native Alerts (`AlertDialog.tsx`)**: Completely eliminated browser `alert()` and `confirm()` dialogs in favor of a sleek, accessible, responsive modal dialog supporting `info`, `success`, `warning`, `danger`, and `confirm` types.
+6. **Two-Stage Stock Reservation**: Stock is marked `RESERVED` upon order creation to prevent overselling on the shop floor; permanently `DEDUCTED` when the Owner approves.
+7. **Bilingual Engine (English & Telugu)**: Full interface toggling between English and **తెలుగు** with automatic English fallback (`item.nameTe || item.name`).
+8. **Customer & Supplier Directories**: Mandatory 10-digit mobile number with 1-click WhatsApp (`wa.me`) billing, plus supplier bank account details and reference nicknames.
+9. **Three Date & Date-Range PDF Exports**: Daily/Period Sales Report, Item-Wise Number Tally (`1 + 4 + 5 = 10 Bags`), and Closing Stock Position Report.
+10. **Client-Side Master Excel Generator**: In-browser export of `master_records.xlsx` with formula cells protected.
 
 ---
 
