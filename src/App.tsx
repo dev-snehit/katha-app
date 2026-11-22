@@ -7,12 +7,18 @@ import { SupplierDirectoryView } from './components/suppliers/SupplierDirectoryV
 import { ExportCenterView } from './components/exports/ExportCenterView';
 import { UserRequestsView } from './components/admin/UserRequestsView';
 import { SettingsModal } from './components/settings/SettingsModal';
+import { AuthView } from './components/auth/AuthView';
 import { useAppStore } from './store/useAppStore';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('orders');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const { language } = useAppStore();
+  const { language, isAuthenticated, currentUser } = useAppStore();
+
+  // Authentication Gate: Require sign in every time the application is opened
+  if (!isAuthenticated || !currentUser) {
+    return <AuthView />;
+  }
 
   return (
     <div className={`min-h-screen bg-[#F8F9FB] flex flex-col ${language === 'TE' ? 'font-telugu' : ''}`}>
@@ -30,7 +36,7 @@ export default function App() {
         {activeTab === 'customers' && <CustomerDirectoryView />}
         {activeTab === 'suppliers' && <SupplierDirectoryView />}
         {activeTab === 'exports' && <ExportCenterView />}
-        {activeTab === 'admin' && <UserRequestsView />}
+        {activeTab === 'admin' && currentUser.role === 'ADMIN' && <UserRequestsView />}
       </main>
 
       {/* Footer (hidden on small mobile screens to save vertical space) */}

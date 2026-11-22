@@ -35,6 +35,7 @@ export const UserSchema = z.object({
   role: RoleEnum,
   status: UserStatusEnum.default('PENDING_APPROVAL'),
   createdAt: z.string().datetime(),
+  password: z.string().optional(),
 });
 export type User = z.infer<typeof UserSchema>;
 
@@ -46,7 +47,8 @@ export const INITIAL_ADMIN_USER: User = {
   phone: '9999999999',
   role: 'ADMIN',
   status: 'APPROVED',
-  createdAt: '2026-01-01T00:00:00.000Z'
+  createdAt: '2026-01-01T00:00:00.000Z',
+  password: 'admin'
 };
 
 // --- Customer Contract ---

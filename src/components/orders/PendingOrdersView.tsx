@@ -283,7 +283,7 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
       paymentMode: 'CREDIT',
       vehicleNumber,
       driverPhone,
-      submittedByRole: currentUser.role,
+      submittedByRole: currentUser?.role || 'STAFF',
       createdAt: new Date().toISOString(),
     };
 
@@ -504,9 +504,9 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
                 {/* Card Action Footer */}
                 <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
                   <div className="flex items-center gap-1.5 flex-1">
-                    {order.status === 'PENDING_REVIEW' && (currentUser.role === 'ADMIN' || currentUser.role === 'OWNER') && (
+                    {order.status === 'PENDING_REVIEW' && (currentUser?.role === 'ADMIN' || currentUser?.role === 'OWNER') && (
                       <button
-                        onClick={() => approveOrder(order.id, currentUser.role)}
+                        onClick={() => approveOrder(order.id, currentUser?.role || 'ADMIN')}
                         className="flex-1 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold py-2.5 px-3 rounded-xl shadow-sm transition-all active:scale-95 text-center min-h-[40px]"
                       >
                         Approve (ఆమోదించు)

@@ -69,14 +69,16 @@ This guide walks you through setting up, deploying, and operating Katha Wholesal
 ---
 
 ### Step 4: First-Time Master Admin Login
-1. Open your live application URL in any browser.
-2. Click **Login** in the top navigation bar.
-3. Use the pre-seeded Master Admin credentials:
+1. Open your live application URL in any browser or on your mobile device.
+2. The **Katha Wholesale Auth Screen** will appear automatically upon opening the application.
+3. Sign in using the pre-seeded Master Admin credentials:
    * **Email**: `dev.snehit@gmail.com`
+   * **Password**: `admin`
    * **Name**: `Snehit Tadepalli`
    * **Role**: `Admin`
-4. Enter your Google Apps Script Web App URL in **Settings > Backend Connection** so the app links to your Google Sheet.
-5. You now have full superuser access to the system!
+4. Once signed in, open the **Settings** icon (gear icon) in the top right.
+5. Paste your deployed Google Apps Script Web App URL and click **Test & Save Connection**.
+6. The sync status badge in the header will turn 🟢 **Synced with Google Sheet**. Every order, customer, stock change, and supplier you add will now automatically sync directly to your Master Google Sheet!
 
 ---
 
