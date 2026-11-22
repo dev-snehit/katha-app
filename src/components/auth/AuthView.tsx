@@ -8,7 +8,6 @@ import {
   Phone, 
   Eye, 
   EyeOff, 
-  ShieldCheck, 
   CheckCircle2, 
   AlertCircle, 
   Sparkles,
@@ -79,7 +78,9 @@ export const AuthView: React.FC = () => {
 
     registerUser(newUser);
     setRegSuccess(
-      `Registration request submitted for ${newUser.name}! Administrator Snehit Tadepalli will review and approve your account shortly.`
+      language === 'TE'
+        ? `నమోదు అభ్యర్థన సమర్పించబడింది! అడ్మినిస్ట్రేటర్ మీ ఖాతాను సమీక్షించి ఆమోదిస్తారు.`
+        : `Registration request submitted for ${newUser.name}! An administrator will review and approve your account shortly.`
     );
     setRegName('');
     setRegEmail('');
@@ -186,7 +187,7 @@ export const AuthView: React.FC = () => {
                     required
                     value={loginEmail}
                     onChange={(e) => setLoginEmail(e.target.value)}
-                    placeholder="dev.snehit@gmail.com"
+                    placeholder="name@example.com"
                     className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-medium text-slate-800 focus:bg-white focus:outline-none focus:border-[#FF5A36] focus:ring-2 focus:ring-[#FF5A36]/10 transition-all"
                   />
                 </div>
@@ -213,28 +214,6 @@ export const AuthView: React.FC = () => {
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
-                </div>
-              </div>
-
-              {/* Master Admin Helper Hint */}
-              <div className="p-3 bg-amber-50/80 rounded-2xl border border-amber-200/60 text-[11px] text-amber-800 flex items-start gap-2">
-                <ShieldCheck className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                <div>
-                  {language === 'TE' ? (
-                    <>
-                      <span className="font-bold">అడ్మిన్ లాగిన్:</span>{' '}
-                      <code className="font-semibold text-amber-900 bg-amber-100/60 px-1 py-0.5 rounded">dev.snehit@gmail.com</code>{' '}
-                      (పాస్‌వర్డ్:{' '}
-                      <code className="font-semibold text-amber-900 bg-amber-100/60 px-1 py-0.5 rounded">admin</code>)
-                    </>
-                  ) : (
-                    <>
-                      <span className="font-bold">Root Admin Access:</span> Use{' '}
-                      <code className="font-semibold text-amber-900 bg-amber-100/60 px-1 py-0.5 rounded">dev.snehit@gmail.com</code>{' '}
-                      with password{' '}
-                      <code className="font-semibold text-amber-900 bg-amber-100/60 px-1 py-0.5 rounded">admin</code>.
-                    </>
-                  )}
                 </div>
               </div>
 
@@ -351,7 +330,10 @@ export const AuthView: React.FC = () => {
               </div>
 
               <div className="p-3 bg-blue-50/70 rounded-2xl border border-blue-200/60 text-[11px] text-blue-800">
-                <span className="font-bold">Approval Policy:</span> Registrations are immediately sent to Admin Snehit Tadepalli for role assignment & verification.
+                <span className="font-bold">{language === 'TE' ? 'ఆమోదం విధానం:' : 'Approval Policy:'}</span>{' '}
+                {language === 'TE'
+                  ? 'రిజిస్ట్రేషన్లు సమీక్ష మరియు ధృవీకరణ కోసం అడ్మినిస్ట్రేటర్‌కు పంపబడతాయి.'
+                  : 'Registrations are immediately sent to an administrator for role assignment & verification.'}
               </div>
 
               <button
@@ -366,7 +348,9 @@ export const AuthView: React.FC = () => {
         </div>
 
         <p className="text-center text-[11px] text-slate-400 mt-6">
-          Katha Wholesale &bull; Zero Server Cost on GitHub Pages &bull; Admin: Snehit Tadepalli
+          {language === 'TE'
+            ? 'కథా హోల్‌సేల్ • క్లౌడ్ & మొబైల్ ప్లాట్‌ఫారమ్'
+            : 'Katha Wholesale • Cloud & Mobile Platform'}
         </p>
       </div>
     </div>

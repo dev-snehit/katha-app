@@ -15,9 +15,9 @@ Katha Wholesale is a specialized web application engineered for wholesale commod
 2. **Three-Tier Pricing on Purchase Records**: Every commodity / purchase entry captures 3 essential wholesale pricing metrics: **Purchase Value / Cost Price** (Mill rate), **Wholesale Value** (Selling rate to sub-dealers/Kirana), and **Retail Value** (Counter sales rate).
 3. **Modifiable Sale Values & Custom Bill Discounts**: Order and bill items have fully editable sale rates, plus an optional **Custom Discount (₹)** input that dynamically reduces the grand total on bills, invoices, PDFs, and remote Google Sheets.
 4. **Strict Language Isolation (Zero Mixed Language on UI)**: When a specific language (English or తెలుగు) is selected, **no other language is visible on UI elements**. All labels, badges, buttons, options, and footers render exclusively in the active language.
-5. **Pre-Seeded Master Administrator**: Root administrator account pre-configured for **Snehit Tadepalli** (`dev.snehit@gmail.com`, Role: `ADMIN`, Status: `APPROVED`).
-6. **Session Authentication & Admin Sign-In Requirement**: Every time the application is opened, users (including root Admin Snehit Tadepalli) must sign in via a dedicated mobile-first Sign In / Register screen (`AuthView.tsx`) to unlock access. A prominent Sign Out button allows locking the session immediately.
-7. **User Registration & Admin Approval Gate**: New users register with their Full Name, Email, 10-digit Mobile, Desired Role, and Password. Accounts remain in `PENDING_APPROVAL` until Admin Snehit Tadepalli approves or denies them in the Admin Portal.
+5. **Elevated Root User Security & Zero UI Disclosure**: The root administrator account is pre-configured in system contracts for system bootstrap, but **root user details, email addresses, and credential hints are strictly prohibited from appearing anywhere on the UI**, placeholders, footers, or unauthenticated screens to protect elevated access.
+6. **Session Authentication & Admin Sign-In Requirement**: Every time the application is opened, users must sign in via a dedicated mobile-first Sign In / Register screen (`AuthView.tsx`) to unlock access. A prominent Sign Out button allows locking the session immediately.
+7. **User Registration & Admin Approval Gate**: New users register with their Full Name, Email, 10-digit Mobile, Desired Role, and Password. Accounts remain in `PENDING_APPROVAL` until an administrator approves or denies them in the Admin Portal.
 8. **Real-Time Google Sheets Two-Way Synchronization**: Live background synchronization engine (`src/lib/syncService.ts`) connects transactions directly to Google Apps Script (`backend/Code.gs`). Automatically pushes orders, stock changes, customers, and suppliers to Google Sheets without CORS preflight failures, with real-time sync status badges (🟢 Synced / 🟡 Syncing / 🔴 Error / ⚪ Unlinked) and manual 1-click "Sync All".
 9. **Dynamic Multi-Item Order Builder (`+ Add Item`)**: Allows orders and sales to contain multiple commodity line items at different quantities in a single bill, with dynamic calculation of bags, metric weight in kg, hamali, and freight.
 10. **Mobile-First CRM / Pipeline UI**: Inspired by modern pipeline interfaces (coral-orange accents `#FF5A36`, multi-segment progress strip, 2-letter pastel avatar badges, and a sticky mobile bottom navigation bar).
@@ -36,7 +36,7 @@ flowchart TD
     subgraph Client ["Client Layer: GitHub Pages (Static SPA)"]
         Auth["Auth Gate (AuthView.tsx)
         - Session sign-in required on app open
-        - Admin login (dev.snehit@gmail.com)
+        - Zero root credential leakage on UI
         - New user registration"]
         UI["Protected Workspace: React 18/19 + Tailwind CSS"]
         Navbar["Bilingual Navbar + Sticky Mobile Nav + Live Sync Indicator"]
@@ -177,11 +177,11 @@ Inspired by the provided reference pipeline design:
 
 ### B. Mobile-First Auth Gate & Session Security (`AuthView.tsx`)
 * **Session Guard**: Every time the application is opened, `isAuthenticated` defaults to `false`. Users must explicitly authenticate to enter the application.
-* **Admin Sign-In**: Root Administrator **Snehit Tadepalli** (`dev.snehit@gmail.com`, default passcode: `admin`) logs in to unlock the platform.
+* **Admin Sign-In**: Root Administrator logs in to unlock the platform.
 * **User Registration & Approval Flow**:
   - New staff/users submit: Full Name, Email, 10-Digit Mobile, Desired Role, and Password.
   - Accounts are set to `status: 'PENDING_APPROVAL'` and registered in both local storage and the Google Sheet `Users` tab.
-  - Non-approved users are prevented from entering and presented with a status message prompting them to contact Admin Snehit Tadepalli.
+  - Non-approved users are prevented from entering and presented with a status message prompting them to wait for administrator approval.
   - Admin approves or denies access from the `User Requests` tab.
 * **Sign Out**: Prominently accessible in the top navigation bar, clearing the active session and returning to the login gate.
 

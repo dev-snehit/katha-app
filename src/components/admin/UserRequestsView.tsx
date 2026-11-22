@@ -41,7 +41,7 @@ export const UserRequestsView: React.FC = () => {
         <div>
           <div className="flex items-center gap-2 text-indigo-600 text-xs font-bold tracking-wider uppercase mb-1">
             <ShieldCheck className="w-4 h-4" />
-            <span>Master Administrator Portal</span>
+            <span>Administrator Portal</span>
           </div>
           <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
             User Registration & Access Approvals

@@ -103,7 +103,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (user.status === 'PENDING_APPROVAL') {
       return { 
         success: false, 
-        message: 'Your account is pending approval by Administrator Snehit Tadepalli. Please check back shortly.' 
+        message: 'Your account is pending approval by an administrator. Please check back shortly.' 
       };
     }
 

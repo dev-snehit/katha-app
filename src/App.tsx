@@ -43,8 +43,8 @@ export default function App() {
       <footer className="hidden md:block bg-white border-t border-slate-200/80 py-4 text-center text-xs text-slate-400">
         <p>
           {language === 'TE'
-            ? 'కథా హోల్‌సేల్ • బియ్యం మరియు కిరాణా వేదిక • అడ్మిన్: స్నేహిత్ తాడేపల్లి'
-            : 'Katha Wholesale • Enterprise Rice & Groceries Platform • Master Admin: Snehit Tadepalli'}
+            ? 'కథా హోల్‌సేల్ • బియ్యం మరియు కిరాణా వేదిక'
+            : 'Katha Wholesale • Enterprise Rice & Groceries Platform'}
         </p>
       </footer>
 
