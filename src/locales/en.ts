@@ -21,7 +21,7 @@ export const en = {
   orders: {
     title: "Pending Orders Yet to Deliver",
     subtitle: "Active dispatch queue: Review, Load, and Dispatch orders",
-    createOrderBtn: "+ New Pending Order",
+    createOrderBtn: "New Pending Order",
     statusPending: "Pending Review",
     statusApproved: "Approved & Packing",
     statusPacked: "Packed & Ready",

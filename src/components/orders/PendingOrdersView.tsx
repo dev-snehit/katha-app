@@ -365,7 +365,7 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
             className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-gradient-to-r from-orange-500 via-orange-600 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white font-black text-sm px-6 py-3.5 sm:py-3 rounded-full shadow-lg shadow-orange-500/25 transition-all active:scale-95 min-h-[48px]"
           >
             <Plus className="w-5 h-5 stroke-[3]" />
-            <span>{isTe ? '+ కొత్త ఆర్డర్' : '+ New Order'}</span>
+            <span>{isTe ? 'కొత్త ఆర్డర్' : 'New Order'}</span>
           </button>
         </div>
       </div>
@@ -455,7 +455,7 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
           </h3>
           <p className="text-xs text-slate-400 mt-1 max-w-sm mb-5 font-medium">
             {orders.length === 0 
-              ? (isTe ? 'ఆర్డర్లను నమోదు చేయడానికి "+ కొత్త ఆర్డర్" బటన్ నొక్కండి.' : 'Your order book is ready. Tap "+ New Order" to start recording dispatches.')
+              ? (isTe ? 'ఆర్డర్లను నమోదు చేయడానికి "కొత్త ఆర్డర్" బటన్ నొక్కండి.' : 'Your order book is ready. Tap "New Order" to start recording dispatches.')
               : (isTe ? 'ఇతర విభాగాల ఆర్డర్లను వీక్షించడానికి పై ఫిల్టర్లను ఎంచుకోండి.' : 'Switch filter tabs above to view orders in other operational stages.')}
           </p>
           {orders.length === 0 && (
@@ -464,7 +464,7 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
               className="inline-flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs px-5 py-3 rounded-full shadow-md active:scale-95 transition-transform"
             >
               <Plus className="w-4 h-4" />
-              <span>{isTe ? '+ మొదటి ఆర్డర్‌ను నమోదు చేయండి' : '+ Place First Order'}</span>
+              <span>{isTe ? 'మొదటి ఆర్డర్‌ను నమోదు చేయండి' : 'Place First Order'}</span>
             </button>
           )}
         </div>
@@ -658,7 +658,7 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
                     className="inline-flex items-center gap-1.5 text-xs font-bold text-orange-600 hover:text-orange-700 bg-orange-50 hover:bg-orange-100 px-3 py-1.5 rounded-full border border-orange-200 transition-colors"
                   >
                     <Plus className="w-3.5 h-3.5 stroke-[3]" />
-                    <span>{isTe ? '+ సరుకు చేర్చండి' : '+ Add Item'}</span>
+                    <span>{isTe ? 'సరుకు చేర్చండి' : 'Add Item'}</span>
                   </button>
                 </div>
 

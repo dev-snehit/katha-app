@@ -82,7 +82,7 @@ export const SupplierDirectoryView: React.FC = () => {
           className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white font-black text-sm px-6 py-3 rounded-full shadow-lg shadow-orange-500/25 transition-all active:scale-95"
         >
           <Plus className="w-4 h-4 stroke-[3]" />
-          <span>{language === 'TE' ? '+ సప్లయర్‌ను చేర్చండి' : '+ Add Supplier'}</span>
+          <span>{language === 'TE' ? 'సప్లయర్‌ను చేర్చండి' : 'Add Supplier'}</span>
         </button>
       </div>
 
@@ -103,7 +103,7 @@ export const SupplierDirectoryView: React.FC = () => {
             className="inline-flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs px-5 py-2.5 rounded-full shadow-md"
           >
             <Plus className="w-4 h-4" />
-            + Add First Supplier
+            <span>{language === 'TE' ? 'మొదటి సప్లయర్‌ను చేర్చండి' : 'Add First Supplier'}</span>
           </button>
         </div>
       ) : (

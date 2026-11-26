@@ -56,7 +56,7 @@ export const UserRequestsView: React.FC = () => {
           className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm px-4 py-2.5 rounded-xl shadow-md transition-all active:scale-95"
         >
           <Plus className="w-4 h-4" />
-          + Simulate User Signup
+          <span>Simulate User Signup</span>
         </button>
       </div>
 

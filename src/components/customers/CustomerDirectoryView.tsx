@@ -102,7 +102,7 @@ export const CustomerDirectoryView: React.FC = () => {
           className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white font-black text-sm px-6 py-3 rounded-full shadow-lg shadow-orange-500/25 transition-all active:scale-95"
         >
           <Plus className="w-4 h-4 stroke-[3]" />
-          <span>{language === 'TE' ? '+ కస్టమర్‌ను చేర్చండి' : '+ Add Customer'}</span>
+          <span>{language === 'TE' ? 'కస్టమర్‌ను చేర్చండి' : 'Add Customer'}</span>
         </button>
       </div>
 
@@ -123,7 +123,7 @@ export const CustomerDirectoryView: React.FC = () => {
             className="inline-flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs px-5 py-2.5 rounded-full shadow-md"
           >
             <Plus className="w-4 h-4" />
-            + Add First Customer
+            <span>{language === 'TE' ? 'మొదటి కస్టమర్‌ను చేర్చండి' : 'Add First Customer'}</span>
           </button>
         </div>
       ) : (

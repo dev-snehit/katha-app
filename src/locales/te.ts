@@ -23,7 +23,7 @@ export const te: Translations = {
   orders: {
     title: "డెలివరీ చేయాల్సిన ఆర్డర్లు",
     subtitle: "యాక్టివ్ ఆర్డర్ల పైప్‌లైన్: సమీక్షించండి, లోడ్ చేయండి, డెలివరీ పంపండి",
-    createOrderBtn: "+ కొత్త ఆర్డర్ నమోదు",
+    createOrderBtn: "కొత్త ఆర్డర్ నమోదు",
     statusPending: "సమీక్షలో ఉంది",
     statusApproved: "ఆమోదించబడింది (ప్యాకింగ్)",
     statusPacked: "లోడింగ్ సిద్ధం",
