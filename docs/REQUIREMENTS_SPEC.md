@@ -309,6 +309,21 @@ export type Order = z.infer<typeof OrderSchema>;
   - `When` user exports Stock Position PDF,
   - `Then` the table displays: Opening Stock + Inward Purchases - Outward Sales = Closing Stock for every item.
 
+#### US-7: Purchase Record & Commodity Registration Form Validation
+* **As** an inventory manager or owner,
+* **I want** strict validation on every input field of the Purchase Record / Add Commodity form,
+* **So that** data integrity is maintained across alphabetic identifiers and wholesale commodity pricing.
+* **Acceptance Criteria:**
+  - `Given` the "Add New Commodity / Purchase Record" form,
+  - `When` entering "Commodity Name" or "Bill Name",
+  - `Then` only alphabetic characters and spaces `[A-Za-z ]` are accepted; digits, punctuation, and special symbols are strictly disallowed.
+  - `When` entering pricing values (`Purchase Value`, `Wholesale Value`, `Retail Value`),
+  - `Then` the pricing values must strictly satisfy `Purchase Value < Wholesale Value < Retail Value` (`costPricePerBag < wholesalePriceBag < retailPriceBag`).
+  - `When` `Purchase >= Wholesale` or `Wholesale >= Retail`,
+  - `Then` form submission is blocked with inline field errors and a clear pricing hierarchy violation alert.
+  - `When` all fields are valid,
+  - `Then` the commodity is saved to inventory and synchronized with the master database.
+
 ---
 
 ## 4. Master Google Sheet Schema & Security Architecture

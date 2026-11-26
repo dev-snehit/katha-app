@@ -4,7 +4,8 @@ import { en } from '../../locales/en';
 import { te } from '../../locales/te';
 import { getLocalizedText } from '../../lib/bilingualHelper';
 import { Product } from '../../contracts';
-import { Package, Plus, Layers, Inbox, Tag } from 'lucide-react';
+import { Package, Plus, Layers, Inbox, Tag, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { validatePurchaseRecord, isPricingHierarchyValid } from '../../lib/purchaseValidation';
 
 export const StockRegistryView: React.FC = () => {
   const { inventory, language, unpackProduct, addProduct } = useAppStore();
@@ -23,30 +24,49 @@ export const StockRegistryView: React.FC = () => {
   const [wholesalePriceBag, setWholesalePriceBag] = useState('');
   const [retailPriceBag, setRetailPriceBag] = useState('');
   const [formError, setFormError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const totalWarehouseBags = inventory.reduce((sum, p) => sum + p.stockPhysicalOuter, 0);
   const totalReservedBags = inventory.reduce((sum, p) => sum + p.stockReservedOuter, 0);
 
+  // Real-time pricing hierarchy calculation
+  const pRate = Number(costPricePerBag);
+  const wRate = Number(wholesalePriceBag);
+  const rRate = Number(retailPriceBag);
+  const allThreePricingEntered = costPricePerBag !== '' && wholesalePriceBag !== '' && retailPriceBag !== '';
+  const isPricingValid = isPricingHierarchyValid(pRate, wRate, rRate);
+
   const handleAddProduct = (e: React.FormEvent) => {
     e.preventDefault();
     setFormError('');
+    setFieldErrors({});
 
-    if (!name.trim()) {
-      setFormError(language === 'TE' ? 'సరుకు పేరు అవసరం.' : 'Commodity name is required.');
+    const validation = validatePurchaseRecord({
+      name,
+      nameTe,
+      category,
+      brandOrMill,
+      innerBagWeightKg,
+      innerBagsPerOuter,
+      stockPhysicalOuter,
+      costPricePerBag,
+      wholesalePriceBag,
+      retailPriceBag,
+    }, language as 'EN' | 'TE');
+
+    if (!validation.isValid) {
+      setFieldErrors(validation.errors);
+      setFormError(validation.errorMessage || (language === 'TE' ? 'దయచేసి ఫారమ్‌లోని లోపాలను సరిదిద్దండి.' : 'Please correct the highlighted form errors.'));
       return;
     }
-    if (!category) {
-      setFormError(language === 'TE' ? 'దయచేసి వర్గాన్ని ఎంచుకోండి.' : 'Please select a category.');
-      return;
-    }
 
-    const innerWt = Number(innerBagWeightKg) || 26;
-    const innerCount = Number(innerBagsPerOuter) || 1;
+    const innerWt = Number(innerBagWeightKg);
+    const innerCount = Number(innerBagsPerOuter);
     const outerBagTotalKg = innerWt * innerCount;
-    const physicalStock = Number(stockPhysicalOuter) || 0;
-    const costRate = Number(costPricePerBag) || 0;
-    const wholesaleRate = Number(wholesalePriceBag) || 0;
-    const retailRate = Number(retailPriceBag) || wholesaleRate;
+    const physicalStock = Number(stockPhysicalOuter);
+    const costRate = Number(costPricePerBag);
+    const wholesaleRate = Number(wholesalePriceBag);
+    const retailRate = Number(retailPriceBag);
 
     const newProd: Product = {
       id: crypto.randomUUID ? crypto.randomUUID() : `prod-${Date.now()}`,
@@ -81,6 +101,8 @@ export const StockRegistryView: React.FC = () => {
     setCostPricePerBag('');
     setWholesalePriceBag('');
     setRetailPriceBag('');
+    setFieldErrors({});
+    setFormError('');
   };
 
   const getCategoryLabel = (cat: string) => {
@@ -354,7 +376,11 @@ export const StockRegistryView: React.FC = () => {
                 {language === 'TE' ? 'కొత్త సరుకు / కొనుగోలు నమోదు' : 'Add New Commodity / Purchase Record'}
               </h2>
               <button
-                onClick={() => setIsModalOpen(false)}
+                onClick={() => {
+                  setIsModalOpen(false);
+                  setFormError('');
+                  setFieldErrors({});
+                }}
                 className="text-slate-400 hover:text-slate-700 text-2xl font-bold"
               >
                 &times;
@@ -362,24 +388,37 @@ export const StockRegistryView: React.FC = () => {
             </div>
 
             {formError && (
-              <div className="p-3 mb-4 rounded-xl bg-rose-50 text-rose-700 text-xs font-bold border border-rose-200">
-                {formError}
+              <div className="p-3 mb-4 rounded-xl bg-rose-50 text-rose-700 text-xs font-bold border border-rose-200 flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                <span>{formError}</span>
               </div>
             )}
 
             <form onSubmit={handleAddProduct} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  {language === 'TE' ? 'సరుకు పేరు (ఇంగ్లీష్) *' : 'Commodity Name (English) *'}
+                  {language === 'TE' ? 'సరుకు పేరు (ఇంగ్లీష్ - కేవలం అక్షరాలు మాత్రమే) *' : 'Commodity Name (English - Alphabets Only) *'}
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder={language === 'TE' ? 'ఉదా: Sona Masoori Rice (Raw Old)' : 'e.g. Sona Masoori Rice (Raw Old)'}
+                  placeholder={language === 'TE' ? 'ఉదా: Sona Masoori Raw Rice' : 'e.g. Sona Masoori Raw Rice'}
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full text-xs font-medium border border-slate-300 rounded-xl p-3 outline-none focus:border-orange-500"
+                  onChange={(e) => {
+                    setName(e.target.value);
+                    if (fieldErrors.name) {
+                      setFieldErrors((prev) => { const n = { ...prev }; delete n.name; return n; });
+                    }
+                  }}
+                  className={`w-full text-xs font-medium border rounded-xl p-3 outline-none transition-colors ${
+                    fieldErrors.name 
+                      ? 'border-rose-400 bg-rose-50/20 focus:border-rose-500' 
+                      : 'border-slate-300 focus:border-orange-500'
+                  }`}
                 />
+                {fieldErrors.name && (
+                  <p className="text-[11px] font-semibold text-rose-600 mt-1">{fieldErrors.name}</p>
+                )}
               </div>
 
               <div>
@@ -403,8 +442,17 @@ export const StockRegistryView: React.FC = () => {
                   <select
                     required
                     value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    className="w-full text-xs font-medium border border-slate-300 rounded-xl p-3 outline-none focus:border-orange-500"
+                    onChange={(e) => {
+                      setCategory(e.target.value);
+                      if (fieldErrors.category) {
+                        setFieldErrors((prev) => { const n = { ...prev }; delete n.category; return n; });
+                      }
+                    }}
+                    className={`w-full text-xs font-medium border rounded-xl p-3 outline-none transition-colors ${
+                      fieldErrors.category 
+                        ? 'border-rose-400 bg-rose-50/20 focus:border-rose-500' 
+                        : 'border-slate-300 focus:border-orange-500'
+                    }`}
                   >
                     <option value="">{language === 'TE' ? 'వర్గాన్ని ఎంచుకోండి...' : 'Select Category...'}</option>
                     <option value="RICE">{language === 'TE' ? 'బియ్యం' : 'Rice'}</option>
@@ -415,72 +463,165 @@ export const StockRegistryView: React.FC = () => {
                     <option value="ATTA">{language === 'TE' ? 'గోధుమ పిండి' : 'Atta'}</option>
                     <option value="OTHER">{language === 'TE' ? 'ఇతర ధాన్యాలు' : 'Other Grains'}</option>
                   </select>
+                  {fieldErrors.category && (
+                    <p className="text-[11px] font-semibold text-rose-600 mt-1">{fieldErrors.category}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    {language === 'TE' ? 'బ్రాండ్ / మిల్లు పేరు' : 'Brand / Mill Name'}
+                    {language === 'TE' ? 'బిల్లు / మిల్లు పేరు (Bill Name - కేవలం అక్షరాలు మాత్రమే) *' : 'Bill Name / Mill Name (Alphabets Only) *'}
                   </label>
                   <input
                     type="text"
+                    required
                     placeholder={language === 'TE' ? 'ఉదా: Sri Lalitha / Naga' : 'e.g. Sri Lalitha / Naga'}
                     value={brandOrMill}
-                    onChange={(e) => setBrandOrMill(e.target.value)}
-                    className="w-full text-xs font-medium border border-slate-300 rounded-xl p-3 outline-none focus:border-orange-500"
+                    onChange={(e) => {
+                      setBrandOrMill(e.target.value);
+                      if (fieldErrors.brandOrMill) {
+                        setFieldErrors((prev) => { const n = { ...prev }; delete n.brandOrMill; return n; });
+                      }
+                    }}
+                    className={`w-full text-xs font-medium border rounded-xl p-3 outline-none transition-colors ${
+                      fieldErrors.brandOrMill 
+                        ? 'border-rose-400 bg-rose-50/20 focus:border-rose-500' 
+                        : 'border-slate-300 focus:border-orange-500'
+                    }`}
                   />
+                  {fieldErrors.brandOrMill && (
+                    <p className="text-[11px] font-semibold text-rose-600 mt-1">{fieldErrors.brandOrMill}</p>
+                  )}
                 </div>
               </div>
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    {language === 'TE' ? 'చిన్న ప్యాకెట్ (కిలోలు)' : 'Packet Wt (kg)'}
+                    {language === 'TE' ? 'చిన్న ప్యాకెట్ (కిలోలు) *' : 'Packet Wt (kg) *'}
                   </label>
                   <input
                     type="number"
                     step="0.5"
                     min="0.5"
+                    required
                     placeholder="26"
                     value={innerBagWeightKg}
-                    onChange={(e) => setInnerBagWeightKg(e.target.value)}
-                    className="w-full text-xs font-medium border border-slate-300 rounded-xl p-3 outline-none focus:border-orange-500"
+                    onChange={(e) => {
+                      setInnerBagWeightKg(e.target.value);
+                      if (fieldErrors.innerBagWeightKg) {
+                        setFieldErrors((prev) => { const n = { ...prev }; delete n.innerBagWeightKg; return n; });
+                      }
+                    }}
+                    className={`w-full text-xs font-medium border rounded-xl p-3 outline-none transition-colors ${
+                      fieldErrors.innerBagWeightKg 
+                        ? 'border-rose-400 bg-rose-50/20 focus:border-rose-500' 
+                        : 'border-slate-300 focus:border-orange-500'
+                    }`}
                   />
+                  {fieldErrors.innerBagWeightKg && (
+                    <p className="text-[10px] font-semibold text-rose-600 mt-1">{fieldErrors.innerBagWeightKg}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    {language === 'TE' ? 'ప్యాకెట్ల సంఖ్య' : 'Packets / Bag'}
+                    {language === 'TE' ? 'ప్యాకెట్ల సంఖ్య *' : 'Packets / Bag *'}
                   </label>
                   <input
                     type="number"
                     min="1"
+                    required
                     placeholder="1"
                     value={innerBagsPerOuter}
-                    onChange={(e) => setInnerBagsPerOuter(e.target.value)}
-                    className="w-full text-xs font-medium border border-slate-300 rounded-xl p-3 outline-none focus:border-orange-500"
+                    onChange={(e) => {
+                      setInnerBagsPerOuter(e.target.value);
+                      if (fieldErrors.innerBagsPerOuter) {
+                        setFieldErrors((prev) => { const n = { ...prev }; delete n.innerBagsPerOuter; return n; });
+                      }
+                    }}
+                    className={`w-full text-xs font-medium border rounded-xl p-3 outline-none transition-colors ${
+                      fieldErrors.innerBagsPerOuter 
+                        ? 'border-rose-400 bg-rose-50/20 focus:border-rose-500' 
+                        : 'border-slate-300 focus:border-orange-500'
+                    }`}
                   />
+                  {fieldErrors.innerBagsPerOuter && (
+                    <p className="text-[10px] font-semibold text-rose-600 mt-1">{fieldErrors.innerBagsPerOuter}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    {language === 'TE' ? 'స్టాక్ బస్తాలు' : 'Stock (Bags)'}
+                    {language === 'TE' ? 'స్టాక్ బస్తాలు *' : 'Stock (Bags) *'}
                   </label>
                   <input
                     type="number"
                     min="0"
+                    required
                     placeholder="0"
                     value={stockPhysicalOuter}
-                    onChange={(e) => setStockPhysicalOuter(e.target.value)}
-                    className="w-full text-xs font-medium border border-slate-300 rounded-xl p-3 outline-none focus:border-orange-500"
+                    onChange={(e) => {
+                      setStockPhysicalOuter(e.target.value);
+                      if (fieldErrors.stockPhysicalOuter) {
+                        setFieldErrors((prev) => { const n = { ...prev }; delete n.stockPhysicalOuter; return n; });
+                      }
+                    }}
+                    className={`w-full text-xs font-medium border rounded-xl p-3 outline-none transition-colors ${
+                      fieldErrors.stockPhysicalOuter 
+                        ? 'border-rose-400 bg-rose-50/20 focus:border-rose-500' 
+                        : 'border-slate-300 focus:border-orange-500'
+                    }`}
                   />
+                  {fieldErrors.stockPhysicalOuter && (
+                    <p className="text-[10px] font-semibold text-rose-600 mt-1">{fieldErrors.stockPhysicalOuter}</p>
+                  )}
                 </div>
               </div>
 
-              {/* THREE VALUES SECTION: Purchase Value, Wholesale Value, Retail Value */}
+              {/* THREE VALUES SECTION: Purchase Value < Wholesale Value < Retail Value */}
               <div className="p-4 rounded-2xl bg-orange-50/70 border border-orange-200/80 space-y-3">
-                <div className="flex items-center gap-2 text-xs font-extrabold text-orange-950 uppercase tracking-wide">
-                  <Tag className="w-4 h-4 text-[#FF5A36]" />
-                  <span>
-                    {language === 'TE' ? '3 ధరల వివరాలు (ధర / బస్తా రూ.)' : '3 Pricing Values (Rate / Bag in ₹)'}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-extrabold text-orange-950 uppercase tracking-wide">
+                    <Tag className="w-4 h-4 text-[#FF5A36]" />
+                    <span>
+                      {language === 'TE' ? '3 ధరల వివరాలు (Purchase < Wholesale < Retail)' : '3 Pricing Values (Purchase < Wholesale < Retail)'}
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-orange-200/60 text-orange-900">
+                    P &lt; W &lt; R
                   </span>
                 </div>
+
+                {/* Real-time pricing hierarchy validation visual banner */}
+                {allThreePricingEntered && (
+                  <div className={`p-2.5 rounded-xl border text-xs font-bold flex items-center gap-2 transition-all ${
+                    isPricingValid 
+                      ? 'bg-emerald-50 border-emerald-200 text-emerald-800' 
+                      : 'bg-rose-50 border-rose-200 text-rose-800'
+                  }`}>
+                    {isPricingValid ? (
+                      <>
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span>
+                          {language === 'TE'
+                            ? `ధరల నిష్పత్తి సరైనది: కొనుగోలు (₹${pRate}) < హోల్‌సేల్ (₹${wRate}) < రిటైల్ (₹${rRate})`
+                            : `Valid Pricing: Purchase (₹${pRate}) < Wholesale (₹${wRate}) < Retail (₹${rRate})`}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                        <span>
+                          {pRate >= wRate
+                            ? (language === 'TE' 
+                                ? `కొనుగోలు ధర (₹${pRate}) తప్పనిసరిగా హోల్‌సేల్ ధర (₹${wRate}) కంటే తక్కువగా ఉండాలి!` 
+                                : `Purchase value (₹${pRate}) must be strictly less than Wholesale value (₹${wRate})!`)
+                            : (language === 'TE' 
+                                ? `హోల్‌సేల్ ధర (₹${wRate}) తప్పనిసరిగా రిటైల్ ధర (₹${rRate}) కంటే తక్కువగా ఉండాలి!` 
+                                : `Wholesale value (₹${wRate}) must be strictly less than Retail value (₹${rRate})!`)}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                   <div>
@@ -490,12 +631,24 @@ export const StockRegistryView: React.FC = () => {
                     <input
                       type="number"
                       required
-                      min="0"
+                      min="1"
                       placeholder="e.g. 1300"
                       value={costPricePerBag}
-                      onChange={(e) => setCostPricePerBag(e.target.value)}
-                      className="w-full text-xs font-bold border border-slate-300 rounded-xl p-2.5 outline-none focus:border-orange-500 bg-white"
+                      onChange={(e) => {
+                        setCostPricePerBag(e.target.value);
+                        if (fieldErrors.costPricePerBag || fieldErrors.pricingHierarchy) {
+                          setFieldErrors((prev) => { const n = { ...prev }; delete n.costPricePerBag; delete n.pricingHierarchy; return n; });
+                        }
+                      }}
+                      className={`w-full text-xs font-bold border rounded-xl p-2.5 outline-none transition-colors ${
+                        fieldErrors.costPricePerBag || (allThreePricingEntered && !isPricingValid && pRate >= wRate)
+                          ? 'border-rose-400 bg-rose-50/30 focus:border-rose-500'
+                          : 'border-slate-300 focus:border-orange-500 bg-white'
+                      }`}
                     />
+                    {fieldErrors.costPricePerBag && (
+                      <p className="text-[10px] font-bold text-rose-600 mt-1">{fieldErrors.costPricePerBag}</p>
+                    )}
                   </div>
 
                   <div>
@@ -505,12 +658,24 @@ export const StockRegistryView: React.FC = () => {
                     <input
                       type="number"
                       required
-                      min="0"
+                      min="1"
                       placeholder="e.g. 1450"
                       value={wholesalePriceBag}
-                      onChange={(e) => setWholesalePriceBag(e.target.value)}
-                      className="w-full text-xs font-bold border border-slate-300 rounded-xl p-2.5 outline-none focus:border-orange-500 bg-white"
+                      onChange={(e) => {
+                        setWholesalePriceBag(e.target.value);
+                        if (fieldErrors.wholesalePriceBag || fieldErrors.pricingHierarchy) {
+                          setFieldErrors((prev) => { const n = { ...prev }; delete n.wholesalePriceBag; delete n.pricingHierarchy; return n; });
+                        }
+                      }}
+                      className={`w-full text-xs font-bold border rounded-xl p-2.5 outline-none transition-colors ${
+                        fieldErrors.wholesalePriceBag || (allThreePricingEntered && !isPricingValid)
+                          ? 'border-rose-400 bg-rose-50/30 focus:border-rose-500'
+                          : 'border-slate-300 focus:border-orange-500 bg-white'
+                      }`}
                     />
+                    {fieldErrors.wholesalePriceBag && (
+                      <p className="text-[10px] font-bold text-rose-600 mt-1">{fieldErrors.wholesalePriceBag}</p>
+                    )}
                   </div>
 
                   <div>
@@ -520,12 +685,24 @@ export const StockRegistryView: React.FC = () => {
                     <input
                       type="number"
                       required
-                      min="0"
+                      min="1"
                       placeholder="e.g. 1550"
                       value={retailPriceBag}
-                      onChange={(e) => setRetailPriceBag(e.target.value)}
-                      className="w-full text-xs font-bold border border-slate-300 rounded-xl p-2.5 outline-none focus:border-orange-500 bg-white"
+                      onChange={(e) => {
+                        setRetailPriceBag(e.target.value);
+                        if (fieldErrors.retailPriceBag || fieldErrors.pricingHierarchy) {
+                          setFieldErrors((prev) => { const n = { ...prev }; delete n.retailPriceBag; delete n.pricingHierarchy; return n; });
+                        }
+                      }}
+                      className={`w-full text-xs font-bold border rounded-xl p-2.5 outline-none transition-colors ${
+                        fieldErrors.retailPriceBag || (allThreePricingEntered && !isPricingValid && wRate >= rRate)
+                          ? 'border-rose-400 bg-rose-50/30 focus:border-rose-500'
+                          : 'border-slate-300 focus:border-orange-500 bg-white'
+                      }`}
                     />
+                    {fieldErrors.retailPriceBag && (
+                      <p className="text-[10px] font-bold text-rose-600 mt-1">{fieldErrors.retailPriceBag}</p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -533,7 +710,11 @@ export const StockRegistryView: React.FC = () => {
               <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200">
                 <button
                   type="button"
-                  onClick={() => setIsModalOpen(false)}
+                  onClick={() => {
+                    setIsModalOpen(false);
+                    setFormError('');
+                    setFieldErrors({});
+                  }}
                   className="px-4 py-2.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl"
                 >
                   {language === 'TE' ? 'రద్దు చేయండి' : 'Cancel'}
