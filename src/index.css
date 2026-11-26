@@ -17,6 +17,15 @@ body {
   font-family: 'Ramabhadra', 'Inter', sans-serif;
 }
 
+/* Hidden scrollbar utility */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
 /* Custom soft scrollbar */
 ::-webkit-scrollbar {
   width: 6px;

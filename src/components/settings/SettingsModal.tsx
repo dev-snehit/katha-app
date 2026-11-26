@@ -64,7 +64,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-      <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-6 sm:p-7 border border-slate-100">
+      <div className="bg-white rounded-3xl shadow-2xl max-w-xl sm:max-w-2xl w-full p-6 sm:p-7 border border-slate-100 max-h-[90vh] overflow-y-auto no-scrollbar">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2.5 text-slate-900 font-extrabold text-lg">
             <div className="p-2 rounded-xl bg-orange-50 text-[#FF5A36]">

@@ -149,7 +149,7 @@ export const UserRequestsView: React.FC = () => {
       {/* Simulate Signup Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 border border-slate-100">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg sm:max-w-xl w-full p-6 sm:p-7 border border-slate-100 max-h-[90vh] overflow-y-auto no-scrollbar">
             <h2 className="text-xl font-bold text-slate-900 mb-4">
               Simulate New User Registration
             </h2>

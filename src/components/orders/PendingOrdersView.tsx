@@ -595,7 +595,7 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
       {/* MOBILE BOTTOM-SHEET / MODAL FOR NEW ORDER */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6 bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl max-w-2xl w-full p-5 sm:p-7 border border-slate-100 max-h-[92vh] flex flex-col animate-in slide-in-from-bottom-8 sm:slide-in-from-bottom-4 duration-200">
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl max-w-3xl w-full p-5 sm:p-7 border border-slate-100 max-h-[92vh] flex flex-col animate-in slide-in-from-bottom-8 sm:slide-in-from-bottom-4 duration-200">
             
             {/* Mobile Drag Indicator Bar */}
             <div className="w-12 h-1.5 rounded-full bg-slate-300 mx-auto mb-3 sm:hidden" />
@@ -624,7 +624,7 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
               </div>
             )}
 
-            <form onSubmit={handleCreateOrder} className="space-y-4 overflow-y-auto pr-1">
+            <form onSubmit={handleCreateOrder} className="space-y-4 overflow-y-auto no-scrollbar pr-1">
               
               {/* Customer Selector (Zero auto-fill) */}
               <div>
@@ -666,10 +666,13 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
                   {itemRows.map((row, idx) => (
                     <div 
                       key={row.rowId}
-                      className="p-3 rounded-2xl bg-slate-50 border border-slate-200/80 grid grid-cols-12 gap-2 items-center"
+                      className="p-3 sm:p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-center"
                     >
                       {/* Commodity Dropdown */}
-                      <div className="col-span-12 sm:col-span-4">
+                      <div className="sm:col-span-12 md:col-span-5">
+                        <label className="block text-[11px] font-bold text-slate-600 mb-1 sm:hidden">
+                          {isTe ? 'సరుకు ఎంపిక' : 'Commodity'}
+                        </label>
                         <select
                           required
                           value={row.productId}
@@ -689,25 +692,31 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
                       </div>
 
                       {/* Unit Type */}
-                      <div className="col-span-4 sm:col-span-2">
+                      <div className="sm:col-span-4 md:col-span-2">
+                        <label className="block text-[11px] font-bold text-slate-600 mb-1 sm:hidden">
+                          {isTe ? 'యూనిట్ రకం' : 'Unit Type'}
+                        </label>
                         <select
                           value={row.unitType}
                           onChange={(e) => handleItemChange(idx, 'unitType', e.target.value as UnitType)}
                           className="w-full text-xs border border-slate-300 rounded-xl p-2.5 bg-white outline-none focus:border-orange-500 font-semibold min-h-[42px]"
                         >
-                          <option value="OUTER_BAG">{isTe ? 'బస్తా' : 'Outer Bag'}</option>
-                          <option value="INNER_BAG">{isTe ? 'ప్యాకెట్' : 'Inner Pkt'}</option>
-                          <option value="LOOSE_KG">{isTe ? 'కిలో' : 'Loose Kg'}</option>
+                          <option value="OUTER_BAG">{isTe ? 'బస్తా (Outer Bag)' : 'Outer Bag'}</option>
+                          <option value="INNER_BAG">{isTe ? 'ప్యాకెట్ (Inner Pkt)' : 'Inner Pkt'}</option>
+                          <option value="LOOSE_KG">{isTe ? 'కిలో (Loose Kg)' : 'Loose Kg'}</option>
                         </select>
                       </div>
 
                       {/* Quantity (Zero auto-fill) */}
-                      <div className="col-span-3 sm:col-span-2">
+                      <div className="sm:col-span-4 md:col-span-2">
+                        <label className="block text-[11px] font-bold text-slate-600 mb-1 sm:hidden">
+                          {isTe ? 'పరిమాణం (Qty)' : 'Quantity (Qty)'}
+                        </label>
                         <input
                           type="number"
                           min="1"
                           required
-                          placeholder={isTe ? 'పరిమాణం' : 'Qty'}
+                          placeholder={isTe ? 'పరిమాణం (Qty)' : 'Quantity (Qty)'}
                           value={row.quantity}
                           onChange={(e) => handleItemChange(idx, 'quantity', e.target.value === '' ? '' : Number(e.target.value))}
                           className="w-full text-xs font-bold border border-slate-300 rounded-xl p-2.5 bg-white outline-none focus:border-orange-500 text-center min-h-[42px]"
@@ -715,7 +724,10 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
                       </div>
 
                       {/* EDITABLE SALE VALUE / UNIT RATE */}
-                      <div className="col-span-3 sm:col-span-2">
+                      <div className="sm:col-span-4 md:col-span-2">
+                        <label className="block text-[11px] font-bold text-slate-600 mb-1 sm:hidden">
+                          {isTe ? 'ధర (Rate ₹)' : 'Rate (₹)'}
+                        </label>
                         <input
                           type="number"
                           min="0"
@@ -728,9 +740,10 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
                       </div>
 
                       {/* Rate / Total Preview & Delete */}
-                      <div className="col-span-2 sm:col-span-2 flex items-center justify-between gap-1">
-                        <div className="text-right w-full">
-                          <span className="text-[11px] font-mono font-bold text-slate-800 block">
+                      <div className="sm:col-span-12 md:col-span-1 flex items-center justify-between sm:justify-end gap-1.5 pt-1 sm:pt-0">
+                        <div className="text-right">
+                          <span className="text-[10px] text-slate-400 block md:hidden">{isTe ? 'మొత్తం:' : 'Total:'}</span>
+                          <span className="text-xs font-mono font-black text-slate-900 block">
                             ₹{((Number(row.quantity) || 0) * (Number(row.unitPrice) || 0)).toLocaleString()}
                           </span>
                         </div>
@@ -738,7 +751,7 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
                           <button
                             type="button"
                             onClick={() => handleRemoveItemRow(idx)}
-                            className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors"
+                            className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition-colors shrink-0"
                             title={isTe ? 'తొలగించండి' : 'Remove row'}
                           >
                             <Trash2 className="w-4 h-4" />
@@ -764,7 +777,7 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
               </div>
 
               {/* Hamali, Freight & CUSTOM DISCOUNT (Zero auto-fill) */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
                     {isTe ? 'హమాలీ (రూ/బస్తా)' : 'Hamali (₹/Bag)'}
@@ -772,7 +785,7 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
                   <input
                     type="number"
                     min="0"
-                    placeholder="0"
+                    placeholder={isTe ? 'ఉదా: 10' : 'e.g. 10'}
                     value={hamaliPerBag}
                     onChange={(e) => setHamaliPerBag(e.target.value === '' ? '' : Number(e.target.value))}
                     className="w-full text-xs border border-slate-300 rounded-xl p-2.5 outline-none focus:border-orange-500 font-medium min-h-[42px]"
@@ -785,7 +798,7 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
                   <input
                     type="number"
                     min="0"
-                    placeholder="0"
+                    placeholder={isTe ? 'ఉదా: 500' : 'e.g. 500'}
                     value={transportCharges}
                     onChange={(e) => setTransportCharges(e.target.value === '' ? '' : Number(e.target.value))}
                     className="w-full text-xs border border-slate-300 rounded-xl p-2.5 outline-none focus:border-orange-500 font-medium min-h-[42px]"
@@ -799,7 +812,7 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
                   <input
                     type="number"
                     min="0"
-                    placeholder="0"
+                    placeholder={isTe ? 'ఉదా: 200' : 'e.g. 200'}
                     value={discount}
                     onChange={(e) => setDiscount(e.target.value === '' ? '' : Number(e.target.value))}
                     className="w-full text-xs border border-emerald-300 bg-emerald-50/50 rounded-xl p-2.5 outline-none focus:border-emerald-500 font-bold text-emerald-800 min-h-[42px]"
@@ -808,14 +821,14 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
               </div>
 
               {/* Vehicle & Driver */}
-              <div className="grid grid-cols-2 gap-2.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
                     {isTe ? 'వాహనం నంబర్' : 'Vehicle Number'}
                   </label>
                   <input
                     type="text"
-                    placeholder="TS 09 UA 1234"
+                    placeholder={isTe ? 'ఉదా: TS 09 UA 1234' : 'e.g. TS 09 UA 1234'}
                     value={vehicleNumber}
                     onChange={(e) => setVehicleNumber(e.target.value)}
                     className="w-full text-xs border border-slate-300 rounded-xl p-2.5 outline-none focus:border-orange-500 uppercase font-mono min-h-[42px]"
@@ -827,7 +840,7 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
                   </label>
                   <input
                     type="tel"
-                    placeholder="9988776655"
+                    placeholder={isTe ? 'ఉదా: 9988776655' : 'e.g. 9988776655'}
                     value={driverPhone}
                     onChange={(e) => setDriverPhone(e.target.value)}
                     className="w-full text-xs border border-slate-300 rounded-xl p-2.5 outline-none focus:border-orange-500 font-mono min-h-[42px]"

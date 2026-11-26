@@ -205,7 +205,7 @@ export const CustomerDirectoryView: React.FC = () => {
       {/* Add Customer Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 border border-slate-100">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-lg sm:max-w-xl w-full p-6 sm:p-7 border border-slate-100 max-h-[90vh] overflow-y-auto no-scrollbar">
             <h2 className="text-xl font-black text-slate-900 mb-4">
               {language === 'TE' ? 'కొత్త కస్టమర్‌ను చేర్చండి' : 'Add New Customer'}
             </h2>
@@ -285,11 +285,11 @@ export const CustomerDirectoryView: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Business / Shop Name
+                  {language === 'TE' ? 'వ్యాపార / దుకాణం పేరు' : 'Business / Shop Name'}
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. Balaji Traders"
+                  placeholder={language === 'TE' ? 'ఉదా: Balaji Traders' : 'e.g. Balaji Traders'}
                   value={businessName}
                   onChange={(e) => setBusinessName(e.target.value)}
                   className="w-full text-xs font-medium border border-slate-300 rounded-xl p-3 outline-none focus:border-orange-500"
@@ -298,11 +298,11 @@ export const CustomerDirectoryView: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Address
+                  {language === 'TE' ? 'చిరునామా' : 'Address'}
                 </label>
                 <textarea
                   rows={2}
-                  placeholder="Shop number, street, area, city..."
+                  placeholder={language === 'TE' ? 'షాప్ నంబర్, వీధి, ప్రాంతం, ఊరు...' : 'Shop number, street, area, city...'}
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
                   className="w-full text-xs font-medium border border-slate-300 rounded-xl p-3 outline-none focus:border-orange-500"

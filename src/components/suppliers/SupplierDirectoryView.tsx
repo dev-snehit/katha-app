@@ -174,7 +174,7 @@ export const SupplierDirectoryView: React.FC = () => {
       {/* Add Supplier Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 border border-slate-100">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-lg sm:max-w-xl w-full p-6 sm:p-7 border border-slate-100 max-h-[90vh] overflow-y-auto no-scrollbar">
             <h2 className="text-xl font-black text-slate-900 mb-4">
               {language === 'TE' ? 'కొత్త సప్లయర్‌ను చేర్చండి' : 'Add New Supplier'}
             </h2>
@@ -207,14 +207,14 @@ export const SupplierDirectoryView: React.FC = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Owner Name
+                    {language === 'TE' ? 'యజమాని పేరు' : 'Owner Name'}
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g. M. Rao"
+                    placeholder={language === 'TE' ? 'ఉదా: M. Rao' : 'e.g. M. Rao'}
                     value={ownerName}
                     onChange={(e) => setOwnerName(e.target.value)}
                     className="w-full text-xs font-medium border border-slate-300 rounded-xl p-3 outline-none focus:border-orange-500"
@@ -222,12 +222,12 @@ export const SupplierDirectoryView: React.FC = () => {
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Reference Nickname *
+                    {language === 'TE' ? 'గుర్తింపు పేరు (Nickname) *' : 'Reference Nickname *'}
                   </label>
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Lalitha SBI"
+                    placeholder={language === 'TE' ? 'ఉదా: Lalitha SBI' : 'e.g. Lalitha SBI'}
                     value={nickname}
                     onChange={(e) => setNickname(e.target.value)}
                     className="w-full text-xs font-medium border border-slate-300 rounded-xl p-3 outline-none focus:border-orange-500"
@@ -237,27 +237,27 @@ export const SupplierDirectoryView: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Bank Name *
+                  {language === 'TE' ? 'బ్యాంక్ పేరు *' : 'Bank Name *'}
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. State Bank of India / HDFC"
+                  placeholder={language === 'TE' ? 'ఉదా: State Bank of India' : 'e.g. State Bank of India'}
                   value={bankName}
                   onChange={(e) => setBankName(e.target.value)}
                   className="w-full text-xs font-medium border border-slate-300 rounded-xl p-3 outline-none focus:border-orange-500"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Account Number *
+                    {language === 'TE' ? 'ఖాతా నంబర్ (Account Number) *' : 'Account Number *'}
                   </label>
                   <input
                     type="text"
                     required
-                    placeholder="30291823901"
+                    placeholder={language === 'TE' ? 'ఉదా: 30291823901' : 'e.g. 30291823901'}
                     value={accountNumber}
                     onChange={(e) => setAccountNumber(e.target.value)}
                     className="w-full text-xs font-bold border border-slate-300 rounded-xl p-3 outline-none focus:border-orange-500 font-mono"
@@ -265,12 +265,12 @@ export const SupplierDirectoryView: React.FC = () => {
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    IFSC Code *
+                    {language === 'TE' ? 'ఐఎఫ్ఎస్సీ కోడ్ (IFSC Code) *' : 'IFSC Code *'}
                   </label>
                   <input
                     type="text"
                     required
-                    placeholder="SBIN0001234"
+                    placeholder={language === 'TE' ? 'ఉదా: SBIN0001234' : 'e.g. SBIN0001234'}
                     value={ifscCode}
                     onChange={(e) => setIfscCode(e.target.value)}
                     className="w-full text-xs font-bold border border-slate-300 rounded-xl p-3 outline-none focus:border-orange-500 font-mono uppercase"

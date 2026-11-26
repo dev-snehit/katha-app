@@ -370,7 +370,7 @@ export const StockRegistryView: React.FC = () => {
       {/* Add Commodity Modal (Zero auto-fill) */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-6 sm:p-7 border border-slate-100 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-xl sm:max-w-2xl w-full p-6 sm:p-7 border border-slate-100 max-h-[90vh] overflow-y-auto no-scrollbar">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
               <h2 className="text-xl font-black text-slate-900">
                 {language === 'TE' ? 'కొత్త సరుకు / కొనుగోలు నమోదు' : 'Add New Commodity / Purchase Record'}
@@ -434,7 +434,7 @@ export const StockRegistryView: React.FC = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
                     {language === 'TE' ? 'వర్గం *' : 'Category *'}
@@ -474,7 +474,7 @@ export const StockRegistryView: React.FC = () => {
                   <input
                     type="text"
                     required
-                    placeholder={language === 'TE' ? 'ఉదా: Sri Lalitha / Naga' : 'e.g. Sri Lalitha / Naga'}
+                    placeholder={language === 'TE' ? 'ఉదా: Sri Lalitha Rice Mill' : 'e.g. Sri Lalitha Rice Mill'}
                     value={brandOrMill}
                     onChange={(e) => {
                       setBrandOrMill(e.target.value);
@@ -494,7 +494,7 @@ export const StockRegistryView: React.FC = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
                     {language === 'TE' ? 'చిన్న ప్యాకెట్ (కిలోలు) *' : 'Packet Wt (kg) *'}
@@ -504,7 +504,7 @@ export const StockRegistryView: React.FC = () => {
                     step="0.5"
                     min="0.5"
                     required
-                    placeholder="26"
+                    placeholder={language === 'TE' ? 'ఉదా: 26' : 'e.g. 26'}
                     value={innerBagWeightKg}
                     onChange={(e) => {
                       setInnerBagWeightKg(e.target.value);
@@ -530,7 +530,7 @@ export const StockRegistryView: React.FC = () => {
                     type="number"
                     min="1"
                     required
-                    placeholder="1"
+                    placeholder={language === 'TE' ? 'ఉదా: 1' : 'e.g. 1'}
                     value={innerBagsPerOuter}
                     onChange={(e) => {
                       setInnerBagsPerOuter(e.target.value);
@@ -556,7 +556,7 @@ export const StockRegistryView: React.FC = () => {
                     type="number"
                     min="0"
                     required
-                    placeholder="0"
+                    placeholder={language === 'TE' ? 'ఉదా: 50' : 'e.g. 50'}
                     value={stockPhysicalOuter}
                     onChange={(e) => {
                       setStockPhysicalOuter(e.target.value);
@@ -623,7 +623,7 @@ export const StockRegistryView: React.FC = () => {
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <label className="block text-[11px] font-bold text-slate-700 mb-1">
                       {language === 'TE' ? '1. కొనుగోలు ధర (Purchase) *' : '1. Purchase Value *'}
@@ -632,7 +632,7 @@ export const StockRegistryView: React.FC = () => {
                       type="number"
                       required
                       min="1"
-                      placeholder="e.g. 1300"
+                      placeholder={language === 'TE' ? 'ఉదా: 1300' : 'e.g. 1300'}
                       value={costPricePerBag}
                       onChange={(e) => {
                         setCostPricePerBag(e.target.value);
@@ -659,7 +659,7 @@ export const StockRegistryView: React.FC = () => {
                       type="number"
                       required
                       min="1"
-                      placeholder="e.g. 1450"
+                      placeholder={language === 'TE' ? 'ఉదా: 1450' : 'e.g. 1450'}
                       value={wholesalePriceBag}
                       onChange={(e) => {
                         setWholesalePriceBag(e.target.value);
@@ -686,7 +686,7 @@ export const StockRegistryView: React.FC = () => {
                       type="number"
                       required
                       min="1"
-                      placeholder="e.g. 1550"
+                      placeholder={language === 'TE' ? 'ఉదా: 1550' : 'e.g. 1550'}
                       value={retailPriceBag}
                       onChange={(e) => {
                         setRetailPriceBag(e.target.value);
