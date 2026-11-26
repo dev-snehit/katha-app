@@ -315,8 +315,10 @@ export type Order = z.infer<typeof OrderSchema>;
 * **So that** data integrity is maintained across alphabetic identifiers and wholesale commodity pricing.
 * **Acceptance Criteria:**
   - `Given` the "Add New Commodity / Purchase Record" form,
-  - `When` entering "Commodity Name" or "Bill Name",
-  - `Then` only alphabetic characters and spaces `[A-Za-z ]` are accepted; digits, punctuation, and special symbols are strictly disallowed.
+  - `When` entering "Commodity Name",
+  - `Then` any valid string (alphanumeric, symbols, spaces, minimum 2 characters) is accepted without character restrictions.
+  - `When` entering "Bill Name" / "Brand / Mill Name",
+  - `Then` only alphabetic characters and spaces `[A-Za-z ]` are accepted; digits, punctuation, and special symbols are disallowed.
   - `When` entering pricing values (`Purchase Value`, `Wholesale Value`, `Retail Value`),
   - `Then` the pricing values must satisfy: Wholesale value should be greater than or equal to Purchase value and retail value must be greater than or equal to wholesale value (`Purchase <= Wholesale <= Retail`).
   - `When` `Wholesale < Purchase`,

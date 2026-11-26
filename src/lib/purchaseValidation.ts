@@ -2,9 +2,10 @@
  * Purchase Record & Commodity Form Validation Engine
  * 
  * Enforces business rules:
- * 1. Commodity name and Bill name should only accept alphabetic characters [A-Za-z ]
- * 2. In Pricing values section: Wholesale value should be greater than or equal to Purchase value and retail value must be greater than or equal to wholesale value (Purchase <= Wholesale <= Retail)
- * 3. Granular field validation across category, weights, packet counts, and stock quantities
+ * 1. Commodity name: No character restriction (accepts alphanumeric characters, spaces, and symbols); required and min 2 characters.
+ * 2. Bill name / Brand / Mill: Strictly accepts only alphabetic characters [A-Za-z ]
+ * 3. In Pricing values section: Wholesale value should be greater than or equal to Purchase value and retail value must be greater than or equal to wholesale value (Purchase <= Wholesale <= Retail)
+ * 4. Granular field validation across category, weights, packet counts, and stock quantities
  */
 
 export interface PurchaseRecordInput {
@@ -55,16 +56,12 @@ export function validatePurchaseRecord(
 ): PurchaseValidationResult {
   const errors: Record<string, string> = {};
 
-  // 1. Validate Commodity Name (Only alphabets & spaces)
+  // 1. Validate Commodity Name (No character restriction; required & min 2 chars)
   const trimmedName = (data.name || '').trim();
   if (!trimmedName) {
     errors.name = language === 'TE' 
       ? 'సరుకు పేరు తప్పనిసరిగా నమోదు చేయాలి.' 
       : 'Commodity name is required.';
-  } else if (!isOnlyAlphabets(trimmedName)) {
-    errors.name = language === 'TE'
-      ? 'సరుకు పేరులో కేవలం అక్షరాలు మాత్రమే ఉండాలి (అంకెలు లేదా గుర్తులు అనుమతించబడవు).'
-      : 'Commodity name should only accept alphabetic characters (no numbers or symbols).';
   } else if (trimmedName.length < 2) {
     errors.name = language === 'TE'
       ? 'సరుకు పేరు కనీసం 2 అక్షరాలు ఉండాలి.'

@@ -81,11 +81,11 @@ describe('Purchase Record Form & Pricing Hierarchy Validation', () => {
       expect(result.errorMessage).toBeUndefined();
     });
 
-    it('rejects commodity name containing digits or special symbols', () => {
-      const invalid = { ...validForm, name: 'Sona Masoori 2026' };
-      const res = validatePurchaseRecord(invalid, 'EN');
-      expect(res.isValid).toBe(false);
-      expect(res.errors.name).toContain('should only accept alphabetic characters');
+    it('accepts commodity name containing digits, hyphens, and symbols (no character restriction)', () => {
+      const validWithSymbols = { ...validForm, name: 'Sona Masoori 2026 (No. 1 Premium - 100%)' };
+      const res = validatePurchaseRecord(validWithSymbols, 'EN');
+      expect(res.isValid).toBe(true);
+      expect(res.errors.name).toBeUndefined();
     });
 
     it('rejects bill name containing digits or special symbols', () => {
@@ -169,13 +169,13 @@ describe('Purchase Record Form & Pricing Hierarchy Validation', () => {
     it('returns localized Telugu error messages when language is TE', () => {
       const invalid = { 
         ...validForm, 
-        name: 'Rice 123',
+        brandOrMill: 'Mill 123',
         costPricePerBag: 1500, 
         wholesalePriceBag: 1400 
       };
       const res = validatePurchaseRecord(invalid, 'TE');
       expect(res.isValid).toBe(false);
-      expect(res.errors.name).toContain('కేవలం అక్షరాలు మాత్రమే');
+      expect(res.errors.brandOrMill).toContain('కేవలం అక్షరాలు మాత్రమే');
       expect(res.errors.pricingHierarchy).toContain('హోల్‌సేల్ ధర (₹1400) తప్పనిసరిగా కొనుగోలు ధర (₹1500) కంటే ఎక్కువ లేదా సమానంగా ఉండాలి');
     });
   });

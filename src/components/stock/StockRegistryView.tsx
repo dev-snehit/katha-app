@@ -397,7 +397,7 @@ export const StockRegistryView: React.FC = () => {
             <form onSubmit={handleAddProduct} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  {language === 'TE' ? 'సరుకు పేరు (ఇంగ్లీష్ - కేవలం అక్షరాలు మాత్రమే) *' : 'Commodity Name (English - Alphabets Only) *'}
+                  {language === 'TE' ? 'సరుకు పేరు (ఇంగ్లీష్) *' : 'Commodity Name (English) *'}
                 </label>
                 <input
                   type="text"
