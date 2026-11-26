@@ -15,12 +15,10 @@ export default function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const { language, isAuthenticated, currentUser, connectAndHydrateServer } = useAppStore();
 
-  // Establish persistent server connection & hydrate latest Google Sheet data upon authentication
+  // Establish persistent server connection & hydrate latest Google Sheet data on initial load
   React.useEffect(() => {
-    if (isAuthenticated) {
-      connectAndHydrateServer();
-    }
-  }, [isAuthenticated, connectAndHydrateServer]);
+    connectAndHydrateServer();
+  }, [connectAndHydrateServer]);
 
   // Authentication Gate: Require sign in every time the application is opened
   if (!isAuthenticated || !currentUser) {

@@ -1,1 +1,18 @@
-node_modules
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Dependency directories
+node_modules/
+
+# Production build artifacts
+dist/
+
+# Env files
+.env
+.env.local
+
+# OS files
+.DS_Store
+Thumbs.db

@@ -31,6 +31,17 @@ function setupDatabase() {
       sheet.appendRow(headers);
       sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold').setBackground('#fed7aa');
       sheet.setFrozenRows(1);
+    } else {
+      // Ensure missing headers are filled in row 1
+      const maxCol = Math.max(sheet.getLastColumn(), headers.length);
+      if (maxCol > 0) {
+        const currentHeaders = sheet.getRange(1, 1, 1, maxCol).getValues()[0];
+        headers.forEach((h, idx) => {
+          if (!currentHeaders[idx] || currentHeaders[idx].toString().trim() === '') {
+            sheet.getRange(1, idx + 1).setValue(h).setFontWeight('bold').setBackground('#fed7aa');
+          }
+        });
+      }
     }
   }
 

@@ -104,7 +104,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       cleanEmail += '.com';
     }
     const cleanPass = password.trim();
-    const user = get().users.find((u) => {
+    let user = get().users.find((u) => {
       const uEmail = u.email.toLowerCase();
       return (
         uEmail === cleanEmail ||
@@ -112,6 +112,19 @@ export const useAppStore = create<AppState>((set, get) => ({
           (uEmail === 'dev.snehit@gmail.com' || uEmail === 'dev.snehit@gmail'))
       );
     });
+
+    if (!user) {
+      // Refresh from server in case user was registered or approved recently
+      await get().connectAndHydrateServer();
+      user = get().users.find((u) => {
+        const uEmail = u.email.toLowerCase();
+        return (
+          uEmail === cleanEmail ||
+          ((cleanEmail === 'dev.snehit@gmail.com' || cleanEmail === 'dev.snehit@gmail') &&
+            (uEmail === 'dev.snehit@gmail.com' || uEmail === 'dev.snehit@gmail'))
+        );
+      });
+    }
 
     if (!user) {
       return { success: false, message: 'No registered account found with this email address.' };
@@ -411,12 +424,14 @@ export const useAppStore = create<AppState>((set, get) => ({
           const merged = [...currentUsers];
           Users.forEach((u: any) => {
             const idx = merged.findIndex(m => m.email.toLowerCase() === u.email.toLowerCase());
+            const passHash = u.passwordHash || u[''] || '';
             if (idx >= 0) {
               merged[idx] = {
                 ...merged[idx],
                 name: u.name || merged[idx].name,
                 role: u.role || merged[idx].role,
                 status: u.status || merged[idx].status,
+                ...(passHash ? { passwordHash: passHash } : {})
               };
             } else {
               merged.push({
@@ -427,6 +442,7 @@ export const useAppStore = create<AppState>((set, get) => ({
                 role: u.role || 'STAFF',
                 status: u.status || 'PENDING_APPROVAL',
                 createdAt: u.createdAt || new Date().toISOString(),
+                ...(passHash ? { passwordHash: passHash } : {})
               });
             }
           });
