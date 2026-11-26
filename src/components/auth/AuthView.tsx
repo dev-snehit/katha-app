@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useAppStore } from '../../store/useAppStore';
+import { useAppStore, normalizeEmail, normalizePhone } from '../../store/useAppStore';
 import { Role } from '../../contracts';
 import { hashPassword, generateTemporaryPassword } from '../../lib/crypto';
 import { 
@@ -68,43 +68,62 @@ export const AuthView: React.FC = () => {
     setRegError(null);
     setRegSuccess(null);
 
-    let cleanRegEmail = regEmail.trim().toLowerCase();
-    if (cleanRegEmail.endsWith('@gmail')) {
-      cleanRegEmail += '.com';
-    }
+    const cleanRegEmail = normalizeEmail(regEmail);
+    const cleanRegPhone = normalizePhone(regPhone);
 
     if (!regName.trim() || regName.length < 2) {
       setRegError(language === 'TE' ? 'దయచేసి మీ పూర్తి పేరును నమోదు చేయండి.' : 'Please provide your full name (minimum 2 characters).');
       return;
     }
-    if (!cleanRegEmail.includes('@') || (!cleanRegEmail.includes('.') && !cleanRegEmail.endsWith('@gmail'))) {
+    if (!cleanRegEmail.includes('@') || (!cleanRegEmail.includes('.') && !cleanRegEmail.endsWith('@gmail.com'))) {
       setRegError(language === 'TE' ? 'దయచేసి సరైన ఇమెయిల్ చిరునామాను నమోదు చేయండి.' : 'Please enter a valid email address.');
       return;
     }
-    if (!/^[6-9]\d{9}$/.test(regPhone.trim())) {
-      setRegError(language === 'TE' ? 'దయచేసి సరైన 10 అంకెల మొబైల్ నంబరును నమోదు చేయండి.' : 'Please enter a valid 10-digit Indian mobile number (e.g., 9876543210).');
+    if (!/^[6-9]\d{9}$/.test(cleanRegPhone)) {
+      setRegError(language === 'TE' ? 'మొబైల్ నంబరులో 10 అంకెలు ఉండాలి. దయచేసి ధృవీకరించండి.' : 'Mobile number should have 10 digits. Please verify.');
       return;
     }
 
-    // Check if account already exists
-    const existing = users.find(
+    // 1. Check if email already exists
+    const existingEmail = users.find(
       (u) =>
-        u.email.toLowerCase() === cleanRegEmail ||
+        normalizeEmail(u.email) === cleanRegEmail ||
         ((cleanRegEmail === 'dev.snehit@gmail.com' || cleanRegEmail === 'dev.snehit@gmail') &&
-          (u.email.toLowerCase() === 'dev.snehit@gmail.com' || u.email.toLowerCase() === 'dev.snehit@gmail'))
+          (normalizeEmail(u.email) === 'dev.snehit@gmail.com' || normalizeEmail(u.email) === 'dev.snehit@gmail'))
     );
-    if (existing) {
-      if (existing.status === 'APPROVED') {
+    if (existingEmail) {
+      if (existingEmail.status === 'APPROVED') {
         setRegError(
           language === 'TE'
-            ? 'ఈ ఇమెయిల్ ఇప్పటికే నమోదై ఆమోదించబడింది. దయచేసి లాగిన్ అవ్వండి.'
-            : 'An account with this email is already registered and approved. Please switch to Sign In.'
+            ? 'ఈ ఇమెయిల్‌తో ఖాతా ఇప్పటికే నమోదై ఉంది. దయచేసి ధృవీకరించండి లేదా లాగిన్ అవ్వండి.'
+            : 'An account with this email address already exists. Please verify your details or sign in.'
         );
       } else {
         setRegError(
           language === 'TE'
             ? 'ఈ ఇమెయిల్‌తో రిజిస్ట్రేషన్ అభ్యర్థన ఇప్పటికే సమీక్షలో ఉంది.'
-            : 'An access request for this email is already pending review.'
+            : 'An access request for this email address is already pending review.'
+        );
+      }
+      return;
+    }
+
+    // 2. Check if mobile number already exists
+    const existingPhone = users.find(
+      (u) => normalizePhone(u.phone) === cleanRegPhone
+    );
+    if (existingPhone) {
+      if (existingPhone.status === 'APPROVED') {
+        setRegError(
+          language === 'TE'
+            ? 'ఈ మొబైల్ నంబరుతో ఖాతా ఇప్పటికే నమోదై ఉంది. దయచేసి ధృవీకరించండి లేదా లాగిన్ అవ్వండి.'
+            : 'An account with this mobile number already exists. Please verify your details or sign in.'
+        );
+      } else {
+        setRegError(
+          language === 'TE'
+            ? 'ఈ మొబైల్ నంబరుతో రిజిస్ట్రేషన్ అభ్యర్థన ఇప్పటికే సమీక్షలో ఉంది.'
+            : 'An access request for this mobile number is already pending review.'
         );
       }
       return;
@@ -118,7 +137,7 @@ export const AuthView: React.FC = () => {
       id: crypto.randomUUID(),
       name: regName.trim(),
       email: cleanRegEmail,
-      phone: regPhone.trim(),
+      phone: cleanRegPhone,
       role: regRole,
       status: 'PENDING_APPROVAL' as const,
       password: tempPassword,
@@ -127,7 +146,12 @@ export const AuthView: React.FC = () => {
       createdAt: new Date().toISOString(),
     };
 
-    registerUser(newUser, tempPassword);
+    const regResult = registerUser(newUser, tempPassword);
+    if (!regResult.success) {
+      setRegError(regResult.message);
+      return;
+    }
+
     setRegSuccess(
       language === 'TE'
         ? `నమోదు పూర్తయింది! తాత్కాలిక పాస్‌వర్డ్ మీ ఇమెయిల్‌కు పంపబడింది. మొదటి లాగిన్‌లో పాస్‌వర్డ్ మార్చుకోవాల్సి ఉంటుంది.`
@@ -397,7 +421,7 @@ export const AuthView: React.FC = () => {
                     required
                     maxLength={10}
                     value={regPhone}
-                    onChange={(e) => setRegPhone(e.target.value)}
+                    onChange={(e) => setRegPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                     placeholder="9876543210"
                     className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-medium text-slate-800 focus:bg-white focus:outline-none focus:border-[#FF5A36] transition-all"
                   />

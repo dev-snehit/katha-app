@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useAppStore } from '../../store/useAppStore';
+import { useAppStore, normalizeEmail, normalizePhone } from '../../store/useAppStore';
 import { User, Role } from '../../contracts';
 import { ShieldCheck, UserCheck, UserX, Clock, Plus } from 'lucide-react';
 import { useModalDismiss } from '../../hooks/useModalDismiss';
@@ -12,9 +12,11 @@ export const UserRequestsView: React.FC = () => {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [role, setRole] = useState<Role>('STAFF');
+  const [modalError, setModalError] = useState<string | null>(null);
 
   const closeModal = () => {
     setIsModalOpen(false);
+    setModalError(null);
   };
 
   useModalDismiss(isModalOpen, closeModal);
@@ -24,21 +26,37 @@ export const UserRequestsView: React.FC = () => {
 
   const handleSimulateSignup = (e: React.FormEvent) => {
     e.preventDefault();
+    setModalError(null);
+
+    const cleanEmail = normalizeEmail(email);
+    const cleanPhone = normalizePhone(phone);
+
+    if (cleanPhone.length !== 10) {
+      setModalError('Mobile number should have 10 digits. Please verify.');
+      return;
+    }
+
     const newUser: User = {
       id: crypto.randomUUID ? crypto.randomUUID() : `user-${Date.now()}`,
-      name,
-      email,
-      phone,
+      name: name.trim(),
+      email: cleanEmail,
+      phone: cleanPhone,
       role,
       status: 'PENDING_APPROVAL',
       createdAt: new Date().toISOString(),
     };
 
-    registerUser(newUser);
+    const res = registerUser(newUser);
+    if (!res.success) {
+      setModalError(res.message);
+      return;
+    }
+
     setIsModalOpen(false);
     setName('');
     setEmail('');
     setPhone('');
+    setModalError(null);
   };
 
   return (
@@ -181,6 +199,11 @@ export const UserRequestsView: React.FC = () => {
 
             <form onSubmit={handleSimulateSignup} className="flex-1 flex flex-col min-h-0">
               <div className="flex-1 overflow-y-auto no-scrollbar pr-1 space-y-4">
+                {modalError && (
+                  <div className="p-3 text-xs bg-rose-50 text-rose-700 rounded-lg border border-rose-200 font-medium">
+                    {modalError}
+                  </div>
+                )}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -219,9 +242,10 @@ export const UserRequestsView: React.FC = () => {
                     <input
                       type="tel"
                       required
+                      maxLength={10}
                       placeholder="9848011223"
                       value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
+                      onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                       className="w-full text-sm border border-slate-300 rounded-lg p-2.5 outline-none focus:border-indigo-500 font-mono"
                     />
                   </div>

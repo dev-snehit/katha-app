@@ -56,7 +56,7 @@ export interface AppState {
 
   // Actions & Mutators
   setCurrentUser: (user: User | null) => void;
-  registerUser: (user: User, tempPassword?: string) => void;
+  registerUser: (user: User, tempPassword?: string) => { success: boolean; message: string; user?: User };
   approveUser: (userId: string, role?: Role) => void;
   denyUser: (userId: string) => void;
 
@@ -90,6 +90,18 @@ function saveToStorage<T>(key: string, value: T): void {
     // ignore
   }
 }
+
+export const normalizeEmail = (email: string): string => {
+  let clean = (email || '').trim().toLowerCase();
+  if (clean.endsWith('@gmail')) {
+    clean += '.com';
+  }
+  return clean;
+};
+
+export const normalizePhone = (phone: string): string => {
+  return (phone || '').replace(/\D/g, '').slice(-10);
+};
 
 export const applyBaseFontSize = (size: number) => {
   if (typeof document !== 'undefined') {
@@ -548,10 +560,54 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   
   registerUser: (user, tempPassword) => {
+    const normEmail = normalizeEmail(user.email);
+    const normPhone = normalizePhone(user.phone);
+
+    // 1. Check duplicate email: no user allowed to register with already used email
+    const existingEmail = get().users.find((u) => {
+      const uEmail = normalizeEmail(u.email);
+      return (
+        uEmail === normEmail ||
+        ((normEmail === 'dev.snehit@gmail.com' || normEmail === 'dev.snehit@gmail') &&
+          (uEmail === 'dev.snehit@gmail.com' || uEmail === 'dev.snehit@gmail'))
+      );
+    });
+
+    if (existingEmail) {
+      return {
+        success: false,
+        message:
+          existingEmail.status === 'APPROVED'
+            ? 'An account with this email address already exists. Please sign in or use another email.'
+            : 'An access request for this email address is already pending review.',
+        user: undefined,
+      };
+    }
+
+    // 2. Check duplicate phone: no user allowed to register with already used mobile number
+    if (normPhone) {
+      const existingPhone = get().users.find((u) => {
+        const uPhone = normalizePhone(u.phone);
+        return uPhone.length >= 10 && uPhone === normPhone;
+      });
+
+      if (existingPhone) {
+        return {
+          success: false,
+          message:
+            existingPhone.status === 'APPROVED'
+              ? 'An account with this mobile number already exists. Please verify and use another mobile number.'
+              : 'An access request for this mobile number is already pending review.',
+          user: undefined,
+        };
+      }
+    }
+
     const updated = [...get().users, user];
     saveToStorage('users', updated);
     set({ users: updated });
     get().triggerSync('registerUser', { user, tempPassword });
+    return { success: true, message: 'User registered successfully.', user };
   },
   
   approveUser: (userId, role) => {

@@ -9,10 +9,7 @@ describe('Authentication & Session Gate', () => {
   beforeEach(() => {
     useAppStore.getState().logout();
     useAppStore.setState({
-      users: [
-        INITIAL_ADMIN_USER,
-        ...useAppStore.getState().users.filter(u => u.email.toLowerCase() !== INITIAL_ADMIN_USER.email.toLowerCase())
-      ]
+      users: [INITIAL_ADMIN_USER]
     });
   });
 
@@ -102,7 +99,7 @@ describe('Authentication & Session Gate', () => {
       id: tempId,
       name: 'Temp User',
       email: 'tempuser@example.com',
-      phone: '9876543210',
+      phone: '9876543211',
       role: 'STAFF',
       status: 'APPROVED',
       password: tempPass,
@@ -188,6 +185,131 @@ describe('Authentication & Session Gate', () => {
     expect(useAppStore.getState().currentUser).toBeNull();
     const rawAfterLogout = localStorage.getItem('katha_wholesale_currentUser');
     expect(rawAfterLogout ? JSON.parse(rawAfterLogout) : null).toBeNull();
+  });
+
+  it('rejects user registration if email already exists', () => {
+    // 1. Initial admin has email dev.snehit@gmail.com
+    const duplicateEmailRes = useAppStore.getState().registerUser({
+      id: 'dup-email-1',
+      name: 'Duplicate Email User',
+      email: 'dev.snehit@gmail.com',
+      phone: '9848099881',
+      role: 'STAFF',
+      status: 'PENDING_APPROVAL',
+      createdAt: new Date().toISOString()
+    });
+
+    expect(duplicateEmailRes.success).toBe(false);
+    expect(duplicateEmailRes.message).toContain('email address already exists');
+
+    // 2. Also check case-insensitive and @gmail shorthand
+    const shorthandRes = useAppStore.getState().registerUser({
+      id: 'dup-email-2',
+      name: 'Duplicate Shorthand User',
+      email: 'DEV.SNEHIT@GMAIL',
+      phone: '9848099882',
+      role: 'STAFF',
+      status: 'PENDING_APPROVAL',
+      createdAt: new Date().toISOString()
+    });
+
+    expect(shorthandRes.success).toBe(false);
+    expect(shorthandRes.message).toContain('email address already exists');
+  });
+
+  it('rejects user registration if mobile number already exists', () => {
+    // 1. Register a user first
+    const res1 = useAppStore.getState().registerUser({
+      id: 'user-unique-phone',
+      name: 'First Phone User',
+      email: 'firstphone@example.com',
+      phone: '9848055555',
+      role: 'STAFF',
+      status: 'APPROVED',
+      createdAt: new Date().toISOString()
+    });
+    expect(res1.success).toBe(true);
+
+    // 2. Try registering another user with identical 10-digit mobile number
+    const resDuplicate = useAppStore.getState().registerUser({
+      id: 'user-dup-phone',
+      name: 'Second Phone User',
+      email: 'secondphone@example.com',
+      phone: '9848055555',
+      role: 'STAFF',
+      status: 'PENDING_APPROVAL',
+      createdAt: new Date().toISOString()
+    });
+    expect(resDuplicate.success).toBe(false);
+    expect(resDuplicate.message).toContain('mobile number already exists');
+
+    // 3. Try with formatted variation (+91 98480 55555)
+    const resFormatted = useAppStore.getState().registerUser({
+      id: 'user-dup-phone-formatted',
+      name: 'Third Phone User',
+      email: 'thirdphone@example.com',
+      phone: '+91 98480 55555',
+      role: 'CUSTOMER',
+      status: 'PENDING_APPROVAL',
+      createdAt: new Date().toISOString()
+    });
+    expect(resFormatted.success).toBe(false);
+    expect(resFormatted.message).toContain('mobile number already exists');
+  });
+
+  it('rejects registration when email or phone has pending access request', () => {
+    // Register pending request
+    const resPending = useAppStore.getState().registerUser({
+      id: 'user-pending-1',
+      name: 'Pending User',
+      email: 'pendinguser@example.com',
+      phone: '9848066666',
+      role: 'STAFF',
+      status: 'PENDING_APPROVAL',
+      createdAt: new Date().toISOString()
+    });
+    expect(resPending.success).toBe(true);
+
+    // Attempting duplicate email
+    const resDupEmail = useAppStore.getState().registerUser({
+      id: 'user-pending-dup-email',
+      name: 'Another User',
+      email: 'pendinguser@example.com',
+      phone: '9848077777',
+      role: 'STAFF',
+      status: 'PENDING_APPROVAL',
+      createdAt: new Date().toISOString()
+    });
+    expect(resDupEmail.success).toBe(false);
+    expect(resDupEmail.message).toContain('pending review');
+
+    // Attempting duplicate mobile
+    const resDupMobile = useAppStore.getState().registerUser({
+      id: 'user-pending-dup-mobile',
+      name: 'Yet Another User',
+      email: 'otheruser@example.com',
+      phone: '9848066666',
+      role: 'STAFF',
+      status: 'PENDING_APPROVAL',
+      createdAt: new Date().toISOString()
+    });
+    expect(resDupMobile.success).toBe(false);
+    expect(resDupMobile.message).toContain('pending review');
+  });
+
+  it('allows registration when both email and phone are unique', () => {
+    const res = useAppStore.getState().registerUser({
+      id: 'user-unique-both',
+      name: 'Unique User',
+      email: 'completelyunique@example.com',
+      phone: '9848019999',
+      role: 'STAFF',
+      status: 'PENDING_APPROVAL',
+      createdAt: new Date().toISOString()
+    });
+
+    expect(res.success).toBe(true);
+    expect(res.user?.email).toBe('completelyunique@example.com');
   });
 });
 
