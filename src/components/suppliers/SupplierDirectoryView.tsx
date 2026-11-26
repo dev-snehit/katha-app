@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { en } from '../../locales/en';
 import { te } from '../../locales/te';
@@ -6,9 +6,11 @@ import { getLocalizedText } from '../../lib/bilingualHelper';
 import { Supplier } from '../../contracts';
 import { Building2, Plus, Copy, Check, CreditCard, Inbox, Pencil } from 'lucide-react';
 import { useModalDismiss } from '../../hooks/useModalDismiss';
+import { useRouter } from '../../lib/router';
 
 export const SupplierDirectoryView: React.FC = () => {
   const { suppliers, language, currentUser, addSupplier, updateSupplier } = useAppStore();
+  const { route, navigate } = useRouter();
   const isAdminOrOwner = currentUser?.role === 'ADMIN' || currentUser?.role === 'OWNER';
   const t = language === 'TE' ? te : en;
 
@@ -23,6 +25,46 @@ export const SupplierDirectoryView: React.FC = () => {
   const [nickname, setNickname] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
+  // Synchronize modal state with URL route (e.g. #/suppliers/new, #/suppliers/edit/:id)
+  useEffect(() => {
+    if (route.view !== 'suppliers') {
+      setIsModalOpen(false);
+      setEditingSupplier(null);
+      return;
+    }
+
+    if (route.subView === 'new') {
+      setEditingSupplier(null);
+      setBusinessName('');
+      setBusinessNameTe('');
+      setOwnerName('');
+      setBankName('');
+      setAccountNumber('');
+      setIfscCode('');
+      setNickname('');
+      setIsModalOpen(true);
+    } else if (route.subView === 'edit' && route.paramId) {
+      const s = suppliers.find((item) => item.id === route.paramId);
+      if (s) {
+        setEditingSupplier(s);
+        setBusinessName(s.businessName || '');
+        setBusinessNameTe(s.businessNameTe || '');
+        setOwnerName(s.ownerName || '');
+        setBankName(s.bankName || '');
+        setAccountNumber(s.accountNumber || '');
+        setIfscCode(s.ifscCode || '');
+        setNickname(s.nickname || '');
+        setIsModalOpen(true);
+      } else {
+        setIsModalOpen(false);
+        setEditingSupplier(null);
+      }
+    } else {
+      setIsModalOpen(false);
+      setEditingSupplier(null);
+    }
+  }, [route.view, route.subView, route.paramId, suppliers]);
+
   const closeModal = () => {
     setIsModalOpen(false);
     setEditingSupplier(null);
@@ -33,20 +75,19 @@ export const SupplierDirectoryView: React.FC = () => {
     setAccountNumber('');
     setIfscCode('');
     setNickname('');
+    if (route.view === 'suppliers' && route.subView) {
+      navigate('/suppliers');
+    }
   };
 
   useModalDismiss(isModalOpen, closeModal);
 
   const handleOpenEditModal = (s: Supplier) => {
-    setEditingSupplier(s);
-    setBusinessName(s.businessName || '');
-    setBusinessNameTe(s.businessNameTe || '');
-    setOwnerName(s.ownerName || '');
-    setBankName(s.bankName || '');
-    setAccountNumber(s.accountNumber || '');
-    setIfscCode(s.ifscCode || '');
-    setNickname(s.nickname || '');
-    setIsModalOpen(true);
+    navigate(`/suppliers/edit/${encodeURIComponent(s.id)}`);
+  };
+
+  const handleOpenAddModal = () => {
+    navigate('/suppliers/new');
   };
 
   const handleAddSupplier = (e: React.FormEvent) => {
@@ -114,7 +155,7 @@ export const SupplierDirectoryView: React.FC = () => {
         </div>
 
         <button
-          onClick={() => setIsModalOpen(true)}
+          onClick={handleOpenAddModal}
           className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white font-black text-sm px-6 py-3 rounded-full shadow-lg shadow-orange-500/25 transition-all active:scale-95"
         >
           <Plus className="w-4 h-4 stroke-[3]" />
@@ -135,7 +176,7 @@ export const SupplierDirectoryView: React.FC = () => {
             Add your primary rice mills and grain suppliers along with their bank account numbers and IFSC codes.
           </p>
           <button
-            onClick={() => setIsModalOpen(true)}
+            onClick={handleOpenAddModal}
             className="inline-flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs px-5 py-2.5 rounded-full shadow-md"
           >
             <Plus className="w-4 h-4" />

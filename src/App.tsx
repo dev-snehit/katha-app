@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { Navbar } from './components/Navbar';
 import { PendingOrdersView } from './components/orders/PendingOrdersView';
@@ -10,29 +10,99 @@ import { UserRequestsView } from './components/admin/UserRequestsView';
 import { SettingsModal } from './components/settings/SettingsModal';
 import { AuthView } from './components/auth/AuthView';
 import { useAppStore } from './store/useAppStore';
+import { 
+  useRouter, 
+  updateDocumentTitle, 
+  getIntendedRoute, 
+  setIntendedRoute, 
+  clearIntendedRoute 
+} from './lib/router';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('orders');
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const { route, navigate, goBack } = useRouter();
+  const [lastActiveTab, setLastActiveTab] = useState<string>('orders');
   const { language, isAuthenticated, currentUser, connectAndHydrateServer, isConnectingServer } = useAppStore();
 
   // Establish persistent server connection & hydrate latest Google Sheet data on initial load
-  React.useEffect(() => {
+  useEffect(() => {
     connectAndHydrateServer();
   }, [connectAndHydrateServer]);
+
+  // Keep document title synchronized with active route and bilingual locale
+  useEffect(() => {
+    updateDocumentTitle(route, language);
+  }, [route, language]);
+
+  // Derive active tab from route
+  const activeTab = route.view === 'settings' 
+    ? lastActiveTab 
+    : (route.view === 'auth' ? 'orders' : route.view);
+
+  // Track the last non-settings view tab
+  useEffect(() => {
+    if (route.view !== 'settings' && route.view !== 'auth') {
+      setLastActiveTab(route.view);
+    }
+  }, [route.view]);
+
+  // Redirect non-admin users away from the admin route
+  useEffect(() => {
+    if (isAuthenticated && currentUser && route.view === 'admin' && currentUser.role !== 'ADMIN') {
+      navigate('/orders', { replace: true });
+    }
+  }, [isAuthenticated, currentUser, route.view, navigate]);
+
+  // Handle post-login redirection to intended bookmarked route
+  useEffect(() => {
+    if (isAuthenticated && currentUser) {
+      const intended = getIntendedRoute();
+      if (intended) {
+        clearIntendedRoute();
+        navigate(intended, { replace: true });
+      } else if (route.view === 'auth') {
+        navigate('/orders', { replace: true });
+      }
+    }
+  }, [isAuthenticated, currentUser, route.view, navigate]);
+
+  // Remember intended protected route when unauthenticated
+  useEffect(() => {
+    if (!isAuthenticated || !currentUser) {
+      if (route.view !== 'auth') {
+        const fullCurrentRoute = window.location.hash || `#${route.path}`;
+        if (fullCurrentRoute !== '#/orders' && fullCurrentRoute !== '#/' && fullCurrentRoute !== '#') {
+          setIntendedRoute(fullCurrentRoute);
+        }
+      }
+    }
+  }, [isAuthenticated, currentUser, route]);
 
   // Authentication Gate: Require sign in if no active persistent authenticated session exists
   if (!isAuthenticated || !currentUser) {
     return <AuthView />;
   }
 
+  const isSettingsOpen = route.view === 'settings' || Boolean(route.queryParams.settings);
+
+  const handleTabChange = (tab: string) => {
+    navigate(`/${tab}`);
+  };
+
+  const handleCloseSettings = () => {
+    if (route.view === 'settings') {
+      navigate(`/${lastActiveTab || 'orders'}`);
+    } else {
+      goBack(`/${lastActiveTab || 'orders'}`);
+    }
+  };
+
   return (
     <div className={`min-h-screen bg-[#F8F9FB] flex flex-col ${language === 'TE' ? 'font-telugu' : ''}`}>
       {/* Navigation */}
       <Navbar
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        onOpenSettings={() => setIsSettingsOpen(true)}
+        setActiveTab={handleTabChange}
+        onOpenSettings={() => navigate('/settings')}
       />
 
       {/* Main Container (with pb-28 for mobile thumb reach above sticky bottom nav) */}
@@ -44,7 +114,7 @@ export default function App() {
           }`}
           aria-hidden={isConnectingServer}
         >
-          {activeTab === 'orders' && <PendingOrdersView setActiveTab={setActiveTab} />}
+          {activeTab === 'orders' && <PendingOrdersView setActiveTab={handleTabChange} />}
           {activeTab === 'stock' && <StockRegistryView />}
           {activeTab === 'customers' && <CustomerDirectoryView />}
           {activeTab === 'suppliers' && <SupplierDirectoryView />}
@@ -117,7 +187,7 @@ export default function App() {
       {/* Settings Modal */}
       <SettingsModal
         isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
+        onClose={handleCloseSettings}
       />
     </div>
   );

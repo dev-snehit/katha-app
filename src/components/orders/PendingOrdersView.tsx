@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { en } from '../../locales/en';
 import { te } from '../../locales/te';
@@ -6,6 +6,7 @@ import { getLocalizedText } from '../../lib/bilingualHelper';
 import { Order, OrderItem, UnitType } from '../../contracts';
 import { AlertDialog, DialogType } from '../ui/AlertDialog';
 import { useModalDismiss } from '../../hooks/useModalDismiss';
+import { useRouter } from '../../lib/router';
 import { 
   Plus, 
   Trash2, 
@@ -43,6 +44,8 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
     markOrderDelivered 
   } = useAppStore();
 
+  const { route, navigate } = useRouter();
+
   const isAdminOrOwner = currentUser?.role === 'ADMIN' || currentUser?.role === 'OWNER';
   const t = language === 'TE' ? te : en;
   const isTe = language === 'TE';
@@ -50,6 +53,61 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
+
+  // Synchronize modal state with URL route (e.g. #/orders/new, #/orders/edit/:id)
+  useEffect(() => {
+    if (route.view !== 'orders') {
+      setIsModalOpen(false);
+      setEditingOrder(null);
+      return;
+    }
+
+    if (route.subView === 'new') {
+      setEditingOrder(null);
+      setSelectedCustomerId('');
+      setItemRows([{ rowId: 'row-1', productId: '', unitType: 'OUTER_BAG', quantity: '', unitPrice: '' }]);
+      setHamaliPerBag('');
+      setTransportCharges('');
+      setDiscount('');
+      setVehicleNumber('');
+      setDriverPhone('');
+      setErrorMessage('');
+      setIsModalOpen(true);
+    } else if (route.subView === 'edit' && route.paramId) {
+      const order = orders.find((o) => o.id === route.paramId || o.orderNumber === route.paramId);
+      if (order) {
+        setEditingOrder(order);
+        setSelectedCustomerId(order.customerId);
+        if (order.items && order.items.length > 0) {
+          setItemRows(
+            order.items.map((it, idx) => ({
+              rowId: `row-${idx + 1}-${Date.now()}`,
+              productId: it.productId,
+              unitType: it.unitType,
+              quantity: it.quantity,
+              unitPrice: it.unitPrice,
+            }))
+          );
+        } else {
+          setItemRows([{ rowId: 'row-1', productId: '', unitType: 'OUTER_BAG', quantity: '', unitPrice: '' }]);
+        }
+        const hamaliPer = order.totalOuterBags > 0 ? (order.hamaliCharges || 0) / order.totalOuterBags : '';
+        setHamaliPerBag(hamaliPer !== '' && !isNaN(Number(hamaliPer)) ? Number(hamaliPer) : '');
+        setTransportCharges(order.transportCharges || '');
+        setDiscount(order.discount || '');
+        setVehicleNumber(order.vehicleNumber || '');
+        setDriverPhone(order.driverPhone || '');
+        setErrorMessage('');
+        setIsModalOpen(true);
+      } else {
+        setIsModalOpen(false);
+        setEditingOrder(null);
+      }
+    } else {
+      setIsModalOpen(false);
+      setEditingOrder(null);
+    }
+  }, [route.view, route.subView, route.paramId, orders]);
 
   const closeModal = () => {
     setIsModalOpen(false);
@@ -62,6 +120,9 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
     setVehicleNumber('');
     setDriverPhone('');
     setErrorMessage('');
+    if (route.view === 'orders' && route.subView) {
+      navigate('/orders');
+    }
   };
 
   useModalDismiss(isModalOpen, closeModal);
@@ -234,29 +295,7 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
   const grandTotal = Math.max(0, subtotal + totalHamali + totalFreight - totalDiscount);
 
   const handleOpenEditOrder = (order: Order) => {
-    setEditingOrder(order);
-    setSelectedCustomerId(order.customerId);
-    if (order.items && order.items.length > 0) {
-      setItemRows(
-        order.items.map((it, idx) => ({
-          rowId: `row-${idx + 1}-${Date.now()}`,
-          productId: it.productId,
-          unitType: it.unitType,
-          quantity: it.quantity,
-          unitPrice: it.unitPrice,
-        }))
-      );
-    } else {
-      setItemRows([{ rowId: 'row-1', productId: '', unitType: 'OUTER_BAG', quantity: '', unitPrice: '' }]);
-    }
-    const hamaliPer = order.totalOuterBags > 0 ? (order.hamaliCharges || 0) / order.totalOuterBags : '';
-    setHamaliPerBag(hamaliPer !== '' && !isNaN(Number(hamaliPer)) ? Number(hamaliPer) : '');
-    setTransportCharges(order.transportCharges || '');
-    setDiscount(order.discount || '');
-    setVehicleNumber(order.vehicleNumber || '');
-    setDriverPhone(order.driverPhone || '');
-    setErrorMessage('');
-    setIsModalOpen(true);
+    navigate(`/orders/edit/${encodeURIComponent(order.id)}`);
   };
 
   const handleOpenNewOrder = () => {
@@ -268,7 +307,7 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
           : 'You have not added any commodities yet. Please add Rice or Flour bags in the Stock Registry before placing an order.',
         'warning',
         isTe ? 'సరుకులను చేర్చండి' : 'Add Commodities Now',
-        () => setActiveTab && setActiveTab('stock')
+        () => navigate('/stock/new')
       );
       return;
     }
@@ -281,21 +320,13 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
           : 'You have not added any customers yet. Please add a customer with a 10-digit mobile number first.',
         'warning',
         isTe ? 'కస్టమర్‌ను చేర్చండి' : 'Add Customer Now',
-        () => setActiveTab && setActiveTab('customers')
+        () => navigate('/customers/new')
       );
       return;
     }
 
-    // Reset to clean empty form with ZERO auto-fill
-    setSelectedCustomerId('');
-    setItemRows([{ rowId: 'row-1', productId: '', unitType: 'OUTER_BAG', quantity: '', unitPrice: '' }]);
-    setHamaliPerBag('');
-    setTransportCharges('');
-    setDiscount('');
-    setVehicleNumber('');
-    setDriverPhone('');
     setErrorMessage('');
-    setIsModalOpen(true);
+    navigate('/orders/new');
   };
 
   const handleCreateOrder = (e: React.FormEvent) => {

@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAppStore, normalizeEmail, normalizePhone } from '../../store/useAppStore';
 import { User, Role } from '../../contracts';
 import { ShieldCheck, UserCheck, UserX, Clock, Plus } from 'lucide-react';
 import { useModalDismiss } from '../../hooks/useModalDismiss';
+import { useRouter } from '../../lib/router';
 
 export const UserRequestsView: React.FC = () => {
   const { users, approveUser, denyUser, registerUser } = useAppStore();
+  const { route, navigate } = useRouter();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [name, setName] = useState('');
@@ -14,9 +16,28 @@ export const UserRequestsView: React.FC = () => {
   const [role, setRole] = useState<Role>('STAFF');
   const [modalError, setModalError] = useState<string | null>(null);
 
+  // Synchronize modal state with URL route (e.g. #/admin/new-user)
+  useEffect(() => {
+    if (route.view !== 'admin') {
+      setIsModalOpen(false);
+      return;
+    }
+
+    if (route.subView === 'new-user') {
+      setIsModalOpen(true);
+      setModalError(null);
+    } else {
+      setIsModalOpen(false);
+      setModalError(null);
+    }
+  }, [route.view, route.subView]);
+
   const closeModal = () => {
     setIsModalOpen(false);
     setModalError(null);
+    if (route.view === 'admin' && route.subView) {
+      navigate('/admin');
+    }
   };
 
   useModalDismiss(isModalOpen, closeModal);
@@ -77,7 +98,7 @@ export const UserRequestsView: React.FC = () => {
         </div>
 
         <button
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => navigate('/admin/new-user')}
           className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm px-4 py-2.5 rounded-xl shadow-md transition-all active:scale-95"
         >
           <Plus className="w-4 h-4" />

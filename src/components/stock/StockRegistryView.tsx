@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { en } from '../../locales/en';
 import { te } from '../../locales/te';
@@ -7,50 +7,17 @@ import { Product } from '../../contracts';
 import { Package, Plus, Layers, Inbox, Tag, CheckCircle2, AlertTriangle, Pencil } from 'lucide-react';
 import { validatePurchaseRecord, isPricingHierarchyValid } from '../../lib/purchaseValidation';
 import { useModalDismiss } from '../../hooks/useModalDismiss';
+import { useRouter } from '../../lib/router';
 
 export const StockRegistryView: React.FC = () => {
   const { inventory, language, currentUser, unpackProduct, addProduct, updateProduct } = useAppStore();
+  const { route, navigate } = useRouter();
   const isAdminOrOwner = currentUser?.role === 'ADMIN' || currentUser?.role === 'OWNER';
   const t = language === 'TE' ? te : en;
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setEditingProduct(null);
-    setFormError('');
-    setFieldErrors({});
-    setName('');
-    setNameTe('');
-    setCategory('');
-    setBrandOrMill('');
-    setInnerBagWeightKg('');
-    setInnerBagsPerOuter('');
-    setStockPhysicalOuter('');
-    setCostPricePerBag('');
-    setWholesalePriceBag('');
-    setRetailPriceBag('');
-  };
-
-  const handleOpenEditModal = (prod: Product) => {
-    setEditingProduct(prod);
-    setName(prod.name || '');
-    setNameTe(prod.nameTe || '');
-    setCategory(prod.category || '');
-    setBrandOrMill(prod.brandOrMill || '');
-    setInnerBagWeightKg(String(prod.innerBagWeightKg || ''));
-    setInnerBagsPerOuter(String(prod.innerBagsPerOuter || ''));
-    setStockPhysicalOuter(String(prod.stockPhysicalOuter || ''));
-    setCostPricePerBag(String(prod.costPricePerBag || ''));
-    setWholesalePriceBag(String(prod.wholesalePriceBag || ''));
-    setRetailPriceBag(String(prod.retailPriceBag || ''));
-    setFieldErrors({});
-    setFormError('');
-    setIsModalOpen(true);
-  };
-
-  useModalDismiss(isModalOpen, closeModal);
   // Zero auto-fill: All inputs start empty
   const [name, setName] = useState('');
   const [nameTe, setNameTe] = useState('');
@@ -62,8 +29,79 @@ export const StockRegistryView: React.FC = () => {
   const [costPricePerBag, setCostPricePerBag] = useState('');
   const [wholesalePriceBag, setWholesalePriceBag] = useState('');
   const [retailPriceBag, setRetailPriceBag] = useState('');
+
   const [formError, setFormError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  // Synchronize modal state with URL route (e.g. #/stock/new, #/stock/edit/:id, back/forward history)
+  useEffect(() => {
+    if (route.view !== 'stock') {
+      setIsModalOpen(false);
+      setEditingProduct(null);
+      return;
+    }
+
+    if (route.subView === 'new') {
+      setEditingProduct(null);
+      setName('');
+      setNameTe('');
+      setCategory('');
+      setBrandOrMill('');
+      setInnerBagWeightKg('');
+      setInnerBagsPerOuter('');
+      setStockPhysicalOuter('');
+      setCostPricePerBag('');
+      setWholesalePriceBag('');
+      setRetailPriceBag('');
+      setFieldErrors({});
+      setFormError('');
+      setIsModalOpen(true);
+    } else if (route.subView === 'edit' && route.paramId) {
+      const prod = inventory.find((p) => p.id === route.paramId);
+      if (prod) {
+        setEditingProduct(prod);
+        setName(prod.name || '');
+        setNameTe(prod.nameTe || '');
+        setCategory(prod.category || '');
+        setBrandOrMill(prod.brandOrMill || '');
+        setInnerBagWeightKg(String(prod.innerBagWeightKg || ''));
+        setInnerBagsPerOuter(String(prod.innerBagsPerOuter || ''));
+        setStockPhysicalOuter(String(prod.stockPhysicalOuter || ''));
+        setCostPricePerBag(String(prod.costPricePerBag || ''));
+        setWholesalePriceBag(String(prod.wholesalePriceBag || ''));
+        setRetailPriceBag(String(prod.retailPriceBag || ''));
+        setFieldErrors({});
+        setFormError('');
+        setIsModalOpen(true);
+      } else {
+        setIsModalOpen(false);
+        setEditingProduct(null);
+      }
+    } else {
+      setIsModalOpen(false);
+      setEditingProduct(null);
+    }
+  }, [route.view, route.subView, route.paramId, inventory]);
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setEditingProduct(null);
+    setFormError('');
+    setFieldErrors({});
+    if (route.view === 'stock' && route.subView) {
+      navigate('/stock');
+    }
+  };
+
+  const handleOpenEditModal = (prod: Product) => {
+    navigate(`/stock/edit/${encodeURIComponent(prod.id)}`);
+  };
+
+  const handleOpenAddModal = () => {
+    navigate('/stock/new');
+  };
+
+  useModalDismiss(isModalOpen, closeModal);
 
   const totalWarehouseBags = inventory.reduce((sum, p) => sum + p.stockPhysicalOuter, 0);
   const totalReservedBags = inventory.reduce((sum, p) => sum + p.stockReservedOuter, 0);
@@ -201,10 +239,7 @@ export const StockRegistryView: React.FC = () => {
         </div>
 
         <button
-          onClick={() => {
-            setFormError('');
-            setIsModalOpen(true);
-          }}
+          onClick={handleOpenAddModal}
           className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white font-black text-sm px-6 py-3 rounded-full shadow-lg shadow-orange-500/25 transition-all active:scale-95"
         >
           <Plus className="w-4 h-4 stroke-[3]" />
@@ -227,10 +262,7 @@ export const StockRegistryView: React.FC = () => {
               : 'Your stock list is completely empty. Tap below to register your first Rice variety or Flour bag with purchase, wholesale, and retail values.'}
           </p>
           <button
-            onClick={() => {
-              setFormError('');
-              setIsModalOpen(true);
-            }}
+            onClick={handleOpenAddModal}
             className="inline-flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs px-5 py-2.5 rounded-full shadow-md"
           >
             <Plus className="w-4 h-4" />

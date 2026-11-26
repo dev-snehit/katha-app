@@ -4,6 +4,7 @@ import { en } from '../locales/en';
 import { te } from '../locales/te';
 import { Role } from '../contracts';
 import { AlertDialog } from './ui/AlertDialog';
+import { navigate, clearIntendedRoute } from '../lib/router';
 import { 
   Flame, 
   Truck, 
@@ -345,7 +346,11 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
           ? 'వర్క్‌స్పేస్‌ను తిరిగి అన్‌లాక్ చేయడానికి మీ పాస్‌వర్డ్‌తో లాగిన్ అవ్వాలి.'
           : 'You will need to sign in with your credentials to unlock the workspace again.'}
         actionText={language === 'TE' ? 'అవును, లాగౌట్ చేయి' : 'Yes, Sign Out'}
-        onAction={logout}
+        onAction={() => {
+          clearIntendedRoute();
+          logout();
+          navigate('/login');
+        }}
       />
     </>
   );

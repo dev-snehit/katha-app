@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { en } from '../../locales/en';
 import { te } from '../../locales/te';
@@ -7,9 +7,11 @@ import { Customer } from '../../contracts';
 import { Users, Plus, Phone, MapPin, Send, Inbox, AlertTriangle, Pencil } from 'lucide-react';
 import { validateCustomer } from '../../lib/customerValidation';
 import { useModalDismiss } from '../../hooks/useModalDismiss';
+import { useRouter } from '../../lib/router';
 
 export const CustomerDirectoryView: React.FC = () => {
   const { customers, language, currentUser, addCustomer, updateCustomer } = useAppStore();
+  const { route, navigate } = useRouter();
   const isAdminOrOwner = currentUser?.role === 'ADMIN' || currentUser?.role === 'OWNER';
   const t = language === 'TE' ? te : en;
 
@@ -23,6 +25,46 @@ export const CustomerDirectoryView: React.FC = () => {
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
+  // Synchronize modal state with URL route (e.g. #/customers/new, #/customers/edit/:id)
+  useEffect(() => {
+    if (route.view !== 'customers') {
+      setIsModalOpen(false);
+      setEditingCustomer(null);
+      return;
+    }
+
+    if (route.subView === 'new') {
+      setEditingCustomer(null);
+      setName('');
+      setNameTe('');
+      setPhone('');
+      setBusinessName('');
+      setAddress('');
+      setError('');
+      setFieldErrors({});
+      setIsModalOpen(true);
+    } else if (route.subView === 'edit' && route.paramId) {
+      const c = customers.find((item) => item.id === route.paramId);
+      if (c) {
+        setEditingCustomer(c);
+        setName(c.name || '');
+        setNameTe(c.nameTe || '');
+        setPhone(c.phone || '');
+        setBusinessName(c.businessName || '');
+        setAddress(c.address || '');
+        setError('');
+        setFieldErrors({});
+        setIsModalOpen(true);
+      } else {
+        setIsModalOpen(false);
+        setEditingCustomer(null);
+      }
+    } else {
+      setIsModalOpen(false);
+      setEditingCustomer(null);
+    }
+  }, [route.view, route.subView, route.paramId, customers]);
+
   const closeModal = () => {
     setIsModalOpen(false);
     setEditingCustomer(null);
@@ -33,20 +75,19 @@ export const CustomerDirectoryView: React.FC = () => {
     setAddress('');
     setError('');
     setFieldErrors({});
+    if (route.view === 'customers' && route.subView) {
+      navigate('/customers');
+    }
   };
 
   useModalDismiss(isModalOpen, closeModal);
 
   const handleOpenEditModal = (c: Customer) => {
-    setEditingCustomer(c);
-    setName(c.name || '');
-    setNameTe(c.nameTe || '');
-    setPhone(c.phone || '');
-    setBusinessName(c.businessName || '');
-    setAddress(c.address || '');
-    setError('');
-    setFieldErrors({});
-    setIsModalOpen(true);
+    navigate(`/customers/edit/${encodeURIComponent(c.id)}`);
+  };
+
+  const handleOpenAddModal = () => {
+    navigate('/customers/new');
   };
 
   const getInitials = (name: string) => {
@@ -132,7 +173,7 @@ export const CustomerDirectoryView: React.FC = () => {
         </div>
 
         <button
-          onClick={() => setIsModalOpen(true)}
+          onClick={handleOpenAddModal}
           className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white font-black text-sm px-6 py-3 rounded-full shadow-lg shadow-orange-500/25 transition-all active:scale-95"
         >
           <Plus className="w-4 h-4 stroke-[3]" />
@@ -153,7 +194,7 @@ export const CustomerDirectoryView: React.FC = () => {
             Register your first retail customer or kirana store with their phone number to enable 1-click WhatsApp billing.
           </p>
           <button
-            onClick={() => setIsModalOpen(true)}
+            onClick={handleOpenAddModal}
             className="inline-flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs px-5 py-2.5 rounded-full shadow-md"
           >
             <Plus className="w-4 h-4" />

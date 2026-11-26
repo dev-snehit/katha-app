@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAppStore, normalizeEmail, normalizePhone } from '../../store/useAppStore';
 import { Role } from '../../contracts';
 import { hashPassword, generateTemporaryPassword } from '../../lib/crypto';
+import { useRouter } from '../../lib/router';
 import { 
   Lock, 
   Mail, 
@@ -31,6 +32,8 @@ export const AuthView: React.FC = () => {
     language, 
     setLanguage 
   } = useAppStore();
+
+  const { route, navigate } = useRouter();
 
   const [mode, setMode] = useState<'LOGIN' | 'REGISTER' | 'FORGOT' | 'RESET_REQUIRED' | 'RESET_LINK'>('LOGIN');
   
@@ -65,11 +68,18 @@ export const AuthView: React.FC = () => {
   const [tokenFromUrl, setTokenFromUrl] = useState<string | null>(null);
   const [tokenUserEmail, setTokenUserEmail] = useState<string | null>(null);
 
-  // Automatically detect and validate resetToken in URL query params
-  React.useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const params = new URLSearchParams(window.location.search);
-    const token = params.get('resetToken') || params.get('token');
+  // Automatically detect and validate resetToken in URL query params or route hash
+  useEffect(() => {
+    let token: string | null = null;
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      token = params.get('resetToken') || params.get('token');
+    }
+
+    if (!token && route.view === 'auth' && route.subView === 'reset') {
+      token = route.queryParams.resetToken || route.queryParams.token || route.paramId;
+    }
+
     if (token) {
       const validation = validateResetToken(token);
       if (validation.valid && validation.user) {
@@ -78,6 +88,7 @@ export const AuthView: React.FC = () => {
         setResetUserId(validation.user.id);
         setMode('RESET_LINK');
         setResetError(null);
+        return;
       } else {
         setForgotError(
           language === 'TE'
@@ -85,9 +96,21 @@ export const AuthView: React.FC = () => {
             : (validation.error || 'This password reset link is invalid or has expired. Please request a new one.')
         );
         setMode('FORGOT');
+        return;
       }
     }
-  }, [users, language]);
+
+    // Synchronize route subView with form mode
+    if (route.view === 'auth') {
+      if (route.subView === 'register') {
+        setMode('REGISTER');
+      } else if (route.subView === 'forgot') {
+        setMode('FORGOT');
+      } else if (route.subView === 'login') {
+        setMode('LOGIN');
+      }
+    }
+  }, [route.view, route.subView, route.paramId, route.queryParams, users, language]);
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -338,6 +361,7 @@ export const AuthView: React.FC = () => {
                   setMode('LOGIN');
                   setLoginError(null);
                   setRegSuccess(null);
+                  navigate('/login');
                 }}
                 className={`flex-1 py-2.5 text-xs sm:text-sm font-bold rounded-xl transition-all ${
                   mode === 'LOGIN'
@@ -353,6 +377,7 @@ export const AuthView: React.FC = () => {
                   setMode('REGISTER');
                   setLoginError(null);
                   setRegSuccess(null);
+                  navigate('/register');
                 }}
                 className={`flex-1 py-2.5 text-xs sm:text-sm font-bold rounded-xl transition-all ${
                   mode === 'REGISTER'
@@ -405,6 +430,7 @@ export const AuthView: React.FC = () => {
                       setMode('FORGOT');
                       setForgotSuccess(null);
                       setForgotError(null);
+                      navigate('/forgot-password');
                     }}
                     className="text-[11px] font-semibold text-[#FF5A36] hover:underline"
                   >
@@ -713,6 +739,7 @@ export const AuthView: React.FC = () => {
                   setForgotError(null);
                   setForgotSuccess(null);
                   setResetLinkGenerated(null);
+                  navigate('/login');
                 }}
                 className="w-full text-center text-xs font-bold text-slate-500 hover:text-slate-800 pt-2"
               >
@@ -798,6 +825,7 @@ export const AuthView: React.FC = () => {
                   }
                   setMode('LOGIN');
                   setResetError(null);
+                  navigate('/login');
                 }}
                 className="w-full text-center text-xs font-bold text-slate-500 hover:text-slate-800 pt-2"
               >
