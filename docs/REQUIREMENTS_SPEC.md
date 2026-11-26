@@ -328,6 +328,23 @@ export type Order = z.infer<typeof OrderSchema>;
   - `When` all fields are valid,
   - `Then` the commodity is saved to inventory and synchronized with the master database.
 
+#### US-8: Customer Registration Form Validation
+* **As** a counter clerk or manager,
+* **I want** strict validation on Customer Name and Mobile Number when registering a new customer,
+* **So that** only genuine contacts with working 10-digit mobile numbers are registered for billing and WhatsApp statements.
+* **Acceptance Criteria:**
+  - `Given` the "Add New Customer" modal,
+  - `When` entering "Customer Name",
+  - `Then` only alphabetic characters and spaces `[A-Za-z ]` are accepted; digits, punctuation, and special symbols are strictly disallowed.
+  - `When` "Customer Name" contains numbers or symbols,
+  - `Then` form submission is blocked with error: `"Customer name should only accept alphabets."`.
+  - `When` entering "Mobile Number",
+  - `Then` the input must definitely have exactly 10 digits (`^\d{10}$`).
+  - `When` "Mobile Number" is invalid (not 10 digits or contains non-digits),
+  - `Then` form submission is blocked with exact error: `"Mobile number should have 10 digits. Please verify."`.
+  - `When` both inputs are valid,
+  - `Then` the customer is saved to state and synchronized with Google Sheets.
+
 ---
 
 ## 4. Master Google Sheet Schema & Security Architecture

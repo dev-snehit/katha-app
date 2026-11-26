@@ -58,9 +58,9 @@ export const INITIAL_ADMIN_USER: User = {
 // --- Customer Contract ---
 export const CustomerSchema = z.object({
   id: z.string(),
-  name: z.string().min(2, "Customer name is required"),
+  name: z.string().min(2, "Customer name is required").regex(/^[A-Za-z\s]+$/, "Customer name should only accept alphabets"),
   nameTe: z.string().optional(),
-  phone: z.string().regex(/^[6-9]\d{9}$/, "Valid 10-digit mobile number required"),
+  phone: z.string().regex(/^\d{10}$/, "Mobile number should have 10 digits. Please verify."),
   address: z.string().optional(),
   addressTe: z.string().optional(),
   businessName: z.string().optional(),
