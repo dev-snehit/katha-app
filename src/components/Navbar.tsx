@@ -68,12 +68,12 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
     <>
       {/* Top Main Navbar */}
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-sm">
-        <div className="w-full max-w-[1600px] mx-auto px-2.5 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-14 sm:h-16 gap-2 sm:gap-4">
+        <div className="w-full max-w-[1600px] mx-auto px-2.5 sm:px-4 lg:px-6 xl:px-8">
+          <div className="flex items-center justify-between h-14 sm:h-16 gap-1.5 sm:gap-2 xl:gap-3 min-w-0">
             
             {/* Brand Logo & Name */}
             <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-gradient-to-tr from-[#FF5A36] to-[#FF8155] flex items-center justify-center text-white shadow-md shadow-orange-500/20 shrink-0">
+              <div className="w-8 h-8 sm:w-9 sm:h-9 xl:w-10 xl:h-10 rounded-xl sm:rounded-2xl bg-gradient-to-tr from-[#FF5A36] to-[#FF8155] flex items-center justify-center text-white shadow-md shadow-orange-500/20 shrink-0">
                 <Flame className="w-4 h-4 sm:w-5 sm:h-5 fill-white" />
               </div>
               <div className="flex flex-col justify-center shrink-0">
@@ -81,11 +81,11 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
                   <span className="text-sm sm:text-base xl:text-lg font-black tracking-tight text-slate-900 whitespace-nowrap">
                     Katha <span className="text-[#FF5A36]">CRM</span>
                   </span>
-                  <span className="hidden xl:inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full bg-orange-50 text-orange-700 border border-orange-200 whitespace-nowrap">
+                  <span className="hidden 2xl:inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full bg-orange-50 text-orange-700 border border-orange-200 whitespace-nowrap">
                     <Sparkles className="w-2.5 h-2.5" /> Mandi OS
                   </span>
                 </div>
-                <span className="hidden xl:block text-[10px] xl:text-[11px] text-slate-400 font-medium whitespace-nowrap truncate max-w-[260px] leading-tight">
+                <span className="hidden 2xl:block text-[10px] xl:text-[11px] text-slate-400 font-medium whitespace-nowrap truncate max-w-[260px] leading-tight">
                   {t.tagline}
                 </span>
               </div>
@@ -95,14 +95,15 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
             <nav className="hidden lg:flex items-center p-1 bg-slate-100/90 rounded-full border border-slate-200/70 space-x-0.5 xl:space-x-1 shrink-0">
               <button
                 onClick={() => setActiveTab('orders')}
-                className={`relative inline-flex items-center gap-1.5 xl:gap-2 px-3 xl:px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
+                className={`relative inline-flex items-center gap-1.5 px-2.5 xl:px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
                   activeTab === 'orders'
                     ? 'bg-slate-900 text-white shadow-sm'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
                 }`}
               >
                 <Truck className="w-3.5 h-3.5 shrink-0" />
-                <span>{t.nav.pendingOrders}</span>
+                <span className="hidden xl:inline">{t.nav.pendingOrders}</span>
+                <span className="xl:hidden">{language === 'TE' ? 'ఆర్డర్లు' : 'Orders'}</span>
                 {pendingCount > 0 && (
                   <span className="px-1.5 py-0.2 rounded-full text-[10px] font-extrabold bg-[#FF5A36] text-white">
                     {pendingCount}
@@ -112,7 +113,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
 
               <button
                 onClick={() => setActiveTab('stock')}
-                className={`inline-flex items-center gap-1.5 xl:gap-2 px-3 xl:px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
+                className={`inline-flex items-center gap-1.5 px-2.5 xl:px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
                   activeTab === 'stock'
                     ? 'bg-slate-900 text-white shadow-sm'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
@@ -124,7 +125,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
 
               <button
                 onClick={() => setActiveTab('customers')}
-                className={`inline-flex items-center gap-1.5 xl:gap-2 px-3 xl:px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
+                className={`inline-flex items-center gap-1.5 px-2.5 xl:px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
                   activeTab === 'customers'
                     ? 'bg-slate-900 text-white shadow-sm'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
@@ -136,7 +137,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
 
               <button
                 onClick={() => setActiveTab('suppliers')}
-                className={`inline-flex items-center gap-1.5 xl:gap-2 px-3 xl:px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
+                className={`inline-flex items-center gap-1.5 px-2.5 xl:px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
                   activeTab === 'suppliers'
                     ? 'bg-slate-900 text-white shadow-sm'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
@@ -148,33 +149,35 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
 
               <button
                 onClick={() => setActiveTab('exports')}
-                className={`inline-flex items-center gap-1.5 xl:gap-2 px-3 xl:px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
+                className={`inline-flex items-center gap-1.5 px-2.5 xl:px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
                   activeTab === 'exports'
                     ? 'bg-slate-900 text-white shadow-sm'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
                 }`}
               >
                 <FileSpreadsheet className="w-3.5 h-3.5 shrink-0" />
-                <span>{t.nav.exportCenter}</span>
+                <span className="hidden xl:inline">{t.nav.exportCenter}</span>
+                <span className="xl:hidden">{language === 'TE' ? 'రిపోర్టులు' : 'Reports'}</span>
               </button>
 
               {currentUser?.role === 'ADMIN' && (
                 <button
                   onClick={() => setActiveTab('admin')}
-                  className={`inline-flex items-center gap-1.5 px-3 xl:px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
+                  className={`inline-flex items-center gap-1.5 px-2.5 xl:px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
                     activeTab === 'admin'
                       ? 'bg-[#FF5A36] text-white shadow-sm'
                       : 'text-orange-700 hover:bg-orange-50'
                   }`}
                 >
                   <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
-                  <span>{t.nav.adminRequests}</span>
+                  <span className="hidden xl:inline">{t.nav.adminRequests}</span>
+                  <span className="xl:hidden">{language === 'TE' ? 'అడ్మిన్' : 'Admin'}</span>
                 </button>
               )}
             </nav>
 
-            {/* Right Controls: Sync Pill, Language, User Profile & Settings (Mobile Optimized) */}
-            <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+            {/* Right Controls: Sync Pill, Language, User Profile & Settings */}
+            <div className="flex items-center gap-1 sm:gap-1.5 xl:gap-2 shrink-0 ml-auto">
               
               {/* Google Sheets Sync Indicator Pill */}
               <button
@@ -185,7 +188,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
                   syncStatus === 'ERROR' ? 'Sync failed. Click to test connection in Settings.' :
                   'Click to connect your Google Sheet'
                 }
-                className={`inline-flex items-center gap-1.5 p-1.5 sm:px-2.5 sm:py-1.5 rounded-full text-[11px] font-bold border transition-all shrink-0 ${
+                className={`inline-flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-full text-[11px] font-bold border transition-all shrink-0 ${
                   syncStatus === 'SYNCED'
                     ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
                     : syncStatus === 'SYNCING' || isManualSyncing
@@ -204,16 +207,22 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
                 ) : (
                   <RefreshCw className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                 )}
-                <span className="hidden sm:inline text-[11px] whitespace-nowrap">
+                <span className="hidden 2xl:inline text-[11px] whitespace-nowrap">
                   {syncStatus === 'SYNCED' ? (language === 'TE' ? 'సర్వర్ కనెక్ట్ అయింది' : 'Server Connected') :
                    syncStatus === 'SYNCING' || isManualSyncing ? (language === 'TE' ? 'సింక్ అవుతోంది...' : 'Syncing...') :
                    syncStatus === 'ERROR' ? (language === 'TE' ? 'రీకనెక్ట్ చేస్తోంది...' : 'Reconnecting...') : 
                    (language === 'TE' ? 'సర్వర్ కనెక్ట్' : 'Connect Server')}
                 </span>
+                <span className="hidden sm:inline 2xl:hidden text-[11px] whitespace-nowrap">
+                  {syncStatus === 'SYNCED' ? (language === 'TE' ? 'కనెక్ట్' : 'Connected') :
+                   syncStatus === 'SYNCING' || isManualSyncing ? (language === 'TE' ? 'సింక్...' : 'Syncing...') :
+                   syncStatus === 'ERROR' ? (language === 'TE' ? 'ఎర్రర్' : 'Error') : 
+                   (language === 'TE' ? 'కనెక్ట్' : 'Connect')}
+                </span>
               </button>
 
               {/* Language Selector Dropdown */}
-              <div className="inline-flex items-center gap-0.5 sm:gap-1 bg-slate-100 px-1.5 sm:px-2.5 py-1 sm:py-1.5 rounded-full border border-slate-200 shrink-0">
+              <div className="inline-flex items-center gap-0.5 sm:gap-1 bg-slate-100 px-1.5 sm:px-2 py-1 sm:py-1.5 rounded-full border border-slate-200 shrink-0">
                 <Globe className="hidden sm:inline w-3 h-3 text-slate-500 shrink-0" />
                 <select
                   aria-label={t.common.language}
@@ -231,12 +240,12 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
                 <div className="flex items-center gap-1 pl-0.5 shrink-0">
                   <div 
                     title={`${currentUser.name} (${currentUser.role})`}
-                    className="flex items-center gap-1 bg-orange-50 border border-orange-200/80 rounded-full p-0.5 sm:pl-1.5 sm:pr-2.5 sm:py-1 shrink-0"
+                    className="flex items-center gap-1 bg-orange-50 border border-orange-200/80 rounded-full p-0.5 sm:pl-1.5 sm:pr-2 sm:py-1 shrink-0"
                   >
-                    <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-[#FF5A36] to-[#FF8155] text-white flex items-center justify-center text-[10px] font-black shrink-0">
+                    <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-gradient-to-tr from-[#FF5A36] to-[#FF8155] text-white flex items-center justify-center text-[9px] sm:text-[10px] font-black shrink-0">
                       {getUserInitials(currentUser.name)}
                     </div>
-                    <span className="text-[11px] font-bold text-orange-900 hidden sm:inline whitespace-nowrap">
+                    <span className="text-[10px] sm:text-[11px] font-bold text-orange-900 hidden md:inline whitespace-nowrap">
                       {currentUser.role}
                     </span>
                   </div>
@@ -254,7 +263,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
               {/* Settings Button */}
               <button
                 onClick={onOpenSettings}
-                className="p-1 sm:p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-full transition-colors shrink-0"
+                className="p-1.5 sm:p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-full transition-colors shrink-0"
                 title={language === 'TE' ? 'గూగుల్ షీట్ సెట్టింగ్స్' : 'Google Sheet Connection Settings'}
               >
                 <Settings className="w-4 h-4 shrink-0" />
