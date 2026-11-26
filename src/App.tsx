@@ -21,7 +21,7 @@ export default function App() {
     connectAndHydrateServer();
   }, [connectAndHydrateServer]);
 
-  // Authentication Gate: Require sign in every time the application is opened
+  // Authentication Gate: Require sign in if no active persistent authenticated session exists
   if (!isAuthenticated || !currentUser) {
     return <AuthView />;
   }

@@ -111,11 +111,12 @@ const hasRootAdmin = storedUsers.some(
 const initialUsers = hasRootAdmin ? storedUsers : [INITIAL_ADMIN_USER, ...storedUsers];
 
 const initialBackendUrl = loadFromStorage<string>('backendUrl', '') || DEFAULT_SERVER_URL;
+const initialCurrentUser = loadFromStorage<User | null>('currentUser', null);
 
 export const useAppStore = create<AppState>((set, get) => ({
-  // Authentication: Session starts unauthenticated on app open
-  currentUser: null,
-  isAuthenticated: false,
+  // Authentication: Session is persisted in localStorage until manual logout
+  currentUser: initialCurrentUser,
+  isAuthenticated: !!initialCurrentUser,
   users: initialUsers,
 
   login: async (email: string, password: string) => {
@@ -185,6 +186,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       };
     }
 
+    saveToStorage('currentUser', user);
     set({ currentUser: user, isAuthenticated: true });
 
     // Retain and re-apply base font size upon every login
@@ -207,6 +209,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     );
     saveToStorage('users', updated);
     const updatedUser = updated.find((u) => u.id === userId);
+    saveToStorage('currentUser', updatedUser || null);
     set({ users: updated, currentUser: updatedUser || null, isAuthenticated: true });
     if (updatedUser) {
       get().triggerSync('resetPassword', { email: updatedUser.email, newPasswordHash: newHash });
@@ -243,6 +246,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   logout: () => {
+    saveToStorage('currentUser', null);
     set({ currentUser: null, isAuthenticated: false });
   },
 
@@ -486,6 +490,22 @@ export const useAppStore = create<AppState>((set, get) => ({
           });
           saveToStorage('users', merged);
           set({ users: merged });
+
+          // Synchronize active session if user profile or status updated on server
+          const activeUser = get().currentUser;
+          if (activeUser) {
+            const freshUser = merged.find(
+              (u) => u.id === activeUser.id || u.email.toLowerCase() === activeUser.email.toLowerCase()
+            );
+            if (freshUser) {
+              if (freshUser.status === 'DENIED') {
+                get().logout();
+              } else {
+                saveToStorage('currentUser', freshUser);
+                set({ currentUser: freshUser });
+              }
+            }
+          }
         }
 
         set({
@@ -522,7 +542,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     return res.success;
   },
 
-  setCurrentUser: (user) => set({ currentUser: user, isAuthenticated: !!user }),
+  setCurrentUser: (user) => {
+    saveToStorage('currentUser', user);
+    set({ currentUser: user, isAuthenticated: !!user });
+  },
   
   registerUser: (user, tempPassword) => {
     const updated = [...get().users, user];

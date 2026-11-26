@@ -169,6 +169,26 @@ describe('Authentication & Session Gate', () => {
     expect(useAppStore.getState().isAuthenticated).toBe(false);
     expect(useAppStore.getState().currentUser).toBeNull();
   });
+
+  it('persists logged in user in localStorage and retains session until manual logout', async () => {
+    const result = await useAppStore.getState().login('dev.snehit@gmail.com', 'admin');
+    expect(result.success).toBe(true);
+    expect(useAppStore.getState().isAuthenticated).toBe(true);
+
+    // Verify localStorage has persisted currentUser
+    const rawStored = localStorage.getItem('katha_wholesale_currentUser');
+    expect(rawStored).toBeTruthy();
+    const stored = JSON.parse(rawStored!);
+    expect(stored.email).toBe('dev.snehit@gmail.com');
+    expect(stored.role).toBe('ADMIN');
+
+    // Manual logout clears both state and localStorage
+    useAppStore.getState().logout();
+    expect(useAppStore.getState().isAuthenticated).toBe(false);
+    expect(useAppStore.getState().currentUser).toBeNull();
+    const rawAfterLogout = localStorage.getItem('katha_wholesale_currentUser');
+    expect(rawAfterLogout ? JSON.parse(rawAfterLogout) : null).toBeNull();
+  });
 });
 
 describe('Google Sheets Live Sync Engine', () => {
