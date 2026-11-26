@@ -3,7 +3,7 @@
  * 
  * Enforces business rules:
  * 1. Commodity name and Bill name should only accept alphabetic characters [A-Za-z ]
- * 2. In Pricing values section: strictly Purchase value < Wholesale value < Retail Value
+ * 2. In Pricing values section: Wholesale value should be greater than or equal to Purchase value and retail value must be greater than or equal to wholesale value (Purchase <= Wholesale <= Retail)
  * 3. Granular field validation across category, weights, packet counts, and stock quantities
  */
 
@@ -36,13 +36,14 @@ export function isOnlyAlphabets(value: string): boolean {
 }
 
 /**
- * Checks whether the pricing hierarchy strictly satisfies:
- * Purchase value < Wholesale value < Retail Value
+ * Checks whether the pricing hierarchy satisfies:
+ * Wholesale value should be greater than or equal to Purchase value and
+ * retail value must be greater than or equal to wholesale value (Purchase <= Wholesale <= Retail)
  */
 export function isPricingHierarchyValid(purchase: number, wholesale: number, retail: number): boolean {
   if (isNaN(purchase) || isNaN(wholesale) || isNaN(retail)) return false;
   if (purchase <= 0 || wholesale <= 0 || retail <= 0) return false;
-  return purchase < wholesale && wholesale < retail;
+  return wholesale >= purchase && retail >= wholesale;
 }
 
 /**
@@ -118,7 +119,7 @@ export function validatePurchaseRecord(
       : 'Stock bags must be 0 or a positive whole number.';
   }
 
-  // 7. Validate 3 Pricing Values & Enforce Purchase < Wholesale < Retail
+  // 7. Validate 3 Pricing Values & Enforce Wholesale >= Purchase and Retail >= Wholesale
   const purchase = Number(data.costPricePerBag);
   const wholesale = Number(data.wholesalePriceBag);
   const retail = Number(data.retailPriceBag);
@@ -143,17 +144,17 @@ export function validatePurchaseRecord(
 
   // Pricing hierarchy check if all 3 pricing numbers are entered
   if (purchase > 0 && wholesale > 0 && retail > 0) {
-    if (purchase >= wholesale) {
+    if (wholesale < purchase) {
       const msg = language === 'TE'
-        ? `ధరల నియమం ఉల్లంఘన: కొనుగోలు ధర (₹${purchase}) తప్పనిసరిగా హోల్‌సేల్ ధర (₹${wholesale}) కంటే తక్కువగా ఉండాలి.`
-        : `Pricing Rule Violated: Purchase value (₹${purchase}) must be strictly less than Wholesale value (₹${wholesale}).`;
+        ? `హోల్‌సేల్ ధర (₹${wholesale}) తప్పనిసరిగా కొనుగోలు ధర (₹${purchase}) కంటే ఎక్కువ లేదా సమానంగా ఉండాలి!`
+        : `Wholesale value (₹${wholesale}) should be greater than or equal to Purchase value (₹${purchase})!`;
       errors.pricingHierarchy = msg;
       errors.costPricePerBag = errors.costPricePerBag || msg;
       errors.wholesalePriceBag = errors.wholesalePriceBag || msg;
-    } else if (wholesale >= retail) {
+    } else if (retail < wholesale) {
       const msg = language === 'TE'
-        ? `ధరల నియమం ఉల్లంఘన: హోల్‌సేల్ ధర (₹${wholesale}) తప్పనిసరిగా రిటైల్ ధర (₹${retail}) కంటే తక్కువగా ఉండాలి.`
-        : `Pricing Rule Violated: Wholesale value (₹${wholesale}) must be strictly less than Retail value (₹${retail}).`;
+        ? `రిటైల్ ధర (₹${retail}) తప్పనిసరిగా హోల్‌సేల్ ధర (₹${wholesale}) కంటే ఎక్కువ లేదా సమానంగా ఉండాలి!`
+        : `Retail value (₹${retail}) must be greater than or equal to Wholesale value (₹${wholesale})!`;
       errors.pricingHierarchy = msg;
       errors.wholesalePriceBag = errors.wholesalePriceBag || msg;
       errors.retailPriceBag = errors.retailPriceBag || msg;

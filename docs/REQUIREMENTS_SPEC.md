@@ -318,9 +318,11 @@ export type Order = z.infer<typeof OrderSchema>;
   - `When` entering "Commodity Name" or "Bill Name",
   - `Then` only alphabetic characters and spaces `[A-Za-z ]` are accepted; digits, punctuation, and special symbols are strictly disallowed.
   - `When` entering pricing values (`Purchase Value`, `Wholesale Value`, `Retail Value`),
-  - `Then` the pricing values must strictly satisfy `Purchase Value < Wholesale Value < Retail Value` (`costPricePerBag < wholesalePriceBag < retailPriceBag`).
-  - `When` `Purchase >= Wholesale` or `Wholesale >= Retail`,
-  - `Then` form submission is blocked with inline field errors and a clear pricing hierarchy violation alert.
+  - `Then` the pricing values must satisfy: Wholesale value should be greater than or equal to Purchase value and retail value must be greater than or equal to wholesale value (`Purchase <= Wholesale <= Retail`).
+  - `When` `Wholesale < Purchase`,
+  - `Then` form submission is blocked with an alert: `Wholesale value (₹...) should be greater than or equal to Purchase value (₹...)!`
+  - `When` `Retail < Wholesale`,
+  - `Then` form submission is blocked with an alert: `Retail value (₹...) must be greater than or equal to Wholesale value (₹...)!`
   - `When` all fields are valid,
   - `Then` the commodity is saved to inventory and synchronized with the master database.
 

@@ -576,17 +576,17 @@ export const StockRegistryView: React.FC = () => {
                 </div>
               </div>
 
-              {/* THREE VALUES SECTION: Purchase Value < Wholesale Value < Retail Value */}
+              {/* THREE VALUES SECTION: Wholesale >= Purchase and Retail >= Wholesale (Purchase <= Wholesale <= Retail) */}
               <div className="p-4 rounded-2xl bg-orange-50/70 border border-orange-200/80 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 text-xs font-extrabold text-orange-950 uppercase tracking-wide">
                     <Tag className="w-4 h-4 text-[#FF5A36]" />
                     <span>
-                      {language === 'TE' ? '3 ధరల వివరాలు (Purchase < Wholesale < Retail)' : '3 Pricing Values (Purchase < Wholesale < Retail)'}
+                      {language === 'TE' ? '3 ధరల వివరాలు (Purchase ≤ Wholesale ≤ Retail)' : '3 Pricing Values (Purchase ≤ Wholesale ≤ Retail)'}
                     </span>
                   </div>
                   <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-orange-200/60 text-orange-900">
-                    P &lt; W &lt; R
+                    P ≤ W ≤ R
                   </span>
                 </div>
 
@@ -602,21 +602,21 @@ export const StockRegistryView: React.FC = () => {
                         <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                         <span>
                           {language === 'TE'
-                            ? `ధరల నిష్పత్తి సరైనది: కొనుగోలు (₹${pRate}) < హోల్‌సేల్ (₹${wRate}) < రిటైల్ (₹${rRate})`
-                            : `Valid Pricing: Purchase (₹${pRate}) < Wholesale (₹${wRate}) < Retail (₹${rRate})`}
+                            ? `ధరల నిష్పత్తి సరైనది: కొనుగోలు (₹${pRate}) ≤ హోల్‌సేల్ (₹${wRate}) ≤ రిటైల్ (₹${rRate})`
+                            : `Valid Pricing: Purchase (₹${pRate}) ≤ Wholesale (₹${wRate}) ≤ Retail (₹${rRate})`}
                         </span>
                       </>
                     ) : (
                       <>
                         <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
                         <span>
-                          {pRate >= wRate
+                          {wRate < pRate
                             ? (language === 'TE' 
-                                ? `కొనుగోలు ధర (₹${pRate}) తప్పనిసరిగా హోల్‌సేల్ ధర (₹${wRate}) కంటే తక్కువగా ఉండాలి!` 
-                                : `Purchase value (₹${pRate}) must be strictly less than Wholesale value (₹${wRate})!`)
+                                ? `హోల్‌సేల్ ధర (₹${wRate}) తప్పనిసరిగా కొనుగోలు ధర (₹${pRate}) కంటే ఎక్కువ లేదా సమానంగా ఉండాలి!` 
+                                : `Wholesale value (₹${wRate}) should be greater than or equal to Purchase value (₹${pRate})!`)
                             : (language === 'TE' 
-                                ? `హోల్‌సేల్ ధర (₹${wRate}) తప్పనిసరిగా రిటైల్ ధర (₹${rRate}) కంటే తక్కువగా ఉండాలి!` 
-                                : `Wholesale value (₹${wRate}) must be strictly less than Retail value (₹${rRate})!`)}
+                                ? `రిటైల్ ధర (₹${rRate}) తప్పనిసరిగా హోల్‌సేల్ ధర (₹${wRate}) కంటే ఎక్కువ లేదా సమానంగా ఉండాలి!` 
+                                : `Retail value (₹${rRate}) must be greater than or equal to Wholesale value (₹${wRate})!`)}
                         </span>
                       </>
                     )}
@@ -641,7 +641,7 @@ export const StockRegistryView: React.FC = () => {
                         }
                       }}
                       className={`w-full text-xs font-bold border rounded-xl p-2.5 outline-none transition-colors ${
-                        fieldErrors.costPricePerBag || (allThreePricingEntered && !isPricingValid && pRate >= wRate)
+                        fieldErrors.costPricePerBag || (allThreePricingEntered && !isPricingValid && wRate < pRate)
                           ? 'border-rose-400 bg-rose-50/30 focus:border-rose-500'
                           : 'border-slate-300 focus:border-orange-500 bg-white'
                       }`}
@@ -695,7 +695,7 @@ export const StockRegistryView: React.FC = () => {
                         }
                       }}
                       className={`w-full text-xs font-bold border rounded-xl p-2.5 outline-none transition-colors ${
-                        fieldErrors.retailPriceBag || (allThreePricingEntered && !isPricingValid && wRate >= rRate)
+                        fieldErrors.retailPriceBag || (allThreePricingEntered && !isPricingValid && rRate < wRate)
                           ? 'border-rose-400 bg-rose-50/30 focus:border-rose-500'
                           : 'border-slate-300 focus:border-orange-500 bg-white'
                       }`}

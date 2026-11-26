@@ -46,19 +46,23 @@ describe('Purchase Record Form & Pricing Hierarchy Validation', () => {
   });
 
   describe('isPricingHierarchyValid helper', () => {
-    it('validates strictly Purchase < Wholesale < Retail', () => {
+    it('validates Purchase <= Wholesale <= Retail hierarchy', () => {
       expect(isPricingHierarchyValid(1300, 1450, 1550)).toBe(true);
       expect(isPricingHierarchyValid(100, 120, 150)).toBe(true);
     });
 
-    it('rejects when Purchase >= Wholesale', () => {
-      expect(isPricingHierarchyValid(1450, 1450, 1550)).toBe(false); // Equal
-      expect(isPricingHierarchyValid(1500, 1450, 1550)).toBe(false); // Greater
+    it('allows equality between Purchase and Wholesale, or Wholesale and Retail', () => {
+      expect(isPricingHierarchyValid(1450, 1450, 1550)).toBe(true); // Wholesale == Purchase
+      expect(isPricingHierarchyValid(1300, 1550, 1550)).toBe(true); // Retail == Wholesale
+      expect(isPricingHierarchyValid(1500, 1500, 1500)).toBe(true); // All three equal
     });
 
-    it('rejects when Wholesale >= Retail', () => {
-      expect(isPricingHierarchyValid(1300, 1550, 1550)).toBe(false); // Equal
-      expect(isPricingHierarchyValid(1300, 1600, 1550)).toBe(false); // Greater
+    it('rejects when Wholesale < Purchase', () => {
+      expect(isPricingHierarchyValid(1500, 1450, 1550)).toBe(false);
+    });
+
+    it('rejects when Retail < Wholesale', () => {
+      expect(isPricingHierarchyValid(1300, 1600, 1550)).toBe(false);
     });
 
     it('rejects zero or negative prices', () => {
@@ -98,19 +102,39 @@ describe('Purchase Record Form & Pricing Hierarchy Validation', () => {
       expect(res.errors.brandOrMill).toBeDefined();
     });
 
-    it('enforces Purchase < Wholesale rule in form', () => {
-      const invalid = { 
+    it('enforces Wholesale >= Purchase rule in form', () => {
+      // Equality is allowed:
+      const equalAllowed = { 
         ...validForm, 
         costPricePerBag: 1450, 
         wholesalePriceBag: 1450, 
         retailPriceBag: 1600 
       };
+      expect(validatePurchaseRecord(equalAllowed, 'EN').isValid).toBe(true);
+
+      // Violation when Wholesale < Purchase:
+      const invalid = { 
+        ...validForm, 
+        costPricePerBag: 1500, 
+        wholesalePriceBag: 1450, 
+        retailPriceBag: 1600 
+      };
       const res = validatePurchaseRecord(invalid, 'EN');
       expect(res.isValid).toBe(false);
-      expect(res.errors.pricingHierarchy).toContain('strictly less than Wholesale value');
+      expect(res.errors.pricingHierarchy).toContain('Wholesale value (₹1450) should be greater than or equal to Purchase value (₹1500)');
     });
 
-    it('enforces Wholesale < Retail rule in form', () => {
+    it('enforces Retail >= Wholesale rule in form', () => {
+      // Equality is allowed:
+      const equalAllowed = { 
+        ...validForm, 
+        costPricePerBag: 1300, 
+        wholesalePriceBag: 1550, 
+        retailPriceBag: 1550 
+      };
+      expect(validatePurchaseRecord(equalAllowed, 'EN').isValid).toBe(true);
+
+      // Violation when Retail < Wholesale:
       const invalid = { 
         ...validForm, 
         costPricePerBag: 1300, 
@@ -119,7 +143,7 @@ describe('Purchase Record Form & Pricing Hierarchy Validation', () => {
       };
       const res = validatePurchaseRecord(invalid, 'EN');
       expect(res.isValid).toBe(false);
-      expect(res.errors.pricingHierarchy).toContain('strictly less than Retail value');
+      expect(res.errors.pricingHierarchy).toContain('Retail value (₹1500) must be greater than or equal to Wholesale value (₹1550)');
     });
 
     it('validates each and every form field (category, weight, packets, stock)', () => {
@@ -152,7 +176,7 @@ describe('Purchase Record Form & Pricing Hierarchy Validation', () => {
       const res = validatePurchaseRecord(invalid, 'TE');
       expect(res.isValid).toBe(false);
       expect(res.errors.name).toContain('కేవలం అక్షరాలు మాత్రమే');
-      expect(res.errors.pricingHierarchy).toContain('ధరల నియమం ఉల్లంఘన');
+      expect(res.errors.pricingHierarchy).toContain('హోల్‌సేల్ ధర (₹1400) తప్పనిసరిగా కొనుగోలు ధర (₹1500) కంటే ఎక్కువ లేదా సమానంగా ఉండాలి');
     });
   });
 });
