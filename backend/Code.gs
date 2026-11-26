@@ -214,9 +214,11 @@ function doPost(e) {
       const order = body.order;
       const targetSheetName = order.status === 'APPROVED' ? 'Master_Orders_Sales' : 'Pending_Orders';
       const sheet = ss.getSheetByName(targetSheetName);
+      const data = sheet.getDataRange().getValues();
+      let found = false;
       
       if (order.status === 'APPROVED') {
-        sheet.appendRow([
+        const rowData = [
           order.id,
           order.orderNumber,
           order.customerId,
@@ -231,9 +233,17 @@ function doPost(e) {
           order.paymentMode || 'CREDIT',
           order.status,
           order.submittedByRole || 'STAFF'
-        ]);
+        ];
+        for (let i = 1; i < data.length; i++) {
+          if (data[i][0] === order.id) {
+            sheet.getRange(i + 1, 1, 1, rowData.length).setValues([rowData]);
+            found = true;
+            break;
+          }
+        }
+        if (!found) sheet.appendRow(rowData);
       } else {
-        sheet.appendRow([
+        const rowData = [
           order.id,
           order.orderNumber,
           order.customerId,
@@ -244,7 +254,15 @@ function doPost(e) {
           order.grandTotal || 0,
           order.status,
           order.submittedByRole || 'STAFF'
-        ]);
+        ];
+        for (let i = 1; i < data.length; i++) {
+          if (data[i][0] === order.id) {
+            sheet.getRange(i + 1, 1, 1, rowData.length).setValues([rowData]);
+            found = true;
+            break;
+          }
+        }
+        if (!found) sheet.appendRow(rowData);
       }
 
       return createResponse({ status: 'success', message: 'Order recorded in ' + targetSheetName, orderId: order.id });

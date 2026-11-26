@@ -4,15 +4,17 @@ import { en } from '../../locales/en';
 import { te } from '../../locales/te';
 import { getLocalizedText } from '../../lib/bilingualHelper';
 import { Customer } from '../../contracts';
-import { Users, Plus, Phone, MapPin, Send, Inbox, AlertTriangle } from 'lucide-react';
+import { Users, Plus, Phone, MapPin, Send, Inbox, AlertTriangle, Pencil } from 'lucide-react';
 import { validateCustomer } from '../../lib/customerValidation';
 import { useModalDismiss } from '../../hooks/useModalDismiss';
 
 export const CustomerDirectoryView: React.FC = () => {
-  const { customers, language, addCustomer } = useAppStore();
+  const { customers, language, currentUser, addCustomer, updateCustomer } = useAppStore();
+  const isAdminOrOwner = currentUser?.role === 'ADMIN' || currentUser?.role === 'OWNER';
   const t = language === 'TE' ? te : en;
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [name, setName] = useState('');
   const [nameTe, setNameTe] = useState('');
   const [phone, setPhone] = useState('');
@@ -23,11 +25,29 @@ export const CustomerDirectoryView: React.FC = () => {
 
   const closeModal = () => {
     setIsModalOpen(false);
+    setEditingCustomer(null);
+    setName('');
+    setNameTe('');
+    setPhone('');
+    setBusinessName('');
+    setAddress('');
     setError('');
     setFieldErrors({});
   };
 
   useModalDismiss(isModalOpen, closeModal);
+
+  const handleOpenEditModal = (c: Customer) => {
+    setEditingCustomer(c);
+    setName(c.name || '');
+    setNameTe(c.nameTe || '');
+    setPhone(c.phone || '');
+    setBusinessName(c.businessName || '');
+    setAddress(c.address || '');
+    setError('');
+    setFieldErrors({});
+    setIsModalOpen(true);
+  };
 
   const getInitials = (name: string) => {
     if (!name) return 'CU';
@@ -55,26 +75,31 @@ export const CustomerDirectoryView: React.FC = () => {
       return;
     }
 
-    const newCustomer: Customer = {
-      id: crypto.randomUUID ? crypto.randomUUID() : `cust-${Date.now()}`,
-      name: name.trim(),
-      nameTe: nameTe.trim(),
-      phone: phone.trim(),
-      businessName: businessName.trim(),
-      address: address.trim(),
-      currentDue: 0,
-      createdAt: new Date().toISOString(),
-    };
+    if (editingCustomer) {
+      const updatedCustomer: Customer = {
+        ...editingCustomer,
+        name: name.trim(),
+        nameTe: nameTe.trim(),
+        phone: phone.trim(),
+        businessName: businessName.trim(),
+        address: address.trim(),
+      };
+      updateCustomer(updatedCustomer);
+    } else {
+      const newCustomer: Customer = {
+        id: crypto.randomUUID ? crypto.randomUUID() : `cust-${Date.now()}`,
+        name: name.trim(),
+        nameTe: nameTe.trim(),
+        phone: phone.trim(),
+        businessName: businessName.trim(),
+        address: address.trim(),
+        currentDue: 0,
+        createdAt: new Date().toISOString(),
+      };
+      addCustomer(newCustomer);
+    }
 
-    addCustomer(newCustomer);
-    setIsModalOpen(false);
-    setName('');
-    setNameTe('');
-    setPhone('');
-    setBusinessName('');
-    setAddress('');
-    setError('');
-    setFieldErrors({});
+    closeModal();
   };
 
   const openWhatsAppChat = (c: Customer) => {
@@ -199,11 +224,21 @@ export const CustomerDirectoryView: React.FC = () => {
                 <div className="pt-2 border-t border-slate-100 flex items-center gap-2">
                   <button
                     onClick={() => openWhatsAppChat(c)}
-                    className="w-full inline-flex items-center justify-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold py-2 px-3 rounded-xl border border-emerald-200 transition-colors"
+                    className="flex-1 inline-flex items-center justify-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold py-2 px-3 rounded-xl border border-emerald-200 transition-colors"
                   >
                     <Send className="w-3.5 h-3.5" />
                     WhatsApp Statement
                   </button>
+                  {isAdminOrOwner && (
+                    <button
+                      onClick={() => handleOpenEditModal(c)}
+                      className="inline-flex items-center justify-center gap-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold py-2 px-3 rounded-xl transition-colors"
+                      title={language === 'TE' ? 'సవరించండి' : 'Edit Customer'}
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                      <span>{language === 'TE' ? 'సవరించండి' : 'Edit'}</span>
+                    </button>
+                  )}
                 </div>
               </div>
             );
@@ -226,7 +261,9 @@ export const CustomerDirectoryView: React.FC = () => {
 
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4 shrink-0">
               <h2 className="text-xl font-black text-slate-900">
-                {language === 'TE' ? 'కొత్త కస్టమర్‌ను చేర్చండి' : 'Add New Customer'}
+                {editingCustomer
+                  ? (language === 'TE' ? 'కస్టమర్ వివరాలను సవరించండి' : 'Edit Customer Details')
+                  : (language === 'TE' ? 'కొత్త కస్టమర్‌ను చేర్చండి' : 'Add New Customer')}
               </h2>
               <button
                 type="button"
@@ -354,7 +391,9 @@ export const CustomerDirectoryView: React.FC = () => {
                   type="submit"
                   className="px-7 py-3 text-xs font-black bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white rounded-full shadow-lg shadow-orange-500/25 transition-all active:scale-95"
                 >
-                  Save Customer
+                  {editingCustomer
+                    ? (language === 'TE' ? 'కస్టమర్‌ను నవీకరించండి' : 'Update Customer')
+                    : (language === 'TE' ? 'కస్టమర్‌ను భద్రపరచండి' : 'Save Customer')}
                 </button>
               </div>
             </form>

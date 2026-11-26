@@ -4,14 +4,16 @@ import { en } from '../../locales/en';
 import { te } from '../../locales/te';
 import { getLocalizedText } from '../../lib/bilingualHelper';
 import { Supplier } from '../../contracts';
-import { Building2, Plus, Copy, Check, CreditCard, Inbox } from 'lucide-react';
+import { Building2, Plus, Copy, Check, CreditCard, Inbox, Pencil } from 'lucide-react';
 import { useModalDismiss } from '../../hooks/useModalDismiss';
 
 export const SupplierDirectoryView: React.FC = () => {
-  const { suppliers, language, addSupplier } = useAppStore();
+  const { suppliers, language, currentUser, addSupplier, updateSupplier } = useAppStore();
+  const isAdminOrOwner = currentUser?.role === 'ADMIN' || currentUser?.role === 'OWNER';
   const t = language === 'TE' ? te : en;
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
   const [businessName, setBusinessName] = useState('');
   const [businessNameTe, setBusinessNameTe] = useState('');
   const [ownerName, setOwnerName] = useState('');
@@ -23,27 +25,7 @@ export const SupplierDirectoryView: React.FC = () => {
 
   const closeModal = () => {
     setIsModalOpen(false);
-  };
-
-  useModalDismiss(isModalOpen, closeModal);
-
-  const handleAddSupplier = (e: React.FormEvent) => {
-    e.preventDefault();
-
-    const newSupplier: Supplier = {
-      id: crypto.randomUUID ? crypto.randomUUID() : `supp-${Date.now()}`,
-      businessName,
-      businessNameTe,
-      ownerName,
-      bankName,
-      accountNumber,
-      ifscCode: ifscCode.toUpperCase(),
-      nickname,
-      createdAt: new Date().toISOString(),
-    };
-
-    addSupplier(newSupplier);
-    setIsModalOpen(false);
+    setEditingSupplier(null);
     setBusinessName('');
     setBusinessNameTe('');
     setOwnerName('');
@@ -51,6 +33,53 @@ export const SupplierDirectoryView: React.FC = () => {
     setAccountNumber('');
     setIfscCode('');
     setNickname('');
+  };
+
+  useModalDismiss(isModalOpen, closeModal);
+
+  const handleOpenEditModal = (s: Supplier) => {
+    setEditingSupplier(s);
+    setBusinessName(s.businessName || '');
+    setBusinessNameTe(s.businessNameTe || '');
+    setOwnerName(s.ownerName || '');
+    setBankName(s.bankName || '');
+    setAccountNumber(s.accountNumber || '');
+    setIfscCode(s.ifscCode || '');
+    setNickname(s.nickname || '');
+    setIsModalOpen(true);
+  };
+
+  const handleAddSupplier = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (editingSupplier) {
+      const updatedSupplier: Supplier = {
+        ...editingSupplier,
+        businessName: businessName.trim(),
+        businessNameTe: businessNameTe.trim(),
+        ownerName: ownerName.trim(),
+        bankName: bankName.trim(),
+        accountNumber: accountNumber.trim(),
+        ifscCode: ifscCode.toUpperCase().trim(),
+        nickname: nickname.trim(),
+      };
+      updateSupplier(updatedSupplier);
+    } else {
+      const newSupplier: Supplier = {
+        id: crypto.randomUUID ? crypto.randomUUID() : `supp-${Date.now()}`,
+        businessName: businessName.trim(),
+        businessNameTe: businessNameTe.trim(),
+        ownerName: ownerName.trim(),
+        bankName: bankName.trim(),
+        accountNumber: accountNumber.trim(),
+        ifscCode: ifscCode.toUpperCase().trim(),
+        nickname: nickname.trim(),
+        createdAt: new Date().toISOString(),
+      };
+      addSupplier(newSupplier);
+    }
+
+    closeModal();
   };
 
   const copyBankDetails = (s: Supplier) => {
@@ -155,10 +184,10 @@ export const SupplierDirectoryView: React.FC = () => {
                 </div>
               </div>
 
-              <div className="pt-4 mt-2">
+              <div className="pt-4 mt-2 flex items-center gap-2">
                 <button
                   onClick={() => copyBankDetails(s)}
-                  className="w-full inline-flex items-center justify-center gap-1.5 text-xs font-bold py-2.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 transition-colors"
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-bold py-2.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 transition-colors"
                 >
                   {copiedId === s.id ? (
                     <>
@@ -172,6 +201,16 @@ export const SupplierDirectoryView: React.FC = () => {
                     </>
                   )}
                 </button>
+                {isAdminOrOwner && (
+                  <button
+                    onClick={() => handleOpenEditModal(s)}
+                    className="inline-flex items-center justify-center gap-1 text-xs font-bold py-2.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+                    title={language === 'TE' ? 'సవరించండి' : 'Edit Supplier'}
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                    <span>{language === 'TE' ? 'సవరించండి' : 'Edit'}</span>
+                  </button>
+                )}
               </div>
             </div>
           ))}
@@ -193,7 +232,9 @@ export const SupplierDirectoryView: React.FC = () => {
 
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4 shrink-0">
               <h2 className="text-xl font-black text-slate-900">
-                {language === 'TE' ? 'కొత్త సప్లయర్‌ను చేర్చండి' : 'Add New Supplier'}
+                {editingSupplier
+                  ? (language === 'TE' ? 'సప్లయర్ వివరాలను సవరించండి' : 'Edit Supplier Details')
+                  : (language === 'TE' ? 'కొత్త సప్లయర్‌ను చేర్చండి' : 'Add New Supplier')}
               </h2>
               <button
                 type="button"
@@ -319,7 +360,9 @@ export const SupplierDirectoryView: React.FC = () => {
                   type="submit"
                   className="px-7 py-3 text-xs font-black bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white rounded-full shadow-lg shadow-orange-500/25 transition-all active:scale-95"
                 >
-                  Save Supplier
+                  {editingSupplier
+                    ? (language === 'TE' ? 'సప్లయర్‌ను నవీకరించండి' : 'Update Supplier')
+                    : (language === 'TE' ? 'సప్లయర్‌ను భద్రపరచండి' : 'Save Supplier')}
                 </button>
               </div>
             </form>

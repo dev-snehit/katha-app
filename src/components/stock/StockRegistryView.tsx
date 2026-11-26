@@ -4,20 +4,50 @@ import { en } from '../../locales/en';
 import { te } from '../../locales/te';
 import { getLocalizedText } from '../../lib/bilingualHelper';
 import { Product } from '../../contracts';
-import { Package, Plus, Layers, Inbox, Tag, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Package, Plus, Layers, Inbox, Tag, CheckCircle2, AlertTriangle, Pencil } from 'lucide-react';
 import { validatePurchaseRecord, isPricingHierarchyValid } from '../../lib/purchaseValidation';
 import { useModalDismiss } from '../../hooks/useModalDismiss';
 
 export const StockRegistryView: React.FC = () => {
-  const { inventory, language, unpackProduct, addProduct } = useAppStore();
+  const { inventory, language, currentUser, unpackProduct, addProduct, updateProduct } = useAppStore();
+  const isAdminOrOwner = currentUser?.role === 'ADMIN' || currentUser?.role === 'OWNER';
   const t = language === 'TE' ? te : en;
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
   const closeModal = () => {
     setIsModalOpen(false);
+    setEditingProduct(null);
     setFormError('');
     setFieldErrors({});
+    setName('');
+    setNameTe('');
+    setCategory('');
+    setBrandOrMill('');
+    setInnerBagWeightKg('');
+    setInnerBagsPerOuter('');
+    setStockPhysicalOuter('');
+    setCostPricePerBag('');
+    setWholesalePriceBag('');
+    setRetailPriceBag('');
+  };
+
+  const handleOpenEditModal = (prod: Product) => {
+    setEditingProduct(prod);
+    setName(prod.name || '');
+    setNameTe(prod.nameTe || '');
+    setCategory(prod.category || '');
+    setBrandOrMill(prod.brandOrMill || '');
+    setInnerBagWeightKg(String(prod.innerBagWeightKg || ''));
+    setInnerBagsPerOuter(String(prod.innerBagsPerOuter || ''));
+    setStockPhysicalOuter(String(prod.stockPhysicalOuter || ''));
+    setCostPricePerBag(String(prod.costPricePerBag || ''));
+    setWholesalePriceBag(String(prod.wholesalePriceBag || ''));
+    setRetailPriceBag(String(prod.retailPriceBag || ''));
+    setFieldErrors({});
+    setFormError('');
+    setIsModalOpen(true);
   };
 
   useModalDismiss(isModalOpen, closeModal);
@@ -77,41 +107,46 @@ export const StockRegistryView: React.FC = () => {
     const wholesaleRate = Number(wholesalePriceBag);
     const retailRate = Number(retailPriceBag);
 
-    const newProd: Product = {
-      id: crypto.randomUUID ? crypto.randomUUID() : `prod-${Date.now()}`,
-      name: name.trim(),
-      nameTe: nameTe.trim(),
-      category,
-      brandOrMill: brandOrMill.trim(),
-      innerBagWeightKg: innerWt,
-      innerBagsPerOuter: innerCount,
-      outerBagTotalKg,
-      stockPhysicalOuter: physicalStock,
-      stockReservedOuter: 0,
-      stockLooseInner: 0,
-      stockLooseKg: 0,
-      costPricePerBag: costRate,
-      wholesalePriceBag: wholesaleRate,
-      retailPriceBag: retailRate,
-      pricePerInnerBag: innerCount > 1 ? retailRate / innerCount : retailRate,
-    };
+    if (editingProduct) {
+      const updatedProd: Product = {
+        ...editingProduct,
+        name: name.trim(),
+        nameTe: nameTe.trim(),
+        category,
+        brandOrMill: brandOrMill.trim(),
+        innerBagWeightKg: innerWt,
+        innerBagsPerOuter: innerCount,
+        outerBagTotalKg,
+        stockPhysicalOuter: physicalStock,
+        costPricePerBag: costRate,
+        wholesalePriceBag: wholesaleRate,
+        retailPriceBag: retailRate,
+        pricePerInnerBag: innerCount > 1 ? retailRate / innerCount : retailRate,
+      };
+      updateProduct(updatedProd);
+    } else {
+      const newProd: Product = {
+        id: crypto.randomUUID ? crypto.randomUUID() : `prod-${Date.now()}`,
+        name: name.trim(),
+        nameTe: nameTe.trim(),
+        category,
+        brandOrMill: brandOrMill.trim(),
+        innerBagWeightKg: innerWt,
+        innerBagsPerOuter: innerCount,
+        outerBagTotalKg,
+        stockPhysicalOuter: physicalStock,
+        stockReservedOuter: 0,
+        stockLooseInner: 0,
+        stockLooseKg: 0,
+        costPricePerBag: costRate,
+        wholesalePriceBag: wholesaleRate,
+        retailPriceBag: retailRate,
+        pricePerInnerBag: innerCount > 1 ? retailRate / innerCount : retailRate,
+      };
+      addProduct(newProd);
+    }
 
-    addProduct(newProd);
-    setIsModalOpen(false);
-
-    // Reset to clean empty form
-    setName('');
-    setNameTe('');
-    setCategory('');
-    setBrandOrMill('');
-    setInnerBagWeightKg('');
-    setInnerBagsPerOuter('');
-    setStockPhysicalOuter('');
-    setCostPricePerBag('');
-    setWholesalePriceBag('');
-    setRetailPriceBag('');
-    setFieldErrors({});
-    setFormError('');
+    closeModal();
   };
 
   const getCategoryLabel = (cat: string) => {
@@ -281,18 +316,29 @@ export const StockRegistryView: React.FC = () => {
                     </div>
                   </div>
 
-                  {item.innerBagsPerOuter > 1 && (
-                    <button
-                      onClick={() => unpackProduct(item.id)}
-                      disabled={item.stockPhysicalOuter <= 0}
-                      className="w-full inline-flex items-center justify-center gap-1.5 text-xs font-bold py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 disabled:opacity-40 transition-colors"
-                    >
-                      <Layers className="w-3.5 h-3.5" />
-                      {language === 'TE' 
-                        ? `1 బస్తా విప్పండి (${item.innerBagsPerOuter} ప్యాకెట్లు)`
-                        : `Unpack 1 Bag (${item.innerBagsPerOuter} Pkts)`}
-                    </button>
-                  )}
+                  <div className="flex items-center gap-2 mt-2 pt-2 border-t border-slate-100">
+                    {item.innerBagsPerOuter > 1 && (
+                      <button
+                        onClick={() => unpackProduct(item.id)}
+                        disabled={item.stockPhysicalOuter <= 0}
+                        className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-bold py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 disabled:opacity-40 transition-colors"
+                      >
+                        <Layers className="w-3.5 h-3.5" />
+                        {language === 'TE' 
+                          ? `1 బస్తా విప్పండి (${item.innerBagsPerOuter} ప్యాకెట్లు)`
+                          : `Unpack 1 Bag (${item.innerBagsPerOuter} Pkts)`}
+                      </button>
+                    )}
+                    {isAdminOrOwner && (
+                      <button
+                        onClick={() => handleOpenEditModal(item)}
+                        className="inline-flex items-center justify-center gap-1 text-xs font-bold py-2 px-3 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 transition-colors"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                        <span>{language === 'TE' ? 'సవరించండి' : 'Edit'}</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
               );
             })}
@@ -356,16 +402,28 @@ export const StockRegistryView: React.FC = () => {
                         ₹{(item.retailPriceBag || item.wholesalePriceBag || 0).toLocaleString()}
                       </td>
                       <td className="px-4 py-4 text-right">
-                        {item.innerBagsPerOuter > 1 && (
-                          <button
-                            onClick={() => unpackProduct(item.id)}
-                            disabled={item.stockPhysicalOuter <= 0}
-                            className="inline-flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 disabled:opacity-40 transition-colors"
-                          >
-                            <Layers className="w-3.5 h-3.5" />
-                            {language === 'TE' ? '1 బస్తా విప్పండి' : 'Unpack 1 Bag'}
-                          </button>
-                        )}
+                        <div className="inline-flex items-center gap-1.5 justify-end">
+                          {item.innerBagsPerOuter > 1 && (
+                            <button
+                              onClick={() => unpackProduct(item.id)}
+                              disabled={item.stockPhysicalOuter <= 0}
+                              className="inline-flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 disabled:opacity-40 transition-colors"
+                            >
+                              <Layers className="w-3.5 h-3.5" />
+                              {language === 'TE' ? '1 బస్తా విప్పండి' : 'Unpack 1 Bag'}
+                            </button>
+                          )}
+                          {isAdminOrOwner && (
+                            <button
+                              onClick={() => handleOpenEditModal(item)}
+                              className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 transition-colors"
+                              title={language === 'TE' ? 'సవరించండి' : 'Edit Stock'}
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                              <span>{language === 'TE' ? 'సవరించండి' : 'Edit'}</span>
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -391,7 +449,9 @@ export const StockRegistryView: React.FC = () => {
 
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4 shrink-0">
               <h2 className="text-xl font-black text-slate-900">
-                {language === 'TE' ? 'కొత్త సరుకు / కొనుగోలు నమోదు' : 'Add New Commodity / Purchase Record'}
+                {editingProduct
+                  ? (language === 'TE' ? 'సరుకు వివరాలను సవరించండి' : 'Edit Commodity / Stock Record')
+                  : (language === 'TE' ? 'కొత్త సరుకు / కొనుగోలు నమోదు' : 'Add New Commodity / Purchase Record')}
               </h2>
               <button
                 type="button"
@@ -736,7 +796,9 @@ export const StockRegistryView: React.FC = () => {
                   type="submit"
                   className="px-6 py-2.5 text-xs font-bold bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white rounded-xl shadow-lg shadow-orange-500/25 transition-all"
                 >
-                  {language === 'TE' ? 'సరుకును భద్రపరచండి' : 'Save Commodity'}
+                  {editingProduct
+                    ? (language === 'TE' ? 'సరుకును నవీకరించండి' : 'Update Commodity')
+                    : (language === 'TE' ? 'సరుకును భద్రపరచండి' : 'Save Commodity')}
                 </button>
               </div>
             </form>

@@ -77,13 +77,17 @@ export interface AppState {
   denyUser: (userId: string) => void;
 
   addOrder: (order: Order) => void;
+  updateOrder: (order: Order) => void;
   approveOrder: (orderId: string, approvedByRole: Role) => void;
   markOrderDispatched: (orderId: string, vehicleNo?: string) => void;
   markOrderDelivered: (orderId: string) => void;
 
   addCustomer: (customer: Customer) => void;
+  updateCustomer: (customer: Customer) => void;
   addSupplier: (supplier: Supplier) => void;
+  updateSupplier: (supplier: Supplier) => void;
   addProduct: (product: Product) => void;
+  updateProduct: (product: Product) => void;
   unpackProduct: (productId: string) => void;
 }
 
@@ -758,6 +762,31 @@ export const useAppStore = create<AppState>((set, get) => ({
     get().triggerSync('saveOrder', { order });
   },
 
+  updateOrder: (order) => {
+    // If order items changed, adjust reserved stock accurately
+    const prevOrder = get().orders.find((o) => o.id === order.id);
+    let updatedInventory = get().inventory;
+
+    if (prevOrder && prevOrder.status === 'PENDING_REVIEW' && order.status === 'PENDING_REVIEW') {
+      updatedInventory = updatedInventory.map((prod) => {
+        const prevItem = prevOrder.items.find((item) => item.productId === prod.id && item.unitType === 'OUTER_BAG');
+        const newItem = order.items.find((item) => item.productId === prod.id && item.unitType === 'OUTER_BAG');
+        const prevQty = prevItem ? prevItem.quantity : 0;
+        const newQty = newItem ? newItem.quantity : 0;
+        const diff = newQty - prevQty;
+        return diff !== 0
+          ? { ...prod, stockReservedOuter: Math.max(0, prod.stockReservedOuter + diff) }
+          : prod;
+      });
+      saveToStorage('inventory', updatedInventory);
+    }
+
+    const updatedOrders = get().orders.map((o) => (o.id === order.id ? order : o));
+    saveToStorage('orders', updatedOrders);
+    set({ orders: updatedOrders, inventory: updatedInventory });
+    get().triggerSync('saveOrder', { order });
+  },
+
   approveOrder: (orderId, approvedByRole) => {
     const state = get();
     const targetOrder = state.orders.find((o) => o.id === orderId);
@@ -826,6 +855,13 @@ export const useAppStore = create<AppState>((set, get) => ({
     get().triggerSync('saveCustomer', { customer });
   },
 
+  updateCustomer: (customer) => {
+    const updated = get().customers.map((c) => (c.id === customer.id ? customer : c));
+    saveToStorage('customers', updated);
+    set({ customers: updated });
+    get().triggerSync('saveCustomer', { customer });
+  },
+
   addSupplier: (supplier) => {
     const updated = [...get().suppliers, supplier];
     saveToStorage('suppliers', updated);
@@ -833,8 +869,22 @@ export const useAppStore = create<AppState>((set, get) => ({
     get().triggerSync('saveSupplier', { supplier });
   },
 
+  updateSupplier: (supplier) => {
+    const updated = get().suppliers.map((s) => (s.id === supplier.id ? supplier : s));
+    saveToStorage('suppliers', updated);
+    set({ suppliers: updated });
+    get().triggerSync('saveSupplier', { supplier });
+  },
+
   addProduct: (product) => {
     const updated = [...get().inventory, product];
+    saveToStorage('inventory', updated);
+    set({ inventory: updated });
+    get().triggerSync('saveProduct', { product });
+  },
+
+  updateProduct: (product) => {
+    const updated = get().inventory.map((p) => (p.id === product.id ? product : p));
     saveToStorage('inventory', updated);
     set({ inventory: updated });
     get().triggerSync('saveProduct', { product });

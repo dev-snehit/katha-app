@@ -13,7 +13,8 @@ import {
   Share2, 
   CheckCircle2, 
   Inbox,
-  Percent
+  Percent,
+  Pencil
 } from 'lucide-react';
 
 interface FormItemRow {
@@ -36,19 +37,30 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
     language, 
     currentUser, 
     addOrder, 
+    updateOrder, 
     approveOrder, 
     markOrderDispatched, 
     markOrderDelivered 
   } = useAppStore();
 
+  const isAdminOrOwner = currentUser?.role === 'ADMIN' || currentUser?.role === 'OWNER';
   const t = language === 'TE' ? te : en;
   const isTe = language === 'TE';
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingOrder, setEditingOrder] = useState<Order | null>(null);
 
   const closeModal = () => {
     setIsModalOpen(false);
+    setEditingOrder(null);
+    setSelectedCustomerId('');
+    setItemRows([{ rowId: 'row-1', productId: '', unitType: 'OUTER_BAG', quantity: '', unitPrice: '' }]);
+    setHamaliPerBag('');
+    setTransportCharges('');
+    setDiscount('');
+    setVehicleNumber('');
+    setDriverPhone('');
     setErrorMessage('');
   };
 
@@ -221,6 +233,32 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
   const totalDiscount = Number(discount) || 0;
   const grandTotal = Math.max(0, subtotal + totalHamali + totalFreight - totalDiscount);
 
+  const handleOpenEditOrder = (order: Order) => {
+    setEditingOrder(order);
+    setSelectedCustomerId(order.customerId);
+    if (order.items && order.items.length > 0) {
+      setItemRows(
+        order.items.map((it, idx) => ({
+          rowId: `row-${idx + 1}-${Date.now()}`,
+          productId: it.productId,
+          unitType: it.unitType,
+          quantity: it.quantity,
+          unitPrice: it.unitPrice,
+        }))
+      );
+    } else {
+      setItemRows([{ rowId: 'row-1', productId: '', unitType: 'OUTER_BAG', quantity: '', unitPrice: '' }]);
+    }
+    const hamaliPer = order.totalOuterBags > 0 ? (order.hamaliCharges || 0) / order.totalOuterBags : '';
+    setHamaliPerBag(hamaliPer !== '' && !isNaN(Number(hamaliPer)) ? Number(hamaliPer) : '');
+    setTransportCharges(order.transportCharges || '');
+    setDiscount(order.discount || '');
+    setVehicleNumber(order.vehicleNumber || '');
+    setDriverPhone(order.driverPhone || '');
+    setErrorMessage('');
+    setIsModalOpen(true);
+  };
+
   const handleOpenNewOrder = () => {
     if (inventory.length === 0) {
       showDialog(
@@ -279,7 +317,9 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
     for (const item of calculatedItems) {
       const prod = inventory.find((p) => p.id === item.productId);
       if (prod && item.unitType === 'OUTER_BAG') {
-        const available = prod.stockPhysicalOuter - prod.stockReservedOuter;
+        const prevItem = editingOrder ? editingOrder.items.find((it) => it.productId === item.productId && it.unitType === 'OUTER_BAG') : null;
+        const prevQty = prevItem ? prevItem.quantity : 0;
+        const available = prod.stockPhysicalOuter - prod.stockReservedOuter + prevQty;
         if (item.quantity > available) {
           setErrorMessage(
             isTe 
@@ -291,35 +331,55 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
       }
     }
 
-    const newOrder: Order = {
-      id: crypto.randomUUID ? crypto.randomUUID() : `ord-${Date.now()}`,
-      orderNumber: `ORD-${Date.now().toString().slice(-4)}`,
-      customerId: customer.id,
-      customerName: customer.name,
-      customerNameTe: customer.nameTe,
-      customerPhone: customer.phone,
-      orderDate: new Date().toISOString(),
-      status: 'PENDING_REVIEW',
-      totalOuterBags,
-      totalInnerBags,
-      totalWeightKg,
-      items: calculatedItems,
-      subtotal,
-      hamaliCharges: totalHamali,
-      transportCharges: totalFreight,
-      discount: totalDiscount,
-      grandTotal,
-      paymentMode: 'CREDIT',
-      vehicleNumber,
-      driverPhone,
-      submittedByRole: currentUser?.role || 'STAFF',
-      createdAt: new Date().toISOString(),
-    };
+    if (editingOrder) {
+      const updatedOrder: Order = {
+        ...editingOrder,
+        customerId: customer.id,
+        customerName: customer.name,
+        customerNameTe: customer.nameTe,
+        customerPhone: customer.phone,
+        totalOuterBags,
+        totalInnerBags,
+        totalWeightKg,
+        items: calculatedItems,
+        subtotal,
+        hamaliCharges: totalHamali,
+        transportCharges: totalFreight,
+        discount: totalDiscount,
+        grandTotal,
+        vehicleNumber,
+        driverPhone,
+      };
+      updateOrder(updatedOrder);
+    } else {
+      const newOrder: Order = {
+        id: crypto.randomUUID ? crypto.randomUUID() : `ord-${Date.now()}`,
+        orderNumber: `ORD-${Date.now().toString().slice(-4)}`,
+        customerId: customer.id,
+        customerName: customer.name,
+        customerNameTe: customer.nameTe,
+        customerPhone: customer.phone,
+        orderDate: new Date().toISOString(),
+        status: 'PENDING_REVIEW',
+        totalOuterBags,
+        totalInnerBags,
+        totalWeightKg,
+        items: calculatedItems,
+        subtotal,
+        hamaliCharges: totalHamali,
+        transportCharges: totalFreight,
+        discount: totalDiscount,
+        grandTotal,
+        paymentMode: 'CREDIT',
+        vehicleNumber,
+        driverPhone,
+        submittedByRole: currentUser?.role || 'STAFF',
+        createdAt: new Date().toISOString(),
+      };
+      addOrder(newOrder);
+    }
 
-    addOrder(newOrder);
-    setIsModalOpen(false);
-    setSelectedCustomerId('');
-    setItemRows([{ rowId: 'row-1', productId: '', unitType: 'OUTER_BAG', quantity: '', unitPrice: '' }]);
+    closeModal();
   };
 
   const triggerWhatsAppBill = (order: Order) => {
@@ -586,13 +646,25 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
                     )}
                   </div>
 
-                  <button
-                    onClick={() => triggerWhatsAppBill(order)}
-                    className="p-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 transition-colors"
-                    title={isTe ? 'వాట్సాప్ బిల్లు పంపండి' : 'Send WhatsApp Statement'}
-                  >
-                    <Share2 className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    {isAdminOrOwner && order.status !== 'DELIVERED' && (
+                      <button
+                        onClick={() => handleOpenEditOrder(order)}
+                        className="p-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 transition-colors"
+                        title={isTe ? 'ఆర్డర్ సవరించండి' : 'Edit Order'}
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                    )}
+
+                    <button
+                      onClick={() => triggerWhatsAppBill(order)}
+                      className="p-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 transition-colors"
+                      title={isTe ? 'వాట్సాప్ బిల్లు పంపండి' : 'Send WhatsApp Statement'}
+                    >
+                      <Share2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
             );
@@ -617,10 +689,12 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4 shrink-0">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center">
-                  <Plus className="w-5 h-5 stroke-[3]" />
+                  {editingOrder ? <Pencil className="w-4 h-4" /> : <Plus className="w-5 h-5 stroke-[3]" />}
                 </div>
                 <h2 className="text-lg font-black text-slate-900">
-                  {isTe ? 'కొత్త హోల్‌సేల్ ఆర్డర్ నమోదు' : 'New Wholesale Order'}
+                  {editingOrder 
+                    ? (isTe ? `ఆర్డర్ వివరాలు సవరించండి (${editingOrder.orderNumber})` : `Edit Order (${editingOrder.orderNumber})`) 
+                    : (isTe ? 'కొత్త హోల్‌సేల్ ఆర్డర్ నమోదు' : 'New Wholesale Order')}
                 </h2>
               </div>
               <button
@@ -894,7 +968,7 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
                 type="submit"
                 className="px-6 py-3 text-xs font-black bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white rounded-full shadow-lg shadow-orange-500/25 transition-all active:scale-95 min-h-[44px]"
               >
-                {isTe ? 'ఆర్డర్‌ను నిర్ధారించండి' : 'Confirm & Place Order'}
+                {editingOrder ? (isTe ? 'ఆర్డర్‌ను నవీకరించండి' : 'Update Order') : (isTe ? 'ఆర్డర్‌ను నిర్ధారించండి' : 'Confirm & Place Order')}
               </button>
             </div>
           </form>
