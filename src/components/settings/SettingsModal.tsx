@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { pingGoogleSheet } from '../../lib/syncService';
 import { Settings, Link2, Check, ExternalLink, RefreshCw, Radio, AlertCircle } from 'lucide-react';
+import { useModalDismiss } from '../../hooks/useModalDismiss';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -16,6 +17,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [isSyncingAll, setIsSyncingAll] = useState(false);
   const [syncAllResult, setSyncAllResult] = useState<string | null>(null);
+
+  useModalDismiss(isOpen, onClose);
 
   if (!isOpen) return null;
 
@@ -63,9 +66,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-      <div className="bg-white rounded-3xl shadow-2xl max-w-xl sm:max-w-2xl w-full p-6 sm:p-7 border border-slate-100 max-h-[90vh] overflow-y-auto no-scrollbar">
-        <div className="flex items-center justify-between mb-4">
+    <div 
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200"
+      onClick={onClose}
+    >
+      <div 
+        className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl max-w-3xl w-full p-5 sm:p-7 border border-slate-100 h-[88vh] sm:h-[90vh] max-h-[90vh] flex flex-col animate-in slide-in-from-bottom-8 sm:slide-in-from-bottom-4 duration-200"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Mobile Drag Indicator Bar */}
+        <div className="w-12 h-1.5 rounded-full bg-slate-300 mx-auto mb-3 sm:hidden" />
+
+        <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4 shrink-0">
           <div className="flex items-center gap-2.5 text-slate-900 font-extrabold text-lg">
             <div className="p-2 rounded-xl bg-orange-50 text-[#FF5A36]">
               <Settings className="w-5 h-5" />
@@ -80,11 +92,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
           </button>
         </div>
 
-        <p className="text-xs text-slate-500 mb-4 leading-relaxed">
-          Connect Katha Wholesale to your private Master Google Sheet via your free Google Apps Script Webhook. All transactions sync automatically.
-        </p>
-
-        <form onSubmit={handleSave} className="space-y-4">
+        <form onSubmit={handleSave} className="flex-1 flex flex-col min-h-0">
+          <div className="flex-1 overflow-y-auto no-scrollbar pr-1 space-y-4">
+            <p className="text-xs text-slate-500 mb-2 leading-relaxed">
+              Connect Katha Wholesale to your private Master Google Sheet via your free Google Apps Script Webhook. All transactions sync automatically.
+            </p>
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1.5">
               Google Apps Script Web App URL:
@@ -167,8 +179,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               {lastSyncTime && <span className="text-[10px] text-slate-400 font-normal">({lastSyncTime})</span>}
             </div>
           </div>
+          </div>
 
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200">
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200 shrink-0">
             <button
               type="button"
               onClick={onClose}

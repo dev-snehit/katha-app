@@ -5,6 +5,7 @@ import { te } from '../../locales/te';
 import { getLocalizedText } from '../../lib/bilingualHelper';
 import { Order, OrderItem, UnitType } from '../../contracts';
 import { AlertDialog, DialogType } from '../ui/AlertDialog';
+import { useModalDismiss } from '../../hooks/useModalDismiss';
 import { 
   Plus, 
   Trash2, 
@@ -45,6 +46,13 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setErrorMessage('');
+  };
+
+  useModalDismiss(isModalOpen, closeModal);
 
   // Custom Alert Dialog State
   const [dialogConfig, setDialogConfig] = useState<{
@@ -594,8 +602,14 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
 
       {/* MOBILE BOTTOM-SHEET / MODAL FOR NEW ORDER */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6 bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl max-w-3xl w-full p-5 sm:p-7 border border-slate-100 max-h-[92vh] flex flex-col animate-in slide-in-from-bottom-8 sm:slide-in-from-bottom-4 duration-200">
+        <div 
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={closeModal}
+        >
+          <div 
+            className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl max-w-3xl w-full p-5 sm:p-7 border border-slate-100 h-[88vh] sm:h-[90vh] max-h-[90vh] flex flex-col animate-in slide-in-from-bottom-8 sm:slide-in-from-bottom-4 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
             
             {/* Mobile Drag Indicator Bar */}
             <div className="w-12 h-1.5 rounded-full bg-slate-300 mx-auto mb-3 sm:hidden" />
@@ -610,8 +624,9 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
                 </h2>
               </div>
               <button
-                onClick={() => setIsModalOpen(false)}
-                className="text-slate-400 hover:text-slate-700 text-2xl font-bold p-1"
+                type="button"
+                onClick={closeModal}
+                className="text-slate-400 hover:text-slate-700 text-2xl font-bold p-1 leading-none"
               >
                 &times;
               </button>
@@ -624,7 +639,8 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
               </div>
             )}
 
-            <form onSubmit={handleCreateOrder} className="space-y-4 overflow-y-auto no-scrollbar pr-1">
+            <form onSubmit={handleCreateOrder} className="flex-1 flex flex-col min-h-0">
+              <div className="flex-1 overflow-y-auto no-scrollbar pr-1 space-y-4">
               
               {/* Customer Selector (Zero auto-fill) */}
               <div>
@@ -863,24 +879,25 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
                   ₹{grandTotal.toLocaleString()}
                 </span>
               </div>
+            </div>
 
-              {/* Form Actions */}
-              <div className="flex items-center justify-end gap-2.5 pt-2 pb-1">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-full"
-                >
-                  {isTe ? 'రద్దు చేయండి' : 'Cancel'}
-                </button>
-                <button
-                  type="submit"
-                  className="px-6 py-3 text-xs font-black bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white rounded-full shadow-lg shadow-orange-500/25 transition-all active:scale-95 min-h-[44px]"
-                >
-                  {isTe ? 'ఆర్డర్‌ను నిర్ధారించండి' : 'Confirm & Place Order'}
-                </button>
-              </div>
-            </form>
+            {/* Form Actions */}
+            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100 shrink-0">
+              <button
+                type="button"
+                onClick={closeModal}
+                className="px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-full"
+              >
+                {isTe ? 'రద్దు చేయండి' : 'Cancel'}
+              </button>
+              <button
+                type="submit"
+                className="px-6 py-3 text-xs font-black bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white rounded-full shadow-lg shadow-orange-500/25 transition-all active:scale-95 min-h-[44px]"
+              >
+                {isTe ? 'ఆర్డర్‌ను నిర్ధారించండి' : 'Confirm & Place Order'}
+              </button>
+            </div>
+          </form>
           </div>
         </div>
       )}

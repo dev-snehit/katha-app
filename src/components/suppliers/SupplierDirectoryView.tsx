@@ -5,6 +5,7 @@ import { te } from '../../locales/te';
 import { getLocalizedText } from '../../lib/bilingualHelper';
 import { Supplier } from '../../contracts';
 import { Building2, Plus, Copy, Check, CreditCard, Inbox } from 'lucide-react';
+import { useModalDismiss } from '../../hooks/useModalDismiss';
 
 export const SupplierDirectoryView: React.FC = () => {
   const { suppliers, language, addSupplier } = useAppStore();
@@ -19,6 +20,12 @@ export const SupplierDirectoryView: React.FC = () => {
   const [ifscCode, setIfscCode] = useState('');
   const [nickname, setNickname] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+  };
+
+  useModalDismiss(isModalOpen, closeModal);
 
   const handleAddSupplier = (e: React.FormEvent) => {
     e.preventDefault();
@@ -173,115 +180,137 @@ export const SupplierDirectoryView: React.FC = () => {
 
       {/* Add Supplier Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl shadow-2xl max-w-lg sm:max-w-xl w-full p-6 sm:p-7 border border-slate-100 max-h-[90vh] overflow-y-auto no-scrollbar">
-            <h2 className="text-xl font-black text-slate-900 mb-4">
-              {language === 'TE' ? 'కొత్త సప్లయర్‌ను చేర్చండి' : 'Add New Supplier'}
-            </h2>
+        <div 
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={closeModal}
+        >
+          <div 
+            className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl max-w-3xl w-full p-5 sm:p-7 border border-slate-100 h-[88vh] sm:h-[90vh] max-h-[90vh] flex flex-col animate-in slide-in-from-bottom-8 sm:slide-in-from-bottom-4 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Mobile Drag Indicator Bar */}
+            <div className="w-12 h-1.5 rounded-full bg-slate-300 mx-auto mb-3 sm:hidden" />
 
-            <form onSubmit={handleAddSupplier} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  {language === 'TE' ? 'వ్యాపార పేరు (ఇంగ్లీష్) *' : 'Business Name (English) *'}
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder={language === 'TE' ? 'ఉదా: Sri Lalitha Rice Industries' : 'e.g. Sri Lalitha Rice Industries'}
-                  value={businessName}
-                  onChange={(e) => setBusinessName(e.target.value)}
-                  className="w-full text-xs font-medium border border-slate-300 rounded-xl p-3 outline-none focus:border-orange-500"
-                />
-              </div>
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4 shrink-0">
+              <h2 className="text-xl font-black text-slate-900">
+                {language === 'TE' ? 'కొత్త సప్లయర్‌ను చేర్చండి' : 'Add New Supplier'}
+              </h2>
+              <button
+                type="button"
+                onClick={closeModal}
+                className="text-slate-400 hover:text-slate-700 text-2xl font-bold p-1 leading-none"
+              >
+                &times;
+              </button>
+            </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  {language === 'TE' ? 'వ్యాపార పేరు (తెలుగు) - ఐచ్ఛికం' : 'Business Name (Regional) - Optional'}
-                </label>
-                <input
-                  type="text"
-                  placeholder={language === 'TE' ? 'ఉదా: శ్రీ లలిత రైస్ ఇండస్ట్రీస్' : 'e.g. Regional Script'}
-                  value={businessNameTe}
-                  onChange={(e) => setBusinessNameTe(e.target.value)}
-                  className="w-full text-xs font-medium border border-slate-300 rounded-xl p-3 outline-none focus:border-orange-500 font-telugu"
-                />
-              </div>
+            <form onSubmit={handleAddSupplier} className="flex-1 flex flex-col min-h-0">
+              <div className="flex-1 overflow-y-auto no-scrollbar pr-1 space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      {language === 'TE' ? 'వ్యాపార పేరు (ఇంగ్లీష్) *' : 'Business Name (English) *'}
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder={language === 'TE' ? 'ఉదా: Sri Lalitha Rice Industries' : 'e.g. Sri Lalitha Rice Industries'}
+                      value={businessName}
+                      onChange={(e) => setBusinessName(e.target.value)}
+                      className="w-full text-xs font-medium border border-slate-300 rounded-xl p-3 outline-none focus:border-orange-500"
+                    />
+                  </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      {language === 'TE' ? 'వ్యాపార పేరు (తెలుగు) - ఐచ్ఛికం' : 'Business Name (Regional) - Optional'}
+                    </label>
+                    <input
+                      type="text"
+                      placeholder={language === 'TE' ? 'ఉదా: శ్రీ లలిత రైస్ ఇండస్ట్రీస్' : 'e.g. Regional Script'}
+                      value={businessNameTe}
+                      onChange={(e) => setBusinessNameTe(e.target.value)}
+                      className="w-full text-xs font-medium border border-slate-300 rounded-xl p-3 outline-none focus:border-orange-500 font-telugu"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      {language === 'TE' ? 'యజమాని పేరు' : 'Owner Name'}
+                    </label>
+                    <input
+                      type="text"
+                      placeholder={language === 'TE' ? 'ఉదా: M. Rao' : 'e.g. M. Rao'}
+                      value={ownerName}
+                      onChange={(e) => setOwnerName(e.target.value)}
+                      className="w-full text-xs font-medium border border-slate-300 rounded-xl p-3 outline-none focus:border-orange-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      {language === 'TE' ? 'గుర్తింపు పేరు (Nickname) *' : 'Reference Nickname *'}
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder={language === 'TE' ? 'ఉదా: Lalitha SBI' : 'e.g. Lalitha SBI'}
+                      value={nickname}
+                      onChange={(e) => setNickname(e.target.value)}
+                      className="w-full text-xs font-medium border border-slate-300 rounded-xl p-3 outline-none focus:border-orange-500"
+                    />
+                  </div>
+                </div>
+
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    {language === 'TE' ? 'యజమాని పేరు' : 'Owner Name'}
+                    {language === 'TE' ? 'బ్యాంక్ పేరు *' : 'Bank Name *'}
                   </label>
                   <input
                     type="text"
-                    placeholder={language === 'TE' ? 'ఉదా: M. Rao' : 'e.g. M. Rao'}
-                    value={ownerName}
-                    onChange={(e) => setOwnerName(e.target.value)}
+                    required
+                    placeholder={language === 'TE' ? 'ఉదా: State Bank of India' : 'e.g. State Bank of India'}
+                    value={bankName}
+                    onChange={(e) => setBankName(e.target.value)}
                     className="w-full text-xs font-medium border border-slate-300 rounded-xl p-3 outline-none focus:border-orange-500"
                   />
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    {language === 'TE' ? 'గుర్తింపు పేరు (Nickname) *' : 'Reference Nickname *'}
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder={language === 'TE' ? 'ఉదా: Lalitha SBI' : 'e.g. Lalitha SBI'}
-                    value={nickname}
-                    onChange={(e) => setNickname(e.target.value)}
-                    className="w-full text-xs font-medium border border-slate-300 rounded-xl p-3 outline-none focus:border-orange-500"
-                  />
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      {language === 'TE' ? 'ఖాతా నంబర్ (Account Number) *' : 'Account Number *'}
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder={language === 'TE' ? 'ఉదా: 30291823901' : 'e.g. 30291823901'}
+                      value={accountNumber}
+                      onChange={(e) => setAccountNumber(e.target.value)}
+                      className="w-full text-xs font-bold border border-slate-300 rounded-xl p-3 outline-none focus:border-orange-500 font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      {language === 'TE' ? 'ఐఎఫ్ఎస్సీ కోడ్ (IFSC Code) *' : 'IFSC Code *'}
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder={language === 'TE' ? 'ఉదా: SBIN0001234' : 'e.g. SBIN0001234'}
+                      value={ifscCode}
+                      onChange={(e) => setIfscCode(e.target.value)}
+                      className="w-full text-xs font-bold border border-slate-300 rounded-xl p-3 outline-none focus:border-orange-500 font-mono uppercase"
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  {language === 'TE' ? 'బ్యాంక్ పేరు *' : 'Bank Name *'}
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder={language === 'TE' ? 'ఉదా: State Bank of India' : 'e.g. State Bank of India'}
-                  value={bankName}
-                  onChange={(e) => setBankName(e.target.value)}
-                  className="w-full text-xs font-medium border border-slate-300 rounded-xl p-3 outline-none focus:border-orange-500"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    {language === 'TE' ? 'ఖాతా నంబర్ (Account Number) *' : 'Account Number *'}
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder={language === 'TE' ? 'ఉదా: 30291823901' : 'e.g. 30291823901'}
-                    value={accountNumber}
-                    onChange={(e) => setAccountNumber(e.target.value)}
-                    className="w-full text-xs font-bold border border-slate-300 rounded-xl p-3 outline-none focus:border-orange-500 font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    {language === 'TE' ? 'ఐఎఫ్ఎస్సీ కోడ్ (IFSC Code) *' : 'IFSC Code *'}
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder={language === 'TE' ? 'ఉదా: SBIN0001234' : 'e.g. SBIN0001234'}
-                    value={ifscCode}
-                    onChange={(e) => setIfscCode(e.target.value)}
-                    className="w-full text-xs font-bold border border-slate-300 rounded-xl p-3 outline-none focus:border-orange-500 font-mono uppercase"
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200">
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200 shrink-0">
                 <button
                   type="button"
-                  onClick={() => setIsModalOpen(false)}
+                  onClick={closeModal}
                   className="px-5 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-full"
                 >
                   Cancel

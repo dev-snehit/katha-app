@@ -1,5 +1,6 @@
 import React from 'react';
 import { AlertCircle, AlertTriangle, CheckCircle2, Info, X } from 'lucide-react';
+import { useModalDismiss } from '../../hooks/useModalDismiss';
 
 export type DialogType = 'warning' | 'info' | 'error' | 'success';
 
@@ -22,6 +23,8 @@ export const AlertDialog: React.FC<AlertDialogProps> = ({
   actionText = 'Understood',
   onAction,
 }) => {
+  useModalDismiss(isOpen, onClose);
+
   if (!isOpen) return null;
 
   const iconConfig = {
@@ -61,11 +64,15 @@ export const AlertDialog: React.FC<AlertDialogProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+    <div 
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200"
+      onClick={onClose}
+    >
       <div 
         className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl max-w-sm w-full p-6 border border-slate-100 text-center relative animate-in slide-in-from-bottom-6 sm:slide-in-from-bottom-2 duration-200"
         role="dialog"
         aria-modal="true"
+        onClick={(e) => e.stopPropagation()}
       >
         {/* Close Button */}
         <button

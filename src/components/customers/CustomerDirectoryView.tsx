@@ -6,6 +6,7 @@ import { getLocalizedText } from '../../lib/bilingualHelper';
 import { Customer } from '../../contracts';
 import { Users, Plus, Phone, MapPin, Send, Inbox, AlertTriangle } from 'lucide-react';
 import { validateCustomer } from '../../lib/customerValidation';
+import { useModalDismiss } from '../../hooks/useModalDismiss';
 
 export const CustomerDirectoryView: React.FC = () => {
   const { customers, language, addCustomer } = useAppStore();
@@ -19,6 +20,14 @@ export const CustomerDirectoryView: React.FC = () => {
   const [address, setAddress] = useState('');
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setError('');
+    setFieldErrors({});
+  };
+
+  useModalDismiss(isModalOpen, closeModal);
 
   const getInitials = (name: string) => {
     if (!name) return 'CU';
@@ -204,119 +213,139 @@ export const CustomerDirectoryView: React.FC = () => {
 
       {/* Add Customer Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl shadow-2xl max-w-lg sm:max-w-xl w-full p-6 sm:p-7 border border-slate-100 max-h-[90vh] overflow-y-auto no-scrollbar">
-            <h2 className="text-xl font-black text-slate-900 mb-4">
-              {language === 'TE' ? 'కొత్త కస్టమర్‌ను చేర్చండి' : 'Add New Customer'}
-            </h2>
+        <div 
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={closeModal}
+        >
+          <div 
+            className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl max-w-3xl w-full p-5 sm:p-7 border border-slate-100 h-[88vh] sm:h-[90vh] max-h-[90vh] flex flex-col animate-in slide-in-from-bottom-8 sm:slide-in-from-bottom-4 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Mobile Drag Indicator Bar */}
+            <div className="w-12 h-1.5 rounded-full bg-slate-300 mx-auto mb-3 sm:hidden" />
+
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4 shrink-0">
+              <h2 className="text-xl font-black text-slate-900">
+                {language === 'TE' ? 'కొత్త కస్టమర్‌ను చేర్చండి' : 'Add New Customer'}
+              </h2>
+              <button
+                type="button"
+                onClick={closeModal}
+                className="text-slate-400 hover:text-slate-700 text-2xl font-bold p-1 leading-none"
+              >
+                &times;
+              </button>
+            </div>
 
             {error && (
-              <div className="p-3 mb-4 rounded-xl bg-rose-50 text-rose-700 text-xs font-bold border border-rose-200 flex items-start gap-2">
+              <div className="p-3 mb-4 rounded-xl bg-rose-50 text-rose-700 text-xs font-bold border border-rose-200 flex items-start gap-2 shrink-0">
                 <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
                 <span>{error}</span>
               </div>
             )}
 
-            <form onSubmit={handleAddCustomer} noValidate className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  {language === 'TE' ? 'కస్టమర్ పేరు (కేవలం అక్షరాలు మాత్రమే) *' : 'Customer Name (Alphabets Only) *'}
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder={language === 'TE' ? 'ఉదా: Sri Balaji Kirana Stores' : 'e.g. Sri Balaji Kirana Stores'}
-                  value={name}
-                  onChange={(e) => {
-                    setName(e.target.value);
-                    if (fieldErrors.name) {
-                      setFieldErrors((prev) => { const n = { ...prev }; delete n.name; return n; });
-                    }
-                  }}
-                  className={`w-full text-xs font-medium border rounded-xl p-3 outline-none transition-colors ${
-                    fieldErrors.name 
-                      ? 'border-rose-400 bg-rose-50/20 focus:border-rose-500' 
-                      : 'border-slate-300 focus:border-orange-500'
-                  }`}
-                />
-                {fieldErrors.name && (
-                  <p className="text-[11px] font-semibold text-rose-600 mt-1">{fieldErrors.name}</p>
-                )}
+            <form onSubmit={handleAddCustomer} noValidate className="flex-1 flex flex-col min-h-0">
+              <div className="flex-1 overflow-y-auto no-scrollbar pr-1 space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      {language === 'TE' ? 'కస్టమర్ పేరు (కేవలం అక్షరాలు మాత్రమే) *' : 'Customer Name (Alphabets Only) *'}
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder={language === 'TE' ? 'ఉదా: Sri Balaji Kirana Stores' : 'e.g. Sri Balaji Kirana Stores'}
+                      value={name}
+                      onChange={(e) => {
+                        setName(e.target.value);
+                        if (fieldErrors.name) {
+                          setFieldErrors((prev) => { const n = { ...prev }; delete n.name; return n; });
+                        }
+                      }}
+                      className={`w-full text-xs font-medium border rounded-xl p-3 outline-none transition-colors ${
+                        fieldErrors.name 
+                          ? 'border-rose-400 bg-rose-50/20 focus:border-rose-500' 
+                          : 'border-slate-300 focus:border-orange-500'
+                      }`}
+                    />
+                    {fieldErrors.name && (
+                      <p className="text-[11px] font-semibold text-rose-600 mt-1">{fieldErrors.name}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      {language === 'TE' ? '10-అంకెల మొబైల్ నంబర్ (WhatsApp) *' : '10-Digit Mobile Number (WhatsApp) *'}
+                    </label>
+                    <input
+                      type="tel"
+                      required
+                      placeholder="e.g. 9848022338"
+                      value={phone}
+                      onChange={(e) => {
+                        setPhone(e.target.value);
+                        if (fieldErrors.phone) {
+                          setFieldErrors((prev) => { const n = { ...prev }; delete n.phone; return n; });
+                        }
+                      }}
+                      className={`w-full text-xs font-bold border rounded-xl p-3 outline-none transition-colors font-mono ${
+                        fieldErrors.phone 
+                          ? 'border-rose-400 bg-rose-50/20 focus:border-rose-500' 
+                          : 'border-slate-300 focus:border-orange-500'
+                      }`}
+                    />
+                    {fieldErrors.phone && (
+                      <p className="text-[11px] font-semibold text-rose-600 mt-1">{fieldErrors.phone}</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      {language === 'TE' ? 'కస్టమర్ పేరు (తెలుగు) - ఐచ్ఛికం' : 'Customer Name (Regional) - Optional'}
+                    </label>
+                    <input
+                      type="text"
+                      placeholder={language === 'TE' ? 'ఉదా: శ్రీ బాలాజీ కిరాణా స్టోర్స్' : 'e.g. Regional Script'}
+                      value={nameTe}
+                      onChange={(e) => setNameTe(e.target.value)}
+                      className="w-full text-xs font-medium border border-slate-300 rounded-xl p-3 outline-none focus:border-orange-500 font-telugu"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      {language === 'TE' ? 'వ్యాపార / దుకాణం పేరు' : 'Business / Shop Name'}
+                    </label>
+                    <input
+                      type="text"
+                      placeholder={language === 'TE' ? 'ఉదా: Balaji Traders' : 'e.g. Balaji Traders'}
+                      value={businessName}
+                      onChange={(e) => setBusinessName(e.target.value)}
+                      className="w-full text-xs font-medium border border-slate-300 rounded-xl p-3 outline-none focus:border-orange-500"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    {language === 'TE' ? 'చిరునామా' : 'Address'}
+                  </label>
+                  <textarea
+                    rows={3}
+                    placeholder={language === 'TE' ? 'షాప్ నంబర్, వీధి, ప్రాంతం, ఊరు...' : 'Shop number, street, area, city...'}
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    className="w-full text-xs font-medium border border-slate-300 rounded-xl p-3 outline-none focus:border-orange-500"
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  {language === 'TE' ? 'కస్టమర్ పేరు (తెలుగు) - ఐచ్ఛికం' : 'Customer Name (Regional) - Optional'}
-                </label>
-                <input
-                  type="text"
-                  placeholder={language === 'TE' ? 'ఉదా: శ్రీ బాలాజీ కిరాణా స్టోర్స్' : 'e.g. Regional Script'}
-                  value={nameTe}
-                  onChange={(e) => setNameTe(e.target.value)}
-                  className="w-full text-xs font-medium border border-slate-300 rounded-xl p-3 outline-none focus:border-orange-500 font-telugu"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  {language === 'TE' ? '10-అంకెల మొబైల్ నంబర్ (WhatsApp) *' : '10-Digit Mobile Number (WhatsApp) *'}
-                </label>
-                <input
-                  type="tel"
-                  required
-                  placeholder="e.g. 9848022338"
-                  value={phone}
-                  onChange={(e) => {
-                    setPhone(e.target.value);
-                    if (fieldErrors.phone) {
-                      setFieldErrors((prev) => { const n = { ...prev }; delete n.phone; return n; });
-                    }
-                  }}
-                  className={`w-full text-xs font-bold border rounded-xl p-3 outline-none transition-colors font-mono ${
-                    fieldErrors.phone 
-                      ? 'border-rose-400 bg-rose-50/20 focus:border-rose-500' 
-                      : 'border-slate-300 focus:border-orange-500'
-                  }`}
-                />
-                {fieldErrors.phone && (
-                  <p className="text-[11px] font-semibold text-rose-600 mt-1">{fieldErrors.phone}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  {language === 'TE' ? 'వ్యాపార / దుకాణం పేరు' : 'Business / Shop Name'}
-                </label>
-                <input
-                  type="text"
-                  placeholder={language === 'TE' ? 'ఉదా: Balaji Traders' : 'e.g. Balaji Traders'}
-                  value={businessName}
-                  onChange={(e) => setBusinessName(e.target.value)}
-                  className="w-full text-xs font-medium border border-slate-300 rounded-xl p-3 outline-none focus:border-orange-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  {language === 'TE' ? 'చిరునామా' : 'Address'}
-                </label>
-                <textarea
-                  rows={2}
-                  placeholder={language === 'TE' ? 'షాప్ నంబర్, వీధి, ప్రాంతం, ఊరు...' : 'Shop number, street, area, city...'}
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  className="w-full text-xs font-medium border border-slate-300 rounded-xl p-3 outline-none focus:border-orange-500"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200">
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200 shrink-0">
                 <button
                   type="button"
-                  onClick={() => {
-                    setIsModalOpen(false);
-                    setError('');
-                    setFieldErrors({});
-                  }}
+                  onClick={closeModal}
                   className="px-5 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-full"
                 >
                   Cancel

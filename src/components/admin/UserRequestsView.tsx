@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { User, Role } from '../../contracts';
 import { ShieldCheck, UserCheck, UserX, Clock, Plus } from 'lucide-react';
+import { useModalDismiss } from '../../hooks/useModalDismiss';
 
 export const UserRequestsView: React.FC = () => {
   const { users, approveUser, denyUser, registerUser } = useAppStore();
@@ -11,6 +12,12 @@ export const UserRequestsView: React.FC = () => {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [role, setRole] = useState<Role>('STAFF');
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+  };
+
+  useModalDismiss(isModalOpen, closeModal);
 
   const pendingUsers = users.filter((u) => u.status === 'PENDING_APPROVAL');
   const activeUsers = users.filter((u) => u.status === 'APPROVED');
@@ -148,75 +155,99 @@ export const UserRequestsView: React.FC = () => {
 
       {/* Simulate Signup Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-lg sm:max-w-xl w-full p-6 sm:p-7 border border-slate-100 max-h-[90vh] overflow-y-auto no-scrollbar">
-            <h2 className="text-xl font-bold text-slate-900 mb-4">
-              Simulate New User Registration
-            </h2>
+        <div 
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={closeModal}
+        >
+          <div 
+            className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl max-w-3xl w-full p-5 sm:p-7 border border-slate-100 h-[88vh] sm:h-[90vh] max-h-[90vh] flex flex-col animate-in slide-in-from-bottom-8 sm:slide-in-from-bottom-4 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Mobile Drag Indicator Bar */}
+            <div className="w-12 h-1.5 rounded-full bg-slate-300 mx-auto mb-3 sm:hidden" />
 
-            <form onSubmit={handleSimulateSignup} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Full Name *
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Ramesh Kumar"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full text-sm border border-slate-300 rounded-lg p-2.5 outline-none focus:border-indigo-500"
-                />
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4 shrink-0">
+              <h2 className="text-xl font-bold text-slate-900">
+                Simulate New User Registration
+              </h2>
+              <button
+                type="button"
+                onClick={closeModal}
+                className="text-slate-400 hover:text-slate-700 text-2xl font-bold p-1 leading-none"
+              >
+                &times;
+              </button>
+            </div>
+
+            <form onSubmit={handleSimulateSignup} className="flex-1 flex flex-col min-h-0">
+              <div className="flex-1 overflow-y-auto no-scrollbar pr-1 space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Full Name *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Ramesh Kumar"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      className="w-full text-sm border border-slate-300 rounded-lg p-2.5 outline-none focus:border-indigo-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Email Address *
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      placeholder="ramesh@example.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="w-full text-sm border border-slate-300 rounded-lg p-2.5 outline-none focus:border-indigo-500 font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Mobile Number *
+                    </label>
+                    <input
+                      type="tel"
+                      required
+                      placeholder="9848011223"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      className="w-full text-sm border border-slate-300 rounded-lg p-2.5 outline-none focus:border-indigo-500 font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Requested Role *
+                    </label>
+                    <select
+                      value={role}
+                      onChange={(e) => setRole(e.target.value as Role)}
+                      className="w-full text-sm border border-slate-300 rounded-lg p-2.5 outline-none focus:border-indigo-500"
+                    >
+                      <option value="STAFF">Warehouse Staff</option>
+                      <option value="OWNER">Business Owner</option>
+                      <option value="CUSTOMER">Retail Customer</option>
+                      <option value="ADMIN">Administrator</option>
+                    </select>
+                  </div>
+                </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Email Address *
-                </label>
-                <input
-                  type="email"
-                  required
-                  placeholder="ramesh@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full text-sm border border-slate-300 rounded-lg p-2.5 outline-none focus:border-indigo-500 font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Mobile Number *
-                </label>
-                <input
-                  type="tel"
-                  required
-                  placeholder="9848011223"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="w-full text-sm border border-slate-300 rounded-lg p-2.5 outline-none focus:border-indigo-500 font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Requested Role *
-                </label>
-                <select
-                  value={role}
-                  onChange={(e) => setRole(e.target.value as Role)}
-                  className="w-full text-sm border border-slate-300 rounded-lg p-2.5 outline-none focus:border-indigo-500"
-                >
-                  <option value="STAFF">Warehouse Staff</option>
-                  <option value="OWNER">Business Owner</option>
-                  <option value="CUSTOMER">Retail Customer</option>
-                  <option value="ADMIN">Administrator</option>
-                </select>
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200">
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200 shrink-0">
                 <button
                   type="button"
-                  onClick={() => setIsModalOpen(false)}
+                  onClick={closeModal}
                   className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg"
                 >
                   Cancel
