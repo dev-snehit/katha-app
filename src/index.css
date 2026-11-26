@@ -4,6 +4,24 @@
 
 :root {
   --canvas-bg: #F8F9FA;
+  --app-base-font-size: 16px;
+  --font-scale-factor: 1;
+}
+
+html {
+  font-size: var(--app-base-font-size, 16px);
+  transition: font-size 0.15s ease-out;
+}
+
+/* Scaling arbitrary pixel text classes proportionally with base font size */
+[class*="text-[9px]"] {
+  font-size: calc(9px * var(--font-scale-factor, 1)) !important;
+}
+[class*="text-[10px]"] {
+  font-size: calc(10px * var(--font-scale-factor, 1)) !important;
+}
+[class*="text-[11px]"] {
+  font-size: calc(11px * var(--font-scale-factor, 1)) !important;
 }
 
 body {

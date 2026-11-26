@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { RefreshCw } from 'lucide-react';
 import { Navbar } from './components/Navbar';
 import { PendingOrdersView } from './components/orders/PendingOrdersView';
 import { StockRegistryView } from './components/stock/StockRegistryView';
@@ -13,7 +14,7 @@ import { useAppStore } from './store/useAppStore';
 export default function App() {
   const [activeTab, setActiveTab] = useState('orders');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const { language, isAuthenticated, currentUser, connectAndHydrateServer } = useAppStore();
+  const { language, isAuthenticated, currentUser, connectAndHydrateServer, isConnectingServer } = useAppStore();
 
   // Establish persistent server connection & hydrate latest Google Sheet data on initial load
   React.useEffect(() => {
@@ -35,13 +36,73 @@ export default function App() {
       />
 
       {/* Main Container (with pb-28 for mobile thumb reach above sticky bottom nav) */}
-      <main className="flex-1 max-w-[1600px] w-full mx-auto px-3.5 sm:px-6 lg:px-8 py-5 sm:py-6 pb-28 md:pb-8">
-        {activeTab === 'orders' && <PendingOrdersView setActiveTab={setActiveTab} />}
-        {activeTab === 'stock' && <StockRegistryView />}
-        {activeTab === 'customers' && <CustomerDirectoryView />}
-        {activeTab === 'suppliers' && <SupplierDirectoryView />}
-        {activeTab === 'exports' && <ExportCenterView />}
-        {activeTab === 'admin' && currentUser.role === 'ADMIN' && <UserRequestsView />}
+      <main className="flex-1 max-w-[1600px] w-full mx-auto px-3.5 sm:px-6 lg:px-8 py-5 sm:py-6 pb-28 md:pb-8 relative">
+        {/* Content area with disabled user actions when connecting/syncing server */}
+        <div 
+          className={`transition-all duration-300 ${
+            isConnectingServer ? 'pointer-events-none select-none opacity-20 filter blur-[1px]' : ''
+          }`}
+          aria-hidden={isConnectingServer}
+        >
+          {activeTab === 'orders' && <PendingOrdersView setActiveTab={setActiveTab} />}
+          {activeTab === 'stock' && <StockRegistryView />}
+          {activeTab === 'customers' && <CustomerDirectoryView />}
+          {activeTab === 'suppliers' && <SupplierDirectoryView />}
+          {activeTab === 'exports' && <ExportCenterView />}
+          {activeTab === 'admin' && currentUser.role === 'ADMIN' && <UserRequestsView />}
+        </div>
+
+        {/* Server Connection & Live Sync Overlay */}
+        {isConnectingServer && (
+          <div 
+            className="absolute inset-x-3.5 sm:inset-x-6 lg:inset-x-8 top-5 sm:top-6 bottom-28 md:bottom-8 z-40 bg-white/75 backdrop-blur-md rounded-3xl border border-orange-200/70 shadow-2xl flex items-center justify-center p-4 sm:p-6 animate-in fade-in zoom-in-95 duration-200"
+            role="status"
+            aria-live="polite"
+            aria-busy="true"
+          >
+            <div className="max-w-md w-full bg-white p-6 sm:p-8 rounded-3xl shadow-xl border border-slate-100 flex flex-col items-center text-center">
+              {/* Animated Spinner with Brand Theme */}
+              <div className="relative w-16 h-16 mb-4">
+                <div className="absolute inset-0 rounded-full border-4 border-orange-100" />
+                <div className="absolute inset-0 rounded-full border-4 border-[#FF5A36] border-t-transparent animate-spin" />
+                <div className="absolute inset-2 rounded-full border-2 border-orange-200 border-b-transparent animate-spin [animation-direction:reverse] [animation-duration:1.5s]" />
+                <div className="absolute inset-0 flex items-center justify-center text-[#FF5A36]">
+                  <RefreshCw className="w-6 h-6 animate-spin [animation-duration:3s]" />
+                </div>
+              </div>
+
+              {/* Title */}
+              <h3 className="text-lg font-black text-slate-900 mb-2">
+                {language === 'TE' 
+                  ? 'గూగుల్ షీట్స్ సర్వర్‌తో అనుసంధానించబడుతోంది...' 
+                  : 'Syncing with Google Sheets Server...'}
+              </h3>
+
+              {/* Detailed Progress Description */}
+              <p className="text-xs text-slate-600 leading-relaxed font-medium mb-4">
+                {language === 'TE'
+                  ? 'మీ ప్రైవేట్ మాస్టర్ గూగుల్ స్ప్రెడ్‌షీట్ నుండి సరుకులు, తాజా హోల్‌సేల్ ధరలు, కస్టమర్ రికార్డులు మరియు బకాయి ఆర్డర్లను లోడ్ చేస్తున్నాము. సమకాలీకరణ పూర్తయ్యే వరకు కంటెంట్ స్క్రీన్ చర్యలు తాత్కాలికంగా నిలిపివేయబడ్డాయి.'
+                  : 'Connecting to your Master Google Sheet Webhook and hydrating the latest inventory, wholesale prices, customer accounts, and pending orders. Main content actions are temporarily disabled until data synchronization completes.'}
+              </p>
+
+              {/* Sync Progress Pill */}
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-orange-50 border border-orange-200/80 text-[11px] font-bold text-orange-800 mb-3">
+                <span className="w-2 h-2 rounded-full bg-[#FF5A36] animate-ping" />
+                <span>
+                  {language === 'TE' 
+                    ? 'లైవ్ సింక్ పురోగతిలో ఉంది • దయచేసి వేచి ఉండండి' 
+                    : 'Live Sync in Progress • Please wait'}
+                </span>
+              </div>
+
+              <p className="text-[10px] text-slate-400">
+                {language === 'TE'
+                  ? 'గమనిక: సెట్టింగ్‌లు లేదా ఇతర ఎంపికల కోసం ఎగువ నావ్‌బార్ ఎల్లప్పుడూ అందుబాటులో ఉంటుంది.'
+                  : 'Tip: Top navigation bar remains active for settings or other actions.'}
+              </p>
+            </div>
+          </div>
+        )}
       </main>
 
       {/* Footer (hidden on small mobile screens to save vertical space) */}

@@ -1,7 +1,19 @@
 import React, { useState } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { pingGoogleSheet } from '../../lib/syncService';
-import { Settings, Link2, Check, ExternalLink, RefreshCw, Radio, AlertCircle } from 'lucide-react';
+import { 
+  Settings, 
+  Link2, 
+  Check, 
+  ExternalLink, 
+  RefreshCw, 
+  Radio, 
+  AlertCircle,
+  Type,
+  Minus,
+  Plus,
+  RotateCcw
+} from 'lucide-react';
 import { useModalDismiss } from '../../hooks/useModalDismiss';
 
 interface SettingsModalProps {
@@ -10,7 +22,17 @@ interface SettingsModalProps {
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
-  const { backendUrl, setBackendUrl, syncAllToGoogleSheets, syncStatus, lastSyncTime } = useAppStore();
+  const { 
+    backendUrl, 
+    setBackendUrl, 
+    syncAllToGoogleSheets, 
+    syncStatus, 
+    lastSyncTime,
+    baseFontSize,
+    setBaseFontSize,
+    language,
+    connectAndHydrateServer
+  } = useAppStore();
   const [urlInput, setUrlInput] = useState(backendUrl);
   const [saved, setSaved] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -22,13 +44,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
   if (!isOpen) return null;
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    const urlChanged = urlInput.trim() !== backendUrl;
     setBackendUrl(urlInput);
     setSaved(true);
     setTimeout(() => {
       setSaved(false);
     }, 1500);
+
+    if (urlChanged && urlInput.trim()) {
+      onClose();
+      await connectAndHydrateServer();
+    }
   };
 
   const handleTestConnection = async () => {
@@ -138,6 +166,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               <RefreshCw className={`w-3.5 h-3.5 ${isSyncingAll ? 'animate-spin' : ''}`} />
               <span>{isSyncingAll ? 'Syncing...' : 'Sync All Records to Sheet'}</span>
             </button>
+
+            <button
+              type="button"
+              onClick={async () => {
+                setBackendUrl(urlInput);
+                onClose();
+                await connectAndHydrateServer();
+              }}
+              disabled={!urlInput.trim()}
+              className="px-3.5 py-2 text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl transition-all disabled:opacity-50 inline-flex items-center gap-1.5"
+            >
+              <RefreshCw className="w-3.5 h-3.5 text-emerald-600" />
+              <span>{language === 'TE' ? 'షీట్స్ నుండి రీ-సింక్ చేయండి' : 'Connect & Sync from Sheet'}</span>
+            </button>
           </div>
 
           {/* Connection Test Result */}
@@ -177,6 +219,122 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               }`} />
               <span>{syncStatus}</span>
               {lastSyncTime && <span className="text-[10px] text-slate-400 font-normal">({lastSyncTime})</span>}
+            </div>
+          </div>
+
+          {/* Base Font Size Configuration (Global Typography Scaling) */}
+          <div className="p-4 sm:p-5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-3.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-orange-100 text-[#FF5A36]">
+                  <Type className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-slate-900">
+                    {language === 'TE' ? 'బేస్ ఫాంట్ పరిమాణం (Font Scaling)' : 'Base Font Size (Typography Scaling)'}
+                  </h4>
+                  <p className="text-[11px] text-slate-500">
+                    {language === 'TE'
+                      ? 'ఈ సంఖ్య ఆధారంగా అన్ని పేజీలు, పట్టికలు, ఫీల్డ్‌ల ఫాంట్ ఆటోమేటిక్‌గా మారుతుంది.'
+                      : 'Base font size in px. All options, fields, views, and pages scale proportionally.'}
+                  </p>
+                </div>
+              </div>
+              <span className="text-xs font-black px-2.5 py-1 rounded-full bg-white border border-slate-200 text-slate-800 shadow-sm font-mono">
+                {baseFontSize}px
+              </span>
+            </div>
+
+            {/* Stepper & Direct Number Input */}
+            <div className="flex flex-wrap items-center gap-2.5">
+              <div className="inline-flex items-center border border-slate-300 rounded-xl bg-white shadow-sm overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setBaseFontSize(Math.max(12, baseFontSize - 1))}
+                  disabled={baseFontSize <= 12}
+                  className="px-3 py-2 text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-white transition-colors border-r border-slate-200 text-sm font-bold"
+                  aria-label="Decrease font size"
+                >
+                  <Minus className="w-3.5 h-3.5" />
+                </button>
+                <div className="flex items-center px-3">
+                  <input
+                    type="number"
+                    min={12}
+                    max={26}
+                    step={1}
+                    value={baseFontSize}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value, 10);
+                      if (!isNaN(val)) {
+                        setBaseFontSize(val);
+                      }
+                    }}
+                    className="w-12 text-center text-xs font-bold outline-none font-mono bg-transparent"
+                  />
+                  <span className="text-[11px] text-slate-400 font-bold ml-0.5">px</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setBaseFontSize(Math.min(26, baseFontSize + 1))}
+                  disabled={baseFontSize >= 26}
+                  className="px-3 py-2 text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-white transition-colors border-l border-slate-200 text-sm font-bold"
+                  aria-label="Increase font size"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              {/* Quick Presets */}
+              <div className="flex flex-wrap items-center gap-1.5">
+                {[
+                  { label: language === 'TE' ? 'చిన్నది' : 'Compact', size: 14 },
+                  { label: language === 'TE' ? 'డిఫాల్ట్' : 'Default', size: 16 },
+                  { label: language === 'TE' ? 'పెద్దది' : 'Large', size: 18 },
+                  { label: language === 'TE' ? 'ఎక్కువ' : 'XL', size: 20 },
+                ].map((preset) => (
+                  <button
+                    key={preset.size}
+                    type="button"
+                    onClick={() => setBaseFontSize(preset.size)}
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      baseFontSize === preset.size
+                        ? 'bg-[#FF5A36] text-white shadow-sm'
+                        : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    {preset.label} ({preset.size})
+                  </button>
+                ))}
+
+                {baseFontSize !== 16 && (
+                  <button
+                    type="button"
+                    onClick={() => setBaseFontSize(16)}
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500 hover:text-slate-700 px-2 py-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    <span>{language === 'TE' ? 'రీసెట్' : 'Reset'}</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Live Preview Container */}
+            <div className="p-3 bg-white rounded-xl border border-slate-200/90 shadow-sm">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                {language === 'TE' ? 'లైవ్ ప్రివ్యూ' : 'Live Preview'}
+              </span>
+              <p className="text-sm font-bold text-slate-800">
+                {language === 'TE'
+                  ? 'కథా హోల్‌సేల్ • సోనా మసూరి బియ్యం (₹1,450 / బస్తా) • ప్రత్యక్ష ఫాంట్ స్కేలింగ్'
+                  : 'Katha Wholesale • Sona Masoori Rice (₹1,450 / bag) • Live Scaled Sample'}
+              </p>
+              <p className="text-xs text-slate-500 mt-0.5">
+                {language === 'TE' 
+                  ? 'ఆర్డర్లు, స్టాక్ రిజిస్ట్రీ, కస్టమర్లు మరియు సరఫరాదారుల అన్ని వివరాలు దీనికి అనుగుణంగా మారుతాయి.'
+                  : 'All tables, order items, customer fields, and dialogs dynamically adjust to this size.'}
+              </p>
             </div>
           </div>
           </div>

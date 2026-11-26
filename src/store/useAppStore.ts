@@ -28,6 +28,14 @@ export interface AppState {
   // Active Language
   language: SupportedLanguage;
   setLanguage: (lang: SupportedLanguage) => void;
+
+  // Typography & Accessibility font scaling
+  baseFontSize: number;
+  setBaseFontSize: (size: number) => void;
+
+  // Server connecting & hydration state (blocks main content with loading spinner)
+  isConnectingServer: boolean;
+  setIsConnectingServer: (status: boolean) => void;
   
   // Domain entities (CLEAN SLATE: Zero dummy data)
   orders: Order[];
@@ -82,6 +90,18 @@ function saveToStorage<T>(key: string, value: T): void {
     // ignore
   }
 }
+
+export const applyBaseFontSize = (size: number) => {
+  if (typeof document !== 'undefined') {
+    const clamped = Math.max(12, Math.min(26, Math.round(size)));
+    document.documentElement.style.fontSize = `${clamped}px`;
+    document.documentElement.style.setProperty('--app-base-font-size', `${clamped}px`);
+    document.documentElement.style.setProperty('--font-scale-factor', (clamped / 16).toString());
+  }
+};
+
+const initialBaseFontSize = loadFromStorage<number>('baseFontSize', 16);
+applyBaseFontSize(initialBaseFontSize);
 
 // Initial pre-seeded users (ensures root admin is always present as first-time registered admin)
 const storedUsers = loadFromStorage<User[]>('users', []);
@@ -167,6 +187,9 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     set({ currentUser: user, isAuthenticated: true });
 
+    // Retain and re-apply base font size upon every login
+    applyBaseFontSize(get().baseFontSize);
+
     // Establish live server connection and hydrate latest database on login
     get().connectAndHydrateServer();
 
@@ -228,6 +251,17 @@ export const useAppStore = create<AppState>((set, get) => ({
     saveToStorage('lang', lang);
     set({ language: lang });
   },
+
+  baseFontSize: initialBaseFontSize,
+  setBaseFontSize: (size: number) => {
+    const clamped = Math.max(12, Math.min(26, Math.round(size)));
+    saveToStorage('baseFontSize', clamped);
+    applyBaseFontSize(clamped);
+    set({ baseFontSize: clamped });
+  },
+
+  isConnectingServer: false,
+  setIsConnectingServer: (status: boolean) => set({ isConnectingServer: status }),
   
   // Clean empty state: zero mock/sample data
   orders: loadFromStorage<Order[]>('orders', []),
@@ -281,28 +315,32 @@ export const useAppStore = create<AppState>((set, get) => ({
       return false;
     }
 
-    set({ syncStatus: 'SYNCING', syncError: null });
-    const res = await pushToGoogleSheet(backendUrl, 'syncAll', {
-      products: inventory,
-      customers,
-      suppliers,
-      orders,
-      users
-    });
+    set({ isConnectingServer: true, syncStatus: 'SYNCING', syncError: null });
+    try {
+      const res = await pushToGoogleSheet(backendUrl, 'syncAll', {
+        products: inventory,
+        customers,
+        suppliers,
+        orders,
+        users
+      });
 
-    if (res.success) {
-      set({
-        syncStatus: 'SYNCED',
-        lastSyncTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-        syncError: null
-      });
-      return true;
-    } else {
-      set({
-        syncStatus: 'ERROR',
-        syncError: res.error || 'Batch sync failed'
-      });
-      return false;
+      if (res.success) {
+        set({
+          syncStatus: 'SYNCED',
+          lastSyncTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+          syncError: null
+        });
+        return true;
+      } else {
+        set({
+          syncStatus: 'ERROR',
+          syncError: res.error || 'Batch sync failed'
+        });
+        return false;
+      }
+    } finally {
+      set({ isConnectingServer: false });
     }
   },
 
@@ -310,7 +348,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     const backendUrl = get().backendUrl;
     if (!backendUrl) return false;
 
-    set({ syncStatus: 'SYNCING', syncError: null });
+    set({ isConnectingServer: true, syncStatus: 'SYNCING', syncError: null });
 
     try {
       const res = await pullFromGoogleSheet(backendUrl);
@@ -472,6 +510,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         syncError: err.message || 'Server connection failed'
       });
       return false;
+    } finally {
+      set({ isConnectingServer: false });
     }
   },
 
