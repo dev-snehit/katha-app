@@ -14,13 +14,25 @@ import {
   Sparkles,
   ArrowRight,
   KeyRound,
-  RotateCcw
+  RotateCcw,
+  Copy,
+  ExternalLink
 } from 'lucide-react';
 
 export const AuthView: React.FC = () => {
-  const { login, registerUser, resetPassword, forgotPassword, users, language, setLanguage } = useAppStore();
+  const { 
+    login, 
+    registerUser, 
+    resetPassword, 
+    forgotPassword, 
+    validateResetToken, 
+    resetPasswordWithToken, 
+    users, 
+    language, 
+    setLanguage 
+  } = useAppStore();
 
-  const [mode, setMode] = useState<'LOGIN' | 'REGISTER' | 'FORGOT' | 'RESET_REQUIRED'>('LOGIN');
+  const [mode, setMode] = useState<'LOGIN' | 'REGISTER' | 'FORGOT' | 'RESET_REQUIRED' | 'RESET_LINK'>('LOGIN');
   
   // Login Form
   const [loginEmail, setLoginEmail] = useState('');
@@ -42,10 +54,40 @@ export const AuthView: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [resetError, setResetError] = useState<string | null>(null);
 
-  // Forgot Password Form
+  // Forgot Password Form & Unique Reset Link
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotSuccess, setForgotSuccess] = useState<string | null>(null);
   const [forgotError, setForgotError] = useState<string | null>(null);
+  const [resetLinkGenerated, setResetLinkGenerated] = useState<string | null>(null);
+  const [copiedLink, setCopiedLink] = useState(false);
+
+  // URL Reset Token state
+  const [tokenFromUrl, setTokenFromUrl] = useState<string | null>(null);
+  const [tokenUserEmail, setTokenUserEmail] = useState<string | null>(null);
+
+  // Automatically detect and validate resetToken in URL query params
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('resetToken') || params.get('token');
+    if (token) {
+      const validation = validateResetToken(token);
+      if (validation.valid && validation.user) {
+        setTokenFromUrl(token);
+        setTokenUserEmail(validation.user.email);
+        setResetUserId(validation.user.id);
+        setMode('RESET_LINK');
+        setResetError(null);
+      } else {
+        setForgotError(
+          language === 'TE'
+            ? 'ఈ పాస్‌వర్డ్ రీసెట్ లింక్ చెల్లదు లేదా గడువు ముగిసింది. దయచేసి కొత్త లింక్‌ను అభ్యర్థించండి.'
+            : (validation.error || 'This password reset link is invalid or has expired. Please request a new one.')
+        );
+        setMode('FORGOT');
+      }
+    }
+  }, [users, language]);
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -192,13 +234,53 @@ export const AuthView: React.FC = () => {
     e.preventDefault();
     setForgotError(null);
     setForgotSuccess(null);
+    setResetLinkGenerated(null);
 
     const res = await forgotPassword(forgotEmail);
     if (res.success) {
-      setForgotSuccess(res.message);
+      setForgotSuccess(
+        language === 'TE'
+          ? `పాస్‌వర్డ్ రీసెట్ లింక్ ${forgotEmail} కు పంపబడింది! దయచేసి మీ ఇన్‌బాక్స్ తనిఖీ చేసి లింక్‌పై క్లిక్ చేయండి.`
+          : `A unique password reset link has been dispatched to ${forgotEmail}. Please check your email inbox and click the link to reset your password.`
+      );
+      if (res.resetLink) {
+        setResetLinkGenerated(res.resetLink);
+      }
       setForgotEmail('');
     } else {
       setForgotError(res.message);
+    }
+  };
+
+  const handleResetWithTokenSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setResetError(null);
+
+    if (newPassword.length < 4) {
+      setResetError(language === 'TE' ? 'పాస్‌వర్డ్ కనీసం 4 అక్షరాలు ఉండాలి.' : 'Password must be at least 4 characters long.');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setResetError(language === 'TE' ? 'పాస్‌వర్డ్‌లు సరిపోలలేదు.' : 'Passwords do not match. Please verify.');
+      return;
+    }
+
+    if (!tokenFromUrl) {
+      setResetError('Reset token is missing or has expired. Please request a new one.');
+      setMode('LOGIN');
+      return;
+    }
+
+    const res = await resetPasswordWithToken(tokenFromUrl, newPassword);
+    if (!res.success) {
+      setResetError(res.message);
+      return;
+    }
+
+    // Clean up resetToken from query string without page reload
+    if (typeof window !== 'undefined' && window.history) {
+      window.history.replaceState({}, '', window.location.pathname);
     }
   };
 
@@ -541,15 +623,52 @@ export const AuthView: React.FC = () => {
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
                   {language === 'TE'
-                    ? 'మీ రిజిస్టర్డ్ ఇమెయిల్‌ను నమోదు చేయండి. తాత్కాలిక పాస్‌వర్డ్ పంపబడుతుంది.'
-                    : 'Enter your registered email. A temporary reset password will be sent to your inbox.'}
+                    ? 'మీ రిజిస్టర్డ్ ఇమెయిల్‌ను నమోదు చేయండి. ప్రత్యేక పాస్‌వర్డ్ రీసెట్ లింక్ మీ ఇమెయిల్‌కు పంపబడుతుంది.'
+                    : 'Enter your registered email address. A unique password reset link will be sent to your inbox.'}
                 </p>
               </div>
 
               {forgotSuccess && (
-                <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-start gap-2.5">
-                  <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-600" />
-                  <span>{forgotSuccess}</span>
+                <div className="space-y-3">
+                  <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-start gap-2.5">
+                    <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-600" />
+                    <span>{forgotSuccess}</span>
+                  </div>
+
+                  {resetLinkGenerated && (
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl text-xs text-amber-900 space-y-2">
+                      <div className="font-semibold flex items-center gap-1.5 text-amber-800">
+                        <KeyRound className="w-3.5 h-3.5 text-amber-600" />
+                        <span>{language === 'TE' ? 'ప్రత్యక్ష రీసెట్ లింక్ (పరీక్ష / ప్రివ్యూ):' : 'Direct Password Reset Link (Instant Preview):'}</span>
+                      </div>
+                      <div className="font-mono text-[11px] break-all bg-white p-2.5 rounded-xl border border-amber-200 text-slate-700 select-all shadow-inner">
+                        {resetLinkGenerated}
+                      </div>
+                      <div className="flex gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (typeof navigator !== 'undefined' && navigator.clipboard) {
+                              navigator.clipboard.writeText(resetLinkGenerated);
+                              setCopiedLink(true);
+                              setTimeout(() => setCopiedLink(false), 2000);
+                            }
+                          }}
+                          className="px-3 py-1.5 text-xs font-bold bg-amber-600 hover:bg-amber-500 text-white rounded-lg transition-colors inline-flex items-center gap-1.5 shadow-sm"
+                        >
+                          <Copy className="w-3.5 h-3.5" />
+                          <span>{copiedLink ? (language === 'TE' ? 'కాపీ చేయబడింది!' : 'Copied!') : (language === 'TE' ? 'లింక్ కాపీ చేయండి' : 'Copy Link')}</span>
+                        </button>
+                        <a
+                          href={resetLinkGenerated}
+                          className="px-3 py-1.5 text-xs font-bold bg-white text-amber-900 border border-amber-300 hover:bg-amber-100/70 rounded-lg transition-colors inline-flex items-center gap-1.5 shadow-sm"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                          <span>{language === 'TE' ? 'లింక్ తెరవండి' : 'Open Reset Link'}</span>
+                        </a>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -584,7 +703,7 @@ export const AuthView: React.FC = () => {
                 className="w-full py-3.5 px-4 bg-gradient-to-r from-[#FF5A36] to-[#FF6B4A] hover:from-[#f04f2c] hover:to-[#f05a38] text-white font-bold text-sm rounded-xl shadow-lg shadow-orange-500/25 transition-all flex items-center justify-center gap-2 mt-2"
               >
                 <RotateCcw className="w-4 h-4" />
-                <span>{language === 'TE' ? 'రీసెట్ కోడ్ పంపండి' : 'Send Temporary Password'}</span>
+                <span>{language === 'TE' ? 'రీసెట్ లింక్ పంపండి' : 'Send Reset Link'}</span>
               </button>
 
               <button
@@ -593,6 +712,92 @@ export const AuthView: React.FC = () => {
                   setMode('LOGIN');
                   setForgotError(null);
                   setForgotSuccess(null);
+                  setResetLinkGenerated(null);
+                }}
+                className="w-full text-center text-xs font-bold text-slate-500 hover:text-slate-800 pt-2"
+              >
+                &larr; {language === 'TE' ? 'లాగిన్‌కు తిరిగి వెళ్ళండి' : 'Back to Sign In'}
+              </button>
+            </form>
+          )}
+
+          {/* Mode: RESET_LINK (Triggered via unique email link ?resetToken=...) */}
+          {mode === 'RESET_LINK' && (
+            <form onSubmit={handleResetWithTokenSubmit} className="space-y-4">
+              <div className="text-left mb-2">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-orange-50 text-orange-700 text-xs font-semibold mb-2">
+                  <KeyRound className="w-3.5 h-3.5" />
+                  <span>{language === 'TE' ? 'ప్రత్యేక రీసెట్ లింక్ ధృవీకరించబడింది' : 'Unique Reset Link Verified'}</span>
+                </div>
+                <h3 className="text-sm font-bold text-slate-900">
+                  {language === 'TE' ? 'కొత్త పాస్‌వర్డ్ సెట్ చేయండి' : 'Create New Password'}
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {language === 'TE'
+                    ? `${tokenUserEmail || 'మీ'} ఖాతా కోసం కొత్త పాస్‌వర్డ్‌ను నమోదు చేయండి.`
+                    : `Set a new secure password for ${tokenUserEmail || 'your account'}.`}
+                </p>
+              </div>
+
+              {resetError && (
+                <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-start gap-2.5">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-500" />
+                  <span>{resetError}</span>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  {language === 'TE' ? 'కొత్త పాస్‌వర్డ్' : 'New Password'}
+                </label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                  <input
+                    type="password"
+                    required
+                    minLength={4}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-medium text-slate-800 focus:bg-white focus:outline-none focus:border-[#FF5A36] focus:ring-2 focus:ring-[#FF5A36]/10 transition-all"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  {language === 'TE' ? 'పాస్‌వర్డ్‌ను నిర్ధారించండి' : 'Confirm New Password'}
+                </label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                  <input
+                    type="password"
+                    required
+                    minLength={4}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-medium text-slate-800 focus:bg-white focus:outline-none focus:border-[#FF5A36] focus:ring-2 focus:ring-[#FF5A36]/10 transition-all"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                className="w-full py-3.5 px-4 bg-gradient-to-r from-[#FF5A36] to-[#FF6B4A] hover:from-[#f04f2c] hover:to-[#f05a38] text-white font-bold text-sm rounded-xl shadow-lg shadow-orange-500/25 transition-all flex items-center justify-center gap-2 mt-2"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>{language === 'TE' ? 'పాస్‌వర్డ్ రీసెట్ చేసి లాగిన్ అవ్వండి' : 'Reset Password & Enter'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (typeof window !== 'undefined' && window.history) {
+                    window.history.replaceState({}, '', window.location.pathname);
+                  }
+                  setMode('LOGIN');
+                  setResetError(null);
                 }}
                 className="w-full text-center text-xs font-bold text-slate-500 hover:text-slate-800 pt-2"
               >

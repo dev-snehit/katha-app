@@ -22,7 +22,23 @@ export interface AppState {
   users: User[];
   login: (email: string, password: string) => Promise<{ success: boolean; message: string; user?: User; mustResetPassword?: boolean }>;
   resetPassword: (userId: string, newPassword: string) => Promise<{ success: boolean; message: string }>;
-  forgotPassword: (email: string) => Promise<{ success: boolean; message: string; tempPassword?: string }>;
+  forgotPassword: (email: string) => Promise<{
+    success: boolean;
+    message: string;
+    tempPassword?: string;
+    resetToken?: string;
+    resetLink?: string;
+  }>;
+  validateResetToken: (token: string) => {
+    valid: boolean;
+    user?: User;
+    error?: string;
+  };
+  resetPasswordWithToken: (token: string, newPassword: string) => Promise<{
+    success: boolean;
+    message: string;
+    user?: User;
+  }>;
   logout: () => void;
   
   // Active Language
@@ -231,30 +247,118 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   forgotPassword: async (email: string) => {
-    let cleanEmail = email.trim().toLowerCase();
-    if (cleanEmail.endsWith('@gmail')) {
-      cleanEmail += '.com';
-    }
-    const user = get().users.find((u) => u.email.toLowerCase() === cleanEmail);
+    let cleanEmail = normalizeEmail(email);
+    const user = get().users.find((u) => {
+      const uEmail = normalizeEmail(u.email);
+      return (
+        uEmail === cleanEmail ||
+        ((cleanEmail === 'dev.snehit@gmail.com' || cleanEmail === 'dev.snehit@gmail') &&
+          (uEmail === 'dev.snehit@gmail.com' || uEmail === 'dev.snehit@gmail'))
+      );
+    });
+
     if (!user) {
       return { success: false, message: 'No registered user found with this email address.' };
     }
+
+    const resetToken = crypto.randomUUID ? crypto.randomUUID() : 'rst-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hour validity
+
+    let baseUrl = 'https://dev-snehit.github.io/katha-app/';
+    if (typeof window !== 'undefined' && window.location) {
+      baseUrl = window.location.origin + window.location.pathname;
+    }
+    const resetLink = `${baseUrl}?resetToken=${resetToken}`;
 
     const tempPassword = generateTemporaryPassword();
     const tempHash = await hashPassword(tempPassword);
 
     const updated = get().users.map((u) =>
-      u.id === user.id ? { ...u, passwordHash: tempHash, password: tempPassword, mustResetPassword: true } : u
+      u.id === user.id
+        ? {
+            ...u,
+            resetPasswordToken: resetToken,
+            resetPasswordExpires: expiresAt,
+            passwordHash: tempHash,
+            password: tempPassword,
+            mustResetPassword: true,
+          }
+        : u
     );
     saveToStorage('users', updated);
     set({ users: updated });
 
-    get().triggerSync('forgotPassword', { email: cleanEmail, tempPassword, passwordHash: tempHash });
+    get().triggerSync('forgotPassword', {
+      email: cleanEmail,
+      resetToken,
+      resetLink,
+      expiresAt,
+      name: user.name,
+      tempPassword,
+      passwordHash: tempHash,
+    });
+
     return { 
       success: true, 
-      message: `A temporary password has been generated and dispatched to ${cleanEmail}. Check your email.`,
-      tempPassword 
+      message: `A unique password reset link has been dispatched to ${cleanEmail}. Check your email.`,
+      tempPassword,
+      resetToken,
+      resetLink
     };
+  },
+
+  validateResetToken: (token: string) => {
+    if (!token || !token.trim()) {
+      return { valid: false, error: 'Reset token is required.' };
+    }
+    const cleanToken = token.trim();
+    const user = get().users.find((u) => u.resetPasswordToken === cleanToken);
+    if (!user) {
+      return { valid: false, error: 'Invalid or unrecognized password reset link.' };
+    }
+    if (user.resetPasswordExpires) {
+      const expiry = new Date(user.resetPasswordExpires).getTime();
+      if (Date.now() > expiry) {
+        return { valid: false, error: 'This password reset link has expired. Please request a new one.' };
+      }
+    }
+    return { valid: true, user };
+  },
+
+  resetPasswordWithToken: async (token: string, newPassword: string) => {
+    const validation = get().validateResetToken(token);
+    if (!validation.valid || !validation.user) {
+      return { success: false, message: validation.error || 'Invalid or expired password reset link.' };
+    }
+    const user = validation.user;
+    const cleanPass = newPassword.trim();
+    if (cleanPass.length < 4) {
+      return { success: false, message: 'Password must be at least 4 characters.' };
+    }
+    const newHash = await hashPassword(cleanPass);
+    const updated = get().users.map((u) =>
+      u.id === user.id
+        ? {
+            ...u,
+            passwordHash: newHash,
+            password: cleanPass,
+            mustResetPassword: false,
+            resetPasswordToken: undefined,
+            resetPasswordExpires: undefined,
+          }
+        : u
+    );
+    saveToStorage('users', updated);
+    const updatedUser = updated.find((u) => u.id === user.id)!;
+    saveToStorage('currentUser', updatedUser);
+    set({ users: updated, currentUser: updatedUser, isAuthenticated: true });
+
+    // Re-apply base font size upon login
+    applyBaseFontSize(get().baseFontSize);
+
+    get().triggerSync('resetPassword', { email: user.email, newPasswordHash: newHash });
+    get().connectAndHydrateServer();
+    return { success: true, message: 'Password successfully updated.', user: updatedUser };
   },
 
   logout: () => {

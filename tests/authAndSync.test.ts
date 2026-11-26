@@ -158,6 +158,106 @@ describe('Authentication & Session Gate', () => {
     expect(loginRes.mustResetPassword).toBe(true);
   });
 
+  it('generates a unique reset password link when user requests forgot password', async () => {
+    const testEmail = 'linktest@example.com';
+    useAppStore.getState().registerUser({
+      id: 'link-test-user-id',
+      name: 'Link Test User',
+      email: testEmail,
+      phone: '9848077112',
+      role: 'STAFF',
+      status: 'APPROVED',
+      password: 'initialPass123',
+      createdAt: new Date().toISOString()
+    });
+
+    const res = await useAppStore.getState().forgotPassword(testEmail);
+    expect(res.success).toBe(true);
+    expect(res.resetToken).toBeDefined();
+    expect(res.resetLink).toBeDefined();
+    expect(res.resetLink).toContain('?resetToken=');
+    expect(res.resetLink).toContain(res.resetToken!);
+
+    // Verify user in store has reset token and expiry
+    const user = useAppStore.getState().users.find(u => u.email === testEmail);
+    expect(user?.resetPasswordToken).toBe(res.resetToken);
+    expect(user?.resetPasswordExpires).toBeDefined();
+  });
+
+  it('validates reset token and detects expired or invalid token', async () => {
+    const testEmail = 'tokentest@example.com';
+    useAppStore.getState().registerUser({
+      id: 'token-test-user-id',
+      name: 'Token Test User',
+      email: testEmail,
+      phone: '9848077113',
+      role: 'CUSTOMER',
+      status: 'APPROVED',
+      password: 'initialPass123',
+      createdAt: new Date().toISOString()
+    });
+
+    const res = await useAppStore.getState().forgotPassword(testEmail);
+    const validToken = res.resetToken!;
+
+    // 1. Valid token passes
+    const validCheck = useAppStore.getState().validateResetToken(validToken);
+    expect(validCheck.valid).toBe(true);
+    expect(validCheck.user?.email).toBe(testEmail);
+
+    // 2. Non-existent token fails
+    const invalidCheck = useAppStore.getState().validateResetToken('invalid-fake-token-999');
+    expect(invalidCheck.valid).toBe(false);
+    expect(invalidCheck.error).toContain('Invalid');
+
+    // 3. Expired token fails
+    useAppStore.setState({
+      users: useAppStore.getState().users.map(u => 
+        u.email === testEmail ? { ...u, resetPasswordExpires: new Date(Date.now() - 10000).toISOString() } : u
+      )
+    });
+    const expiredCheck = useAppStore.getState().validateResetToken(validToken);
+    expect(expiredCheck.valid).toBe(false);
+    expect(expiredCheck.error).toContain('expired');
+  });
+
+  it('allows resetting password using unique token and invalidates token after use', async () => {
+    const testEmail = 'resetcomplete@example.com';
+    useAppStore.getState().registerUser({
+      id: 'reset-complete-id',
+      name: 'Reset Complete User',
+      email: testEmail,
+      phone: '9848077114',
+      role: 'STAFF',
+      status: 'APPROVED',
+      password: 'oldPassword123',
+      createdAt: new Date().toISOString()
+    });
+
+    const forgotRes = await useAppStore.getState().forgotPassword(testEmail);
+    const token = forgotRes.resetToken!;
+
+    // Reset password with token
+    const resetRes = await useAppStore.getState().resetPasswordWithToken(token, 'BrandNewPassword2026');
+    expect(resetRes.success).toBe(true);
+    expect(useAppStore.getState().isAuthenticated).toBe(true);
+    expect(useAppStore.getState().currentUser?.email).toBe(testEmail);
+
+    // Verify token has been cleared / invalidated
+    const updatedUser = useAppStore.getState().users.find(u => u.email === testEmail);
+    expect(updatedUser?.resetPasswordToken).toBeUndefined();
+
+    // Reusing the token must fail
+    const reuseAttempt = useAppStore.getState().validateResetToken(token);
+    expect(reuseAttempt.valid).toBe(false);
+
+    // Log out and verify login with new password succeeds
+    useAppStore.getState().logout();
+    const loginRes = await useAppStore.getState().login(testEmail, 'BrandNewPassword2026');
+    expect(loginRes.success).toBe(true);
+    expect(loginRes.mustResetPassword).toBeFalsy();
+  });
+
   it('clears session on logout', async () => {
     await useAppStore.getState().login('dev.snehit@gmail.com', 'admin');
     expect(useAppStore.getState().isAuthenticated).toBe(true);

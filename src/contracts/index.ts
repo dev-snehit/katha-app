@@ -38,6 +38,8 @@ export const UserSchema = z.object({
   password: z.string().optional(),
   passwordHash: z.string().optional(),
   mustResetPassword: z.boolean().default(false).optional(),
+  resetPasswordToken: z.string().optional(),
+  resetPasswordExpires: z.string().optional(),
 });
 export type User = z.infer<typeof UserSchema>;
 

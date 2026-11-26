@@ -426,7 +426,7 @@ function doPost(e) {
     }
 
     if (action === 'forgotPassword') {
-      const { email, tempPassword, passwordHash } = body;
+      const { email, resetLink, resetToken, expiresAt, name, tempPassword, passwordHash } = body;
       const userSheet = ss.getSheetByName('Users');
       if (userSheet && email) {
         const uData = userSheet.getDataRange().getValues();
@@ -440,22 +440,35 @@ function doPost(e) {
         }
       }
 
-      if (tempPassword && email) {
+      if (email) {
         try {
-          MailApp.sendEmail({
-            to: email,
-            subject: 'Katha Wholesale - Temporary Password Reset Code',
-            body: 'Hello,\n\n' +
-                  'A password reset request was initiated for your Katha Wholesale account.\n\n' +
-                  'Your Temporary Password: ' + tempPassword + '\n\n' +
-                  'Please sign in with this temporary password. You will be prompted immediately to set your new permanent password.\n\n' +
-                  'Regards,\nKatha Wholesale Enterprise'
-          });
+          if (resetLink) {
+            MailApp.sendEmail({
+              to: email,
+              subject: 'Katha Wholesale - Password Reset Link',
+              body: 'Hello ' + (name ? name : '') + ',\n\n' +
+                    'A password reset request was initiated for your Katha Wholesale account.\n\n' +
+                    'Please click the unique link below to reset your password:\n' +
+                    resetLink + '\n\n' +
+                    'Security Notice: This link is valid for 1 hour. If you did not make this request, you can safely ignore this email.\n\n' +
+                    'Regards,\nKatha Wholesale Enterprise'
+            });
+          } else if (tempPassword) {
+            MailApp.sendEmail({
+              to: email,
+              subject: 'Katha Wholesale - Temporary Password Reset Code',
+              body: 'Hello,\n\n' +
+                    'A password reset request was initiated for your Katha Wholesale account.\n\n' +
+                    'Your Temporary Password: ' + tempPassword + '\n\n' +
+                    'Please sign in with this temporary password. You will be prompted immediately to set your new permanent password.\n\n' +
+                    'Regards,\nKatha Wholesale Enterprise'
+            });
+          }
         } catch (mailErr) {
           console.warn('Password reset email error:', mailErr);
         }
       }
-      return createResponse({ status: 'success', message: 'Temporary reset password sent' });
+      return createResponse({ status: 'success', message: 'Password reset link dispatched to email' });
     }
 
     if (action === 'resetPassword') {
