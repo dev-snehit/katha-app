@@ -9,7 +9,7 @@ import { buildSingleDayTally, buildDateRangeTally, DateGroupedEntry } from './ta
 export function generateSalesReportPDF(
   orders: Order[],
   titlePeriod: string = 'Daily Sales Report',
-  storeName: string = 'Katha Wholesale (కథా హోల్‌సేల్)'
+  storeName: string = 'Kaatha Wholesale (కాతా హోల్‌సేల్)'
 ): void {
   const doc = new jsPDF();
 
@@ -64,7 +64,7 @@ export function generateNumberTallyPDF(
   const doc = new jsPDF();
 
   doc.setFontSize(18);
-  doc.text('Katha Wholesale - Physical Loading Audit', 14, 18);
+  doc.text('Kaatha Wholesale - Physical Loading Audit', 14, 18);
   doc.setFontSize(12);
   doc.text(titlePeriod, 14, 26);
   doc.setFontSize(9);
@@ -151,7 +151,7 @@ export function generateStockPositionPDF(
   const doc = new jsPDF();
 
   doc.setFontSize(18);
-  doc.text('Katha Wholesale - Stock Position Report', 14, 18);
+  doc.text('Kaatha Wholesale - Stock Position Report', 14, 18);
   doc.setFontSize(12);
   doc.text(titlePeriod, 14, 26);
   doc.setFontSize(9);

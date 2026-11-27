@@ -1,4 +1,4 @@
-name: Deploy Katha Wholesale to GitHub Pages
+name: Deploy Kaatha Wholesale to GitHub Pages
 
 on:
   push:

@@ -340,7 +340,7 @@ export const AuthView: React.FC = () => {
             <span className="text-3xl font-black">🌾</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-            Katha Wholesale
+            {language === 'TE' ? 'కాతా హోల్‌సేల్' : 'Kaatha Wholesale'}
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-1 font-medium">
             {language === 'TE' 
@@ -838,8 +838,8 @@ export const AuthView: React.FC = () => {
 
         <p className="text-center text-[11px] text-slate-400 mt-6">
           {language === 'TE'
-            ? 'కథా హోల్‌సేల్ • క్లౌడ్ & మొబైల్ ప్లాట్‌ఫారమ్'
-            : 'Katha Wholesale • Cloud & Mobile Platform'}
+            ? 'కాతా హోల్‌సేల్ • క్లౌడ్ & మొబైల్ ప్లాట్‌ఫారమ్'
+            : 'Kaatha Wholesale • Cloud & Mobile Platform'}
         </p>
       </div>
     </div>

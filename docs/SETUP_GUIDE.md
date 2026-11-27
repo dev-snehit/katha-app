@@ -1,13 +1,13 @@
-# KATHA WHOLESALE – ONBOARDING & SETUP GUIDE
-**Application:** Katha Wholesale (కథా హోల్‌సేల్)  
+# KAATHA WHOLESALE – ONBOARDING & SETUP GUIDE
+**Application:** Kaatha Wholesale (కాతా హోల్‌సేల్)  
 **Initial Master Administrator:** Snehit Tadepalli (`dev.snehit@gmail.com`)  
 **Hosting Model:** Static Single-Page App (GitHub Pages) + Google Apps Script Web App Backend  
 **Deployment Cost:** $0.00 (Free Forever)
 
 ---
 
-## Welcome to Katha Wholesale!
-This guide walks you through setting up, deploying, and operating Katha Wholesale from scratch. By following these steps, you will have a high-end wholesale management system running live on the web with an always-up-to-date Google Sheet backend—completely free of server charges.
+## Welcome to Kaatha Wholesale!
+This guide walks you through setting up, deploying, and operating Kaatha Wholesale from scratch. By following these steps, you will have a high-end wholesale management system running live on the web with an always-up-to-date Google Sheet backend—completely free of server charges.
 
 ---
 
@@ -22,7 +22,7 @@ This guide walks you through setting up, deploying, and operating Katha Wholesal
 
 ### Step 1: Create Your Master Google Sheet
 1. Open [Google Sheets](https://sheets.new) in your browser while logged into your Google account.
-2. Name the spreadsheet: **`Katha_Wholesale_Master_Database`**.
+2. Name the spreadsheet: **`Kaatha_Wholesale_Master_Database`**.
 3. You do not need to create all tabs manually—our automated Apps Script will create them on first launch:
    - `Users`
    - `Master_Products`
@@ -42,7 +42,7 @@ This guide walks you through setting up, deploying, and operating Katha Wholesal
 5. At the top right, click the blue **Deploy** button > **New deployment**.
 6. Click the gear icon (**Select type**) > choose **Web app**.
 7. Set the deployment fields:
-   * **Description**: `Katha Wholesale Production Backend v1`
+   * **Description**: `Kaatha Wholesale Production Backend v1`
    * **Execute as**: `Me (your email)`
    * **Who has access**: `Anyone` *(Note: This allows your GitHub Pages web app to communicate with the script. Your sheet remains private, and authentication is handled by the script)*.
 8. Click **Deploy**.
@@ -70,7 +70,7 @@ This guide walks you through setting up, deploying, and operating Katha Wholesal
 
 ### Step 4: First-Time Master Admin Login
 1. Open your live application URL in any browser or on your mobile device.
-2. The **Katha Wholesale Auth Screen** will appear automatically upon opening the application.
+2. The **Kaatha Wholesale Auth Screen** will appear automatically upon opening the application.
 3. Sign in using the pre-seeded Master Admin credentials:
    * **Email**: `dev.snehit@gmail.com`
    * **Password**: `admin`

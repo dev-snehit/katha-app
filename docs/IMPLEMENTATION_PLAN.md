@@ -1,5 +1,5 @@
-# Katha Wholesale – Master Implementation Plan
-**Application:** Katha Wholesale (కథా హోల్‌సేల్) – Enterprise Rice & Groceries Wholesale Platform  
+# Kaatha Wholesale – Master Implementation Plan
+**Application:** Kaatha Wholesale (కాతా హోల్‌సేల్) – Enterprise Rice & Groceries Wholesale Platform  
 **Architecture:** Static Single-Page App on GitHub Pages + Google Apps Script Web App Backend  
 **Deployment Cost:** $0.00 (Free Forever)  
 **Status:** IMPLEMENTED & ACTIVE  
@@ -8,7 +8,7 @@
 
 ## 1. System Overview & Core Requirements
 
-Katha Wholesale is a specialized web application engineered for wholesale commodity merchants trading in Rice, Flours (Wheat Ravva, Suji Ravva, Maida), and Groceries. It runs 100% free on **GitHub Pages**, synchronizes with a **Master Google Sheet** via Google Apps Script, and features a high-end mobile-first UI.
+Kaatha Wholesale is a specialized web application engineered for wholesale commodity merchants trading in Rice, Flours (Wheat Ravva, Suji Ravva, Maida), and Groceries. It runs 100% free on **GitHub Pages**, synchronizes with a **Master Google Sheet** via Google Apps Script, and features a high-end mobile-first UI.
 
 ### Key Functional Pillars:
 1. **Zero Dummy/Sample Data & Zero Auto-Fill**: Starts 100% clean with zero mock commodities, customers, suppliers, or orders. All forms start blank with **zero auto-filled values or dummy quantities**, ensuring pristine merchant data entry.
@@ -19,7 +19,7 @@ Katha Wholesale is a specialized web application engineered for wholesale commod
 6. **Session Authentication & Admin Access Gate**: Every time the application is opened, users must sign in via a dedicated mobile-first Sign In / Register screen (`AuthView.tsx`) to unlock access. A prominent Sign Out button allows locking the session immediately.
 7. **User Registration & Mandatory Access Request Policy (Even for Admin)**: New users—including anyone requesting Administrator (`ADMIN`) access—must raise an access request via the registration form with their Full Name, Email, 10-digit Mobile, and Desired Role (`STAFF`, `OWNER`, `CUSTOMER`, or `ADMIN`). All registration accounts remain in `PENDING_APPROVAL` until an approved administrator grants access in the Admin Portal.
    - **First-Time Registered Admin Account**: For initial system setup, the email `dev.snehit@gmail.com` (also supporting shorthand `dev.snehit@gmail`) is pre-seeded as the sole already-registered and approved administrator account. Attempting to re-register this email prompts the user to switch to sign in. All other administrators must raise access through the approval workflow.
-   - **Temporary Password Email Confirmation**: Upon registration, a secure temporary password (`Katha-XXXX`) is automatically generated, hashed with standard SHA-256, and emailed to the user via Google Apps Script `MailApp.sendEmail()`.
+   - **Temporary Password Email Confirmation**: Upon registration, a secure temporary password (`Kaatha-XXXX`) is automatically generated, hashed with standard SHA-256, and emailed to the user via Google Apps Script `MailApp.sendEmail()`.
    - **Mandatory Password Reset on First Sign-In**: Upon first authentication with a temporary password (or via the "Forgot Password" workflow), the user is gated by a mandatory password reset screen before accessing the workspace.
    - **Dedicated `User_Registrations` Sheet**: User registration details are captured in a separate dedicated `User_Registrations` sheet in the Google Sheet workbook, isolating pending signups from active system accounts.
    - **Cryptographic Password Hashing**: Passwords are never stored in plain text; all credentials are encrypted using standard SHA-256 cryptographic hashing.

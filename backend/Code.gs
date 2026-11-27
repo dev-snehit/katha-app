@@ -1,5 +1,5 @@
 /**
- * KATHA WHOLESALE – GOOGLE APPS SCRIPT SERVERLESS BACKEND (v2)
+ * KAATHA WHOLESALE – GOOGLE APPS SCRIPT SERVERLESS BACKEND (v2)
  * 
  * Instructions:
  * 1. Open your Google Sheet.
@@ -7,7 +7,7 @@
  * 3. Paste this code into Code.gs, replacing any existing code.
  * 4. Click Deploy > Manage deployments > Edit > New version > Deploy.
  *    (Or Deploy > New deployment > Web app > Execute as "Me", Access "Anyone").
- * 5. Copy the deployed Web App URL into Katha Wholesale settings.
+ * 5. Copy the deployed Web App URL into Kaatha Wholesale settings.
  */
 
 function setupDatabase() {
@@ -75,7 +75,7 @@ function lockDatabaseSheets(ss, sheetNames) {
       const protections = sheet.getProtections(SpreadsheetApp.ProtectionType.SHEET);
       if (protections.length === 0) {
         try {
-          const protection = sheet.protect().setDescription('Katha Wholesale Managed - Locked by Default');
+          const protection = sheet.protect().setDescription('Kaatha Wholesale Managed - Locked by Default');
           protection.setWarningOnly(false);
           const me = Session.getEffectiveUser();
           if (me) {
@@ -84,7 +84,7 @@ function lockDatabaseSheets(ss, sheetNames) {
           }
         } catch (err) {
           try {
-            const protection = sheet.protect().setDescription('Katha Wholesale Managed - Protected');
+            const protection = sheet.protect().setDescription('Kaatha Wholesale Managed - Protected');
             protection.setWarningOnly(true);
           } catch (innerErr) {}
         }
@@ -103,7 +103,7 @@ function doGet(e) {
       return createResponse({
         status: 'ok',
         sheetName: ss.getName(),
-        message: 'Katha Backend is online and connected',
+        message: 'Kaatha Backend is online and connected',
         timestamp: new Date().toISOString()
       });
     }
@@ -177,7 +177,7 @@ function doPost(e) {
       return createResponse({
         status: 'ok',
         sheetName: ss.getName(),
-        message: 'Katha Backend is online and connected',
+        message: 'Kaatha Backend is online and connected',
         timestamp: new Date().toISOString()
       });
     }
@@ -424,12 +424,12 @@ function doPost(e) {
         try {
           MailApp.sendEmail({
             to: user.email,
-            subject: 'Katha Wholesale - Access Request & Temporary Sign-In Code',
+            subject: 'Kaatha Wholesale - Access Request & Temporary Sign-In Code',
             body: 'Hello ' + user.name + ',\n\n' +
-                  'Your registration request for Katha Wholesale has been received.\n\n' +
+                  'Your registration request for Kaatha Wholesale has been received.\n\n' +
                   'Temporary Password: ' + tempPass + '\n\n' +
                   'Security Notice: For your account protection, you will be required to choose a new permanent password on your first sign-in.\n\n' +
-                  'Regards,\nKatha Wholesale Enterprise'
+                  'Regards,\nKaatha Wholesale Enterprise'
           });
         } catch (mailErr) {
           console.warn('MailApp delivery error:', mailErr);
@@ -463,23 +463,23 @@ function doPost(e) {
           if (resetLink) {
             MailApp.sendEmail({
               to: email,
-              subject: 'Katha Wholesale - Password Reset Link',
+              subject: 'Kaatha Wholesale - Password Reset Link',
               body: 'Hello ' + (name ? name : '') + ',\n\n' +
-                    'A password reset request was initiated for your Katha Wholesale account.\n\n' +
+                    'A password reset request was initiated for your Kaatha Wholesale account.\n\n' +
                     'Please click the unique link below to reset your password:\n' +
                     resetLink + '\n\n' +
                     'Security Notice: This link is valid for 1 hour. If you did not make this request, you can safely ignore this email.\n\n' +
-                    'Regards,\nKatha Wholesale Enterprise'
+                    'Regards,\nKaatha Wholesale Enterprise'
             });
           } else if (tempPassword) {
             MailApp.sendEmail({
               to: email,
-              subject: 'Katha Wholesale - Temporary Password Reset Code',
+              subject: 'Kaatha Wholesale - Temporary Password Reset Code',
               body: 'Hello,\n\n' +
-                    'A password reset request was initiated for your Katha Wholesale account.\n\n' +
+                    'A password reset request was initiated for your Kaatha Wholesale account.\n\n' +
                     'Your Temporary Password: ' + tempPassword + '\n\n' +
                     'Please sign in with this temporary password. You will be prompted immediately to set your new permanent password.\n\n' +
-                    'Regards,\nKatha Wholesale Enterprise'
+                    'Regards,\nKaatha Wholesale Enterprise'
             });
           }
         } catch (mailErr) {

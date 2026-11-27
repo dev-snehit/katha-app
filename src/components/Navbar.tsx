@@ -71,15 +71,23 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
         <div className="w-full max-w-[1600px] mx-auto px-2.5 sm:px-4 lg:px-6 xl:px-8">
           <div className="flex items-center justify-between h-14 sm:h-16 gap-1.5 sm:gap-2 xl:gap-3 min-w-0">
             
-            {/* Brand Logo & Name */}
-            <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
-              <div className="w-8 h-8 sm:w-9 sm:h-9 xl:w-10 xl:h-10 rounded-xl sm:rounded-2xl bg-gradient-to-tr from-[#FF5A36] to-[#FF8155] flex items-center justify-center text-white shadow-md shadow-orange-500/20 shrink-0">
+            {/* Brand Logo & Name (Clickable to redirect to index/initial page) */}
+            <button
+              onClick={() => {
+                setActiveTab('orders');
+                navigate('/orders');
+              }}
+              className="flex items-center gap-2 sm:gap-2.5 shrink-0 text-left cursor-pointer group focus:outline-none"
+              title={language === 'TE' ? 'హోమ్ పేజీకి వెళ్లండి' : 'Go to Home / Initial Page'}
+              aria-label="Kaatha CRM Home"
+            >
+              <div className="w-8 h-8 sm:w-9 sm:h-9 xl:w-10 xl:h-10 rounded-xl sm:rounded-2xl bg-gradient-to-tr from-[#FF5A36] to-[#FF8155] flex items-center justify-center text-white shadow-md shadow-orange-500/20 shrink-0 transition-transform group-hover:scale-105 active:scale-95">
                 <Flame className="w-4 h-4 sm:w-5 sm:h-5 fill-white" />
               </div>
               <div className="flex flex-col justify-center shrink-0">
                 <div className="flex items-center gap-1.5 whitespace-nowrap leading-tight">
-                  <span className="text-sm sm:text-base xl:text-lg font-black tracking-tight text-slate-900 whitespace-nowrap">
-                    Katha <span className="text-[#FF5A36]">CRM</span>
+                  <span className="text-sm sm:text-base xl:text-lg font-black tracking-tight text-slate-900 whitespace-nowrap group-hover:text-slate-700 transition-colors">
+                    Kaatha <span className="text-[#FF5A36]">CRM</span>
                   </span>
                   <span className="hidden 2xl:inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full bg-orange-50 text-orange-700 border border-orange-200 whitespace-nowrap">
                     <Sparkles className="w-2.5 h-2.5" /> Mandi OS
@@ -89,7 +97,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
                   {t.tagline}
                 </span>
               </div>
-            </div>
+            </button>
 
             {/* Desktop Pill Navigation */}
             <nav className="hidden lg:flex items-center p-1 bg-slate-100/90 rounded-full border border-slate-200/70 space-x-0.5 xl:space-x-1 shrink min-w-0 overflow-x-auto no-scrollbar">
@@ -355,10 +363,10 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
         isOpen={isSignOutDialogOpen}
         onClose={() => setIsSignOutDialogOpen(false)}
         type="warning"
-        title={language === 'TE' ? 'కథా హోల్‌సేల్ నుండి లాగౌట్ అవ్వాలా?' : 'Sign Out of Katha Wholesale?'}
+        title={language === 'TE' ? 'కాతా హోల్‌సేల్ నుండి లాగౌట్ అవ్వాలా?' : 'Sign Out of Kaatha Wholesale?'}
         message={language === 'TE' 
-          ? 'వర్క్‌స్పేస్‌ను తిరిగి అన్‌లాక్ చేయడానికి మీ పాస్‌వర్డ్‌తో లాగిన్ అవ్వాలి.'
-          : 'You will need to sign in with your credentials to unlock the workspace again.'}
+          ? 'కాతా వర్క్‌స్పేస్‌ను తిరిగి అన్‌లాక్ చేయడానికి మీ పాస్‌వర్డ్‌తో లాగిన్ అవ్వాలి.'
+          : 'You will need to sign in with your credentials to unlock your Kaatha workspace again.'}
         actionText={language === 'TE' ? 'అవును, లాగౌట్ చేయి' : 'Yes, Sign Out'}
         onAction={() => {
           clearIntendedRoute();

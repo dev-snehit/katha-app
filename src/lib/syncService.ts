@@ -1,5 +1,5 @@
 /**
- * Katha Backend Database Live Synchronization Service
+ * Kaatha Backend Database Live Synchronization Service
  * 
  * Communicates with the user's deployed backend database webhook API
  * without triggering CORS preflight rejections by using text/plain body format.
@@ -57,7 +57,7 @@ export async function pushToGoogleSheet(
       details: data
     };
   } catch (err: any) {
-    console.warn(`[Katha Sync] Push failed for action "${action}":`, err);
+    console.warn(`[Kaatha Sync] Push failed for action "${action}":`, err);
     return {
       success: false,
       error: err.message || 'Unable to reach backend database webhook'
@@ -143,7 +143,7 @@ export async function pullFromGoogleSheet(backendUrl: string): Promise<SyncRespo
       message: json.message || 'Database loaded from Backend Database'
     };
   } catch (err: any) {
-    console.warn('[Katha Sync] pullFromGoogleSheet error:', err);
+    console.warn('[Kaatha Sync] pullFromGoogleSheet error:', err);
     return {
       success: false,
       error: err.message || 'Failed to pull data from Backend Database'

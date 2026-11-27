@@ -145,7 +145,7 @@ export const CustomerDirectoryView: React.FC = () => {
 
   const openWhatsAppChat = (c: Customer) => {
     const text = encodeURIComponent(
-      `Hello ${c.name}, Greetings from Katha Wholesale!\n` +
+      `Hello ${c.name}, Greetings from Kaatha Wholesale!\n` +
       `Your current outstanding balance is: Rs. ${c.currentDue.toLocaleString()}.\n` +
       `Please let us know your next grain requirements.`
     );

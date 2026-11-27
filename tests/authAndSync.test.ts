@@ -92,7 +92,7 @@ describe('Authentication & Session Gate', () => {
 
   it('enforces mandatory password reset upon first login for users on temporary passwords', async () => {
     const tempId = 'temp-user-uuid';
-    const tempPass = 'Katha-9281';
+    const tempPass = 'Kaatha-9281';
     const hashed = await hashPassword(tempPass);
 
     useAppStore.getState().registerUser({

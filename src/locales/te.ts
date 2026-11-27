@@ -1,7 +1,7 @@
 import { Translations } from './en';
 
 export const te: Translations = {
-  appTitle: "కథా హోల్‌సేల్",
+  appTitle: "కాతా హోల్‌సేల్",
   tagline: "బియ్యం మరియు కిరాణా హోల్‌సేల్ వ్యాపార వేదిక",
   nav: {
     pendingOrders: "డెలివరీ చేయాల్సిన ఆర్డర్లు",

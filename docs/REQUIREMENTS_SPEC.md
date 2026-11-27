@@ -1,5 +1,5 @@
 # SYSTEM REQUIREMENTS SPECIFICATION & LIVING BLUEPRINT
-**Project:** Katha Wholesale (కథా హోల్‌సేల్) – Enterprise Rice & Groceries Wholesale Platform  
+**Project:** Kaatha Wholesale (కాతా హోల్‌సేల్) – Enterprise Rice & Groceries Wholesale Platform  
 **Target Architecture:** Static SPA on GitHub Pages + Google Apps Script Web App Serverless Backend  
 **Document Version:** 1.0.0  
 **Status:** APPROVED & ACTIVE  
@@ -11,7 +11,7 @@
 ## 1. Domain Overview & Business Context
 
 ### 1.1 Purpose
-Katha Wholesale is a specialized web application built for wholesale merchants operating in the grain, rice, and grocery commodity trading sector (Mandi / Galla Vyapar). It automates bag-level inventory management, retailer credit ledgers (Khata), order dispatch pipelines with two-stage stock reservation, and end-of-day sales reconciliation.
+Kaatha Wholesale is a specialized web application built for wholesale merchants operating in the grain, rice, and grocery commodity trading sector (Mandi / Galla Vyapar). It automates bag-level inventory management, retailer credit ledgers (Khata), order dispatch pipelines with two-stage stock reservation, and end-of-day sales reconciliation.
 
 ### 1.2 Core Commodities & Packaging Hierarchy
 Commodities include:

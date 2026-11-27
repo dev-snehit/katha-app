@@ -420,7 +420,7 @@ export function updateDocumentTitle(route: RouteInfo, language: 'EN' | 'TE'): vo
       break;
   }
 
-  const appName = isTe ? 'కథా CRM' : 'Katha CRM';
+  const appName = isTe ? 'కాతా CRM' : 'Kaatha CRM';
   document.title = titlePart ? `${appName} | ${titlePart}` : appName;
 }
 

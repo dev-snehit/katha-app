@@ -31,7 +31,7 @@ export async function hashPassword(plainText: string): Promise<string> {
  */
 export function generateTemporaryPassword(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let code = 'Katha-';
+  let code = 'Kaatha-';
   for (let i = 0; i < 4; i++) {
     code += chars.charAt(Math.floor(Math.random() * chars.length));
   }

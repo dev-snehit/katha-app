@@ -265,11 +265,11 @@ describe('Router & Deep Linking Suite (Pure Slash Path Routing)', () => {
     it('updates document.title for English and Telugu routes', () => {
       const orderRoute = parseRoute('/orders');
       updateDocumentTitle(orderRoute, 'EN');
-      expect(document.title).toContain('Katha CRM');
+      expect(document.title).toContain('Kaatha CRM');
       expect(document.title).toContain('Orders Yet to Deliver');
 
       updateDocumentTitle(orderRoute, 'TE');
-      expect(document.title).toContain('కథా CRM');
+      expect(document.title).toContain('కాతా CRM');
       expect(document.title).toContain('పెండింగ్ ఆర్డర్లు');
 
       const newOrderRoute = parseRoute('/orders/new');

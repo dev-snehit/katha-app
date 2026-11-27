@@ -644,7 +644,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         return true;
       }
     } catch (err: any) {
-      console.warn('[Katha Sync] Hydration failed, keeping local state:', err);
+      console.warn('[Kaatha Sync] Hydration failed, keeping local state:', err);
       set({
         syncStatus: 'ERROR',
         syncError: err.message || 'Server connection failed'

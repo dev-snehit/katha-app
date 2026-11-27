@@ -122,8 +122,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
           <div className="flex-1 overflow-y-auto no-scrollbar pr-1 space-y-4">
             <p className="text-xs text-slate-500 mb-2 leading-relaxed">
               {language === 'TE'
-                ? 'కథా హోల్‌సేల్‌ను మీ సురక్షిత క్లౌడ్ డేటాబేస్ బ్యాకెండ్ APIకి కనెక్ట్ చేయండి. మీ అన్ని లావాదేవీలు, స్టాక్, కస్టమర్ వివరాలు ఆటోమేటిక్‌గా సింక్ అవుతాయి.'
-                : 'Connect Katha Wholesale to your secure cloud database backend API. All inventory, customer records, and orders synchronize automatically.'}
+                ? 'కాతా హోల్‌సేల్‌ను మీ సురక్షిత క్లౌడ్ డేటాబేస్ బ్యాకెండ్ APIకి కనెక్ట్ చేయండి. మీ అన్ని లావాదేవీలు, స్టాక్, కస్టమర్ వివరాలు ఆటోమేటిక్‌గా సింక్ అవుతాయి.'
+                : 'Connect Kaatha Wholesale to your secure cloud database backend API. All inventory, customer records, and orders synchronize automatically.'}
             </p>
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1.5">
@@ -327,8 +327,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               </span>
               <p className="text-sm font-bold text-slate-800">
                 {language === 'TE'
-                  ? 'కథా హోల్‌సేల్ • సోనా మసూరి బియ్యం (₹1,450 / బస్తా) • ప్రత్యక్ష ఫాంట్ స్కేలింగ్'
-                  : 'Katha Wholesale • Sona Masoori Rice (₹1,450 / bag) • Live Scaled Sample'}
+                  ? 'కాతా హోల్‌సేల్ • సోనా మసూరి బియ్యం (₹1,450 / బస్తా) • ప్రత్యక్ష ఫాంట్ స్కేలింగ్'
+                  : 'Kaatha Wholesale • Sona Masoori Rice (₹1,450 / bag) • Live Scaled Sample'}
               </p>
               <p className="text-xs text-slate-500 mt-0.5">
                 {language === 'TE' 

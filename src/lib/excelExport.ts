@@ -12,7 +12,7 @@ export async function exportMasterExcelFile(
   orders: Order[]
 ): Promise<void> {
   const workbook = new ExcelJS.Workbook();
-  workbook.creator = 'Katha Wholesale Platform';
+  workbook.creator = 'Kaatha Wholesale Platform';
   workbook.lastModifiedBy = 'Admin';
   workbook.created = new Date();
   workbook.modified = new Date();

@@ -76,7 +76,7 @@ describe('Customer Form Validation Engine', () => {
         'Kirana #1',
         'Ramesh @ Home',
         'Store-Super',
-        'Katha (Main)'
+        'Kaatha (Main)'
       ];
 
       for (const name of invalidSymbols) {

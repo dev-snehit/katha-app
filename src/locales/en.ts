@@ -1,5 +1,5 @@
 export const en = {
-  appTitle: "Katha Wholesale",
+  appTitle: "Kaatha Wholesale",
   tagline: "Rice & Groceries Wholesale Platform",
   nav: {
     pendingOrders: "Orders Yet to Deliver",
