@@ -99,7 +99,9 @@ export const UserRequestsView: React.FC = () => {
   useModalDismiss(isModalOpen, closeModal);
   useModalDismiss(Boolean(editingUser), closeEditModal);
 
-  const pendingUsers = users.filter((u) => u.status === 'PENDING_APPROVAL');
+  const pendingUsers = users.filter(
+    (u) => u.status === 'PENDING_APPROVAL' || (u.status === 'APPROVED' && Boolean(u.requestedRole))
+  );
   const activeUsers = users.filter((u) => u.status === 'APPROVED');
 
   // Trigger confirmation dialog helper
@@ -233,18 +235,26 @@ export const UserRequestsView: React.FC = () => {
 
   // 5. Approve Request with Confirmation
   const handleApproveUser = (u: User) => {
+    const targetRole = u.requestedRole || u.role;
+    const isRoleChange = u.status === 'APPROVED' && Boolean(u.requestedRole);
     requestConfirmation({
-      title: isTe ? 'యూజర్ అభ్యర్థనను ఆమోదించాలా?' : 'Approve User Request?',
-      message: isTe
-        ? `"${u.name}" (${u.role}) ఖాతాను కథా హోల్‌సేల్ యాక్సెస్ కోసం ఆమోదించాలనుకుంటున్నారా?`
-        : `Are you sure you want to approve access for "${u.name}" as ${u.role}?`,
+      title: isRoleChange
+        ? (isTe ? 'పాత్ర మార్పు అభ్యర్థనను ఆమోదించాలా?' : 'Approve Role Change Request?')
+        : (isTe ? 'యూజర్ అభ్యర్థనను ఆమోదించాలా?' : 'Approve User Request?'),
+      message: isRoleChange
+        ? (isTe
+            ? `"${u.requestedName || u.name}" పాత్రను ${u.role} నుండి ${targetRole} కు మార్చడానికి ఆమోదించాలా?`
+            : `Are you sure you want to update "${u.requestedName || u.name}"'s role from ${u.role} to ${targetRole}?`)
+        : (isTe
+            ? `"${u.name}" (${targetRole}) ఖాతాను కాతా హోల్‌సేల్ యాక్సెస్ కోసం ఆమోదించాలనుకుంటున్నారా?`
+            : `Are you sure you want to approve access for "${u.name}" as ${targetRole}?`),
       type: 'info',
       actionText: isTe ? 'ఆమోదించు' : 'Approve Access',
       cancelText: isTe ? 'రద్దు చేయి' : 'Cancel',
       onAction: async () => {
         startActionLoading(
-          `Approving access for ${u.name}...`,
-          `${u.name} ఖాతా ఆమోదించబడుతోంది...`
+          `Approving access for ${u.requestedName || u.name}...`,
+          `${u.requestedName || u.name} ఖాతా ఆమోదించబడుతోంది...`
         );
         approveUser(u.id);
         stopActionLoading();
@@ -368,13 +378,25 @@ export const UserRequestsView: React.FC = () => {
             {pendingUsers.map((user) => (
               <div key={user.id} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <div className="font-bold text-sm text-slate-900">{user.name}</div>
+                  <div className="font-bold text-sm text-slate-900">
+                    {user.requestedName && user.requestedName !== user.name
+                      ? `${user.name} → ${user.requestedName}`
+                      : user.name}
+                  </div>
                   <div className="text-xs text-slate-500 font-mono mt-0.5">
                     {user.email} &bull; {user.phone}
                   </div>
-                  <span className="inline-block mt-1 px-2 py-0.5 text-xs font-semibold rounded bg-amber-50 text-amber-800 border border-amber-200/60">
-                    {isTe ? `కోరిన పాత్ర: ${user.role}` : `Requested Role: ${user.role}`}
-                  </span>
+                  {user.status === 'APPROVED' && user.requestedRole ? (
+                    <span className="inline-block mt-1 px-2 py-0.5 text-xs font-semibold rounded bg-blue-50 text-blue-800 border border-blue-200/60">
+                      {isTe
+                        ? `పాత్ర మార్పు అభ్యర్థన: ${user.role} → ${user.requestedRole}`
+                        : `Role Change Request: ${user.role} → ${user.requestedRole}`}
+                    </span>
+                  ) : (
+                    <span className="inline-block mt-1 px-2 py-0.5 text-xs font-semibold rounded bg-amber-50 text-amber-800 border border-amber-200/60">
+                      {isTe ? `కోరిన పాత్ర: ${user.role}` : `Requested Role: ${user.role}`}
+                    </span>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-2">

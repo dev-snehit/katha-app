@@ -42,6 +42,7 @@ export const AuthView: React.FC = () => {
   const [loginPassword, setLoginPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
+  const [loginSuccess, setLoginSuccess] = useState<string | null>(null);
 
   // Register Form
   const [regName, setRegName] = useState('');
@@ -115,6 +116,7 @@ export const AuthView: React.FC = () => {
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError(null);
+    setLoginSuccess(null);
     const result = await login(loginEmail, loginPassword);
     
     if (result.mustResetPassword && result.user) {
@@ -149,54 +151,14 @@ export const AuthView: React.FC = () => {
       return;
     }
 
-    // 1. Check if email already exists
-    const existingEmail = users.find(
-      (u) =>
-        normalizeEmail(u.email) === cleanRegEmail ||
-        ((cleanRegEmail === 'dev.snehit@gmail.com' || cleanRegEmail === 'dev.snehit@gmail') &&
-          (normalizeEmail(u.email) === 'dev.snehit@gmail.com' || normalizeEmail(u.email) === 'dev.snehit@gmail'))
-    );
-    if (existingEmail) {
-      if (existingEmail.status === 'APPROVED') {
-        setRegError(
-          language === 'TE'
-            ? 'ఈ ఇమెయిల్‌తో ఖాతా ఇప్పటికే నమోదై ఉంది. దయచేసి ధృవీకరించండి లేదా లాగిన్ అవ్వండి.'
-            : 'An account with this email address already exists. Please verify your details or sign in.'
-        );
-      } else {
-        setRegError(
-          language === 'TE'
-            ? 'ఈ ఇమెయిల్‌తో రిజిస్ట్రేషన్ అభ్యర్థన ఇప్పటికే సమీక్షలో ఉంది.'
-            : 'An access request for this email address is already pending review.'
-        );
-      }
-      return;
-    }
-
-    // 2. Check if mobile number already exists
-    const existingPhone = users.find(
-      (u) => normalizePhone(u.phone) === cleanRegPhone
-    );
-    if (existingPhone) {
-      if (existingPhone.status === 'APPROVED') {
-        setRegError(
-          language === 'TE'
-            ? 'ఈ మొబైల్ నంబరుతో ఖాతా ఇప్పటికే నమోదై ఉంది. దయచేసి ధృవీకరించండి లేదా లాగిన్ అవ్వండి.'
-            : 'An account with this mobile number already exists. Please verify your details or sign in.'
-        );
-      } else {
-        setRegError(
-          language === 'TE'
-            ? 'ఈ మొబైల్ నంబరుతో రిజిస్ట్రేషన్ అభ్యర్థన ఇప్పటికే సమీక్షలో ఉంది.'
-            : 'An access request for this mobile number is already pending review.'
-        );
-      }
-      return;
-    }
-
-    // Generate secure temporary password & hash it
+    // Generate secure temporary password, hash, and unique setup link (used for brand-new registrations)
     const tempPassword = generateTemporaryPassword();
     const tempHash = await hashPassword(tempPassword);
+    const resetToken = `rst-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const basePath = typeof window !== 'undefined' && window.location.pathname.startsWith('/katha-app') ? '/katha-app' : '';
+    const resetLink = `${origin}${basePath}/reset-password/${resetToken}`;
 
     const newUser = {
       id: crypto.randomUUID(),
@@ -208,20 +170,36 @@ export const AuthView: React.FC = () => {
       password: tempPassword,
       passwordHash: tempHash,
       mustResetPassword: true,
+      resetPasswordToken: resetToken,
+      resetPasswordExpires: expiresAt,
       createdAt: new Date().toISOString(),
     };
 
-    const regResult = registerUser(newUser, tempPassword);
+    const regResult = registerUser(newUser, tempPassword, resetLink);
     if (!regResult.success) {
       setRegError(regResult.message);
       return;
     }
 
-    setRegSuccess(
-      language === 'TE'
-        ? `నమోదు పూర్తయింది! తాత్కాలిక పాస్‌వర్డ్ మీ ఇమెయిల్‌కు పంపబడింది. మొదటి లాగిన్‌లో పాస్‌వర్డ్ మార్చుకోవాల్సి ఉంటుంది.`
-        : `Registration submitted! A temporary sign-in password has been sent to ${cleanRegEmail}. You will be prompted to choose a permanent password on first sign-in.`
-    );
+    if (regResult.isRoleChangeRequest) {
+      setRegSuccess(
+        language === 'TE'
+          ? `కొత్త పాత్ర (${regRole}) కోసం అభ్యర్థన సమర్పించబడింది! మీ పాస్‌వర్డ్ మారదు మరియు అడ్మిన్ ఆమోదించే వరకు మీరు మీ ప్రస్తుత పాత్రతో లాగిన్ అవ్వవచ్చు.`
+          : `Role change request (${regRole}) submitted! Your password remains unchanged, and you can continue signing in with your existing role until an administrator approves.`
+      );
+    } else if (regResult.isReRequest) {
+      setRegSuccess(
+        language === 'TE'
+          ? `మీ యాక్సెస్ అభ్యర్థన (${regRole}) నవీకరించబడింది! మీ ప్రస్తుత పాస్‌వర్డ్ మారదు. దయచేసి అడ్మిన్ ఆమోదం కోసం వేచి ఉండండి.`
+          : `Access request updated to ${regRole}! Your existing password remains unchanged. Please wait for administrator approval.`
+      );
+    } else {
+      setRegSuccess(
+        language === 'TE'
+          ? `నమోదు పూర్తయింది! తాత్కాలిక పాస్‌వర్డ్ మరియు సెటప్ లింక్ మీ ఇమెయిల్‌కు పంపబడ్డాయి. అడ్మిన్ ఆమోదించిన తర్వాత మాత్రమే మీరు లాగిన్ అవ్వగలరు.`
+          : `Registration submitted! A temporary password and password setup link have been sent to ${cleanRegEmail}. You will be able to sign in once an administrator approves your request.`
+      );
+    }
     setRegName('');
     setRegEmail('');
     setRegPhone('');
@@ -301,10 +279,26 @@ export const AuthView: React.FC = () => {
       return;
     }
 
-    // Clean up resetToken from query string without page reload
+    // Clean up resetToken from query string without page reload and redirect to Login page
     if (typeof window !== 'undefined' && window.history) {
       window.history.replaceState({}, '', window.location.pathname);
     }
+    setNewPassword('');
+    setConfirmPassword('');
+    setTokenFromUrl(null);
+    setTokenUserEmail(null);
+    setLoginError(null);
+    setLoginSuccess(
+      res.user?.status === 'PENDING_APPROVAL'
+        ? (language === 'TE'
+            ? 'పాస్‌వర్డ్ సెట్ చేయబడింది! మీ అభ్యర్థన అడ్మిన్ ఆమోదం కోసం వేచి ఉంది. ఆమోదించిన తర్వాత లాగిన్ అవ్వండి.'
+            : 'Password set successfully! Your registration request is pending administrator approval. You can sign in once approved.')
+        : (language === 'TE'
+            ? 'పాస్‌వర్డ్ విజయవంతంగా మార్చబడింది! దయచేసి మీ కొత్త పాస్‌వర్డ్‌తో లాగిన్ అవ్వండి.'
+            : 'Password reset successfully! Please sign in with your new password.')
+    );
+    setMode('LOGIN');
+    navigate('/login');
   };
 
   return (
@@ -393,6 +387,13 @@ export const AuthView: React.FC = () => {
           {/* Mode: LOGIN */}
           {mode === 'LOGIN' && (
             <form onSubmit={handleLoginSubmit} className="space-y-4">
+              {loginSuccess && (
+                <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-start gap-2.5">
+                  <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-600" />
+                  <span>{loginSuccess}</span>
+                </div>
+              )}
+
               {loginError && (
                 <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-start gap-2.5">
                   <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-500" />
@@ -814,7 +815,7 @@ export const AuthView: React.FC = () => {
                 className="w-full py-3.5 px-4 bg-gradient-to-r from-[#FF5A36] to-[#FF6B4A] hover:from-[#f04f2c] hover:to-[#f05a38] text-white font-bold text-sm rounded-xl shadow-lg shadow-orange-500/25 transition-all flex items-center justify-center gap-2 mt-2"
               >
                 <CheckCircle2 className="w-4 h-4" />
-                <span>{language === 'TE' ? 'పాస్‌వర్డ్ రీసెట్ చేసి లాగిన్ అవ్వండి' : 'Reset Password & Enter'}</span>
+                <span>{language === 'TE' ? 'పాస్‌వర్డ్ రీసెట్ చేసి లాగిన్‌కు వెళ్ళండి' : 'Reset Password & Go to Sign In'}</span>
               </button>
 
               <button

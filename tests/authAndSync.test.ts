@@ -237,11 +237,11 @@ describe('Authentication & Session Gate', () => {
     const forgotRes = await useAppStore.getState().forgotPassword(testEmail);
     const token = forgotRes.resetToken!;
 
-    // Reset password with token
+    // Reset password with token (redirects to login page without auto-authenticating)
     const resetRes = await useAppStore.getState().resetPasswordWithToken(token, 'BrandNewPassword2026');
     expect(resetRes.success).toBe(true);
-    expect(useAppStore.getState().isAuthenticated).toBe(true);
-    expect(useAppStore.getState().currentUser?.email).toBe(testEmail);
+    expect(useAppStore.getState().isAuthenticated).toBe(false);
+    expect(useAppStore.getState().currentUser).toBeNull();
 
     // Verify token has been cleared / invalidated
     const updatedUser = useAppStore.getState().users.find(u => u.email === testEmail);
@@ -451,5 +451,149 @@ describe('Google Sheets Live Sync Engine', () => {
     expect(capturedOptions.redirect).toBe('follow');
 
     global.fetch = originalFetch;
+  });
+});
+
+describe('Registration Reset Redirect & Role Re-Request Flows', () => {
+  it('does not auto-login PENDING_APPROVAL user after resetting password via token link and blocks login until approved', async () => {
+    const store = useAppStore.getState();
+    store.logout();
+    const token = 'rst-pending-test-' + Date.now();
+    const newUser = {
+      id: crypto.randomUUID(),
+      name: 'Pending User',
+      email: 'pending.reset@katha.com',
+      phone: '9876500001',
+      role: 'STAFF' as const,
+      status: 'PENDING_APPROVAL' as const,
+      password: 'TempPass123',
+      passwordHash: await hashPassword('TempPass123'),
+      mustResetPassword: true,
+      resetPasswordToken: token,
+      resetPasswordExpires: new Date(Date.now() + 3600_000).toISOString(),
+      createdAt: new Date().toISOString(),
+    };
+
+    const regRes = store.registerUser(newUser, 'TempPass123', `https://example.com/reset-password/${token}`);
+    expect(regRes.success).toBe(true);
+
+    // Reset password using link token
+    const resetRes = await useAppStore.getState().resetPasswordWithToken(token, 'MyNewPass123');
+    expect(resetRes.success).toBe(true);
+    expect(useAppStore.getState().isAuthenticated).toBe(false);
+    expect(useAppStore.getState().currentUser).toBeNull();
+
+    // Attempt login while still PENDING_APPROVAL -> must be blocked
+    const loginPending = await useAppStore.getState().login('pending.reset@katha.com', 'MyNewPass123');
+    expect(loginPending.success).toBe(false);
+    expect(loginPending.message.toLowerCase()).toContain('pending approval');
+
+    // Admin approves -> now user can log in with the new password
+    useAppStore.getState().approveUser(newUser.id);
+    const loginApproved = await useAppStore.getState().login('pending.reset@katha.com', 'MyNewPass123');
+    expect(loginApproved.success).toBe(true);
+    expect(useAppStore.getState().isAuthenticated).toBe(true);
+  });
+
+  it('allows an existing APPROVED user to request a different role and updated name without changing password while retaining existing privileges until approved', async () => {
+    const store = useAppStore.getState();
+    store.logout();
+    const origPass = 'StaffSecret99';
+    const userId = crypto.randomUUID();
+    const existingUser = {
+      id: userId,
+      name: 'Ravi Kumar',
+      email: 'ravi.role@katha.com',
+      phone: '9876500002',
+      role: 'STAFF' as const,
+      status: 'APPROVED' as const,
+      password: origPass,
+      passwordHash: await hashPassword(origPass),
+      mustResetPassword: false,
+      createdAt: new Date().toISOString(),
+    };
+
+    useAppStore.setState((s) => ({ users: [...s.users, existingUser] }));
+
+    // Re-request via registerUser with same email & mobile, updated full name, and new role OWNER
+    const reqRes = useAppStore.getState().registerUser({
+      ...existingUser,
+      id: crypto.randomUUID(),
+      name: 'Ravi Kumar Updated',
+      role: 'OWNER',
+      status: 'PENDING_APPROVAL',
+    });
+
+    expect(reqRes.success).toBe(true);
+    expect(reqRes.isRoleChangeRequest).toBe(true);
+
+    // User MUST still be APPROVED with existing STAFF role and existing password
+    const userBeforeApproval = useAppStore.getState().users.find((u) => u.id === userId)!;
+    expect(userBeforeApproval.status).toBe('APPROVED');
+    expect(userBeforeApproval.role).toBe('STAFF');
+    expect(userBeforeApproval.requestedRole).toBe('OWNER');
+    expect(userBeforeApproval.requestedName).toBe('Ravi Kumar Updated');
+
+    const loginBeforeApproval = await useAppStore.getState().login('ravi.role@katha.com', origPass);
+    expect(loginBeforeApproval.success).toBe(true);
+    expect(loginBeforeApproval.user?.role).toBe('STAFF');
+
+    // Admin approves the role change request -> role & name are updated, password unchanged
+    useAppStore.getState().approveUser(userId);
+    const userAfterApproval = useAppStore.getState().users.find((u) => u.id === userId)!;
+    expect(userAfterApproval.role).toBe('OWNER');
+    expect(userAfterApproval.name).toBe('Ravi Kumar Updated');
+    expect(userAfterApproval.requestedRole).toBeUndefined();
+
+    useAppStore.getState().logout();
+    const loginAfterApproval = await useAppStore.getState().login('ravi.role@katha.com', origPass);
+    expect(loginAfterApproval.success).toBe(true);
+    expect(loginAfterApproval.user?.role).toBe('OWNER');
+  });
+
+  it('allows an existing PENDING_APPROVAL user to re-request with a different role without changing password and rejects mismatched mobile numbers', async () => {
+    const store = useAppStore.getState();
+    store.logout();
+    const origPass = 'PendingPass42';
+    const userId = crypto.randomUUID();
+    const pendingUser = {
+      id: userId,
+      name: 'Kiran Rao',
+      email: 'kiran.rereq@katha.com',
+      phone: '9876500003',
+      role: 'CUSTOMER' as const,
+      status: 'PENDING_APPROVAL' as const,
+      password: origPass,
+      passwordHash: await hashPassword(origPass),
+      mustResetPassword: false,
+      createdAt: new Date().toISOString(),
+    };
+
+    useAppStore.setState((s) => ({ users: [...s.users, pendingUser] }));
+
+    // Mismatched phone must be rejected
+    const mismatchRes = useAppStore.getState().registerUser({
+      ...pendingUser,
+      id: crypto.randomUUID(),
+      phone: '9876509999',
+      role: 'STAFF',
+    });
+    expect(mismatchRes.success).toBe(false);
+
+    // Matching email + mobile updates role & name without changing password
+    const reReqRes = useAppStore.getState().registerUser({
+      ...pendingUser,
+      id: crypto.randomUUID(),
+      name: 'Kiran Rao M',
+      role: 'STAFF',
+    });
+    expect(reReqRes.success).toBe(true);
+    expect(reReqRes.isReRequest).toBe(true);
+
+    const updated = useAppStore.getState().users.find((u) => u.id === userId)!;
+    expect(updated.role).toBe('STAFF');
+    expect(updated.name).toBe('Kiran Rao M');
+    expect(updated.status).toBe('PENDING_APPROVAL');
+    expect(updated.password).toBe(origPass);
   });
 });

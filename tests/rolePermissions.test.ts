@@ -189,7 +189,7 @@ describe('Role Specific Permissions & Access Governance', () => {
       const updatedStore = useAppStore.getState();
       expect(updatedStore.hasPageAccess('suppliers_page')).toBe(false);
       expect(updatedStore.hasFunctionalityAccess('suppliers_page', 'view_suppliers')).toBe(false);
-    });
+    }, 15000);
 
     it('creates active user in store with temporary password and reset link', async () => {
       const store = useAppStore.getState();

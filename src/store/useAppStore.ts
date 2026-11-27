@@ -94,7 +94,13 @@ export interface AppState {
     tempPassword?: string;
     resetLink?: string;
   }>;
-  registerUser: (user: User, tempPassword?: string) => { success: boolean; message: string; user?: User };
+  registerUser: (user: User, tempPassword?: string, resetLink?: string) => {
+    success: boolean;
+    message: string;
+    user?: User;
+    isRoleChangeRequest?: boolean;
+    isReRequest?: boolean;
+  };
   approveUser: (userId: string, role?: Role) => void;
   denyUser: (userId: string) => void;
   updateUser: (userId: string, updates: { name?: string; role?: Role; status?: UserStatus }) => Promise<boolean>;
@@ -286,8 +292,13 @@ export const useAppStore = create<AppState>((set, get) => ({
     );
     saveToStorage('users', updated);
     const updatedUser = updated.find((u) => u.id === userId);
-    saveToStorage('currentUser', updatedUser || null);
-    set({ users: updated, currentUser: updatedUser || null, isAuthenticated: true });
+    if (updatedUser && updatedUser.status === 'APPROVED') {
+      saveToStorage('currentUser', updatedUser);
+      set({ users: updated, currentUser: updatedUser, isAuthenticated: true });
+    } else {
+      saveToStorage('currentUser', null);
+      set({ users: updated, currentUser: null, isAuthenticated: false });
+    }
     if (updatedUser) {
       get().triggerSync('resetPassword', { email: updatedUser.email, newPasswordHash: newHash });
     }
@@ -399,15 +410,14 @@ export const useAppStore = create<AppState>((set, get) => ({
     );
     saveToStorage('users', updated);
     const updatedUser = updated.find((u) => u.id === user.id)!;
-    saveToStorage('currentUser', updatedUser);
-    set({ users: updated, currentUser: updatedUser, isAuthenticated: true });
-
-    // Re-apply base font size upon login
-    applyBaseFontSize(get().baseFontSize);
+    // Do not auto-login after resetting password via link; redirect user to login page
+    // (especially important for PENDING_APPROVAL users who must wait for admin approval)
+    saveToStorage('currentUser', null);
+    set({ users: updated, currentUser: null, isAuthenticated: false });
 
     get().triggerSync('resetPassword', { email: user.email, newPasswordHash: newHash });
     get().connectAndHydrateServer();
-    return { success: true, message: 'Password successfully updated.', user: updatedUser };
+    return { success: true, message: 'Password successfully updated. Please sign in.', user: updatedUser };
   },
 
   logout: () => {
@@ -662,6 +672,8 @@ export const useAppStore = create<AppState>((set, get) => ({
             }
 
             const existing = userMap.get(existingKey);
+            const serverReqRole = u.requestedRole ? (u.requestedRole as Role) : undefined;
+            const serverReqName = u.requestedName ? String(u.requestedName) : undefined;
             if (existing) {
               const updated = {
                 ...existing,
@@ -669,6 +681,8 @@ export const useAppStore = create<AppState>((set, get) => ({
                 role: (u.role || existing.role) as Role,
                 status: (u.status || existing.status) as UserStatus,
                 phone: cleanPhone || existing.phone,
+                requestedRole: serverReqRole !== undefined ? serverReqRole : existing.requestedRole,
+                requestedName: serverReqName !== undefined ? serverReqName : existing.requestedName,
                 ...(passHash ? { passwordHash: passHash } : {})
               };
               userMap.set(existingKey, updated);
@@ -681,6 +695,8 @@ export const useAppStore = create<AppState>((set, get) => ({
                 role: (u.role || 'STAFF') as Role,
                 status: (u.status || 'PENDING_APPROVAL') as UserStatus,
                 createdAt: u.createdAt || new Date().toISOString(),
+                ...(serverReqRole ? { requestedRole: serverReqRole } : {}),
+                ...(serverReqName ? { requestedName: serverReqName } : {}),
                 ...(passHash ? { passwordHash: passHash } : {})
               };
               userMap.set(cleanEmail, newUser);
@@ -841,11 +857,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     };
   },
 
-  registerUser: (user, tempPassword) => {
+  registerUser: (user, tempPassword, resetLink) => {
     const normEmail = normalizeEmail(user.email);
     const normPhone = normalizePhone(user.phone);
 
-    // 1. Check duplicate email: no user allowed to register with already used email
+    // 1. Check matching email & phone
     const existingEmail = get().users.find((u) => {
       const uEmail = normalizeEmail(u.email);
       return (
@@ -855,59 +871,174 @@ export const useAppStore = create<AppState>((set, get) => ({
       );
     });
 
-    if (existingEmail) {
+    const existingPhone = normPhone
+      ? get().users.find((u) => {
+          const uPhone = normalizePhone(u.phone);
+          return uPhone.length >= 10 && uPhone === normPhone;
+        })
+      : undefined;
+
+    // Conflict check: email and phone belong to two different accounts
+    if (existingEmail && existingPhone && existingEmail.id !== existingPhone.id) {
       return {
         success: false,
-        message:
-          existingEmail.status === 'APPROVED'
-            ? 'An account with this email address already exists. Please sign in or use another email.'
-            : 'An access request for this email address is already pending review.',
+        message: 'The email and mobile number belong to different existing accounts. Please verify your details.',
         user: undefined,
       };
     }
 
-    // 2. Check duplicate phone: no user allowed to register with already used mobile number
-    if (normPhone) {
-      const existingPhone = get().users.find((u) => {
-        const uPhone = normalizePhone(u.phone);
-        return uPhone.length >= 10 && uPhone === normPhone;
-      });
-
-      if (existingPhone) {
-        return {
-          success: false,
-          message:
-            existingPhone.status === 'APPROVED'
-              ? 'An account with this mobile number already exists. Please verify and use another mobile number.'
-              : 'An access request for this mobile number is already pending review.',
-          user: undefined,
-        };
-      }
+    if (existingEmail && normalizePhone(existingEmail.phone) !== normPhone) {
+      return {
+        success: false,
+        message:
+          existingEmail.status === 'APPROVED'
+            ? 'An account with this email address already exists, and the mobile number does not match our records. Please use your registered email and mobile number.'
+            : 'An access request for this email address is already pending review, and the mobile number does not match.',
+        user: undefined,
+      };
     }
 
+    if (existingPhone && normalizeEmail(existingPhone.email) !== normEmail) {
+      return {
+        success: false,
+        message:
+          existingPhone.status === 'APPROVED'
+            ? 'An account with this mobile number already exists under a different email address.'
+            : 'An access request for this mobile number is already pending review under a different email address.',
+        user: undefined,
+      };
+    }
+
+    const existingUser = existingEmail || existingPhone;
+
+    // 2. Existing user re-requesting access with a different role / updated full name (without password change)
+    if (existingUser) {
+      const cleanName = user.name.trim() || existingUser.name;
+
+      if (existingUser.status === 'APPROVED') {
+        if (existingUser.role === user.role && cleanName === existingUser.name.trim()) {
+          return {
+            success: false,
+            message: `Your account is already active with the ${existingUser.role} role. Please sign in or select a different role to request a change.`,
+            user: undefined,
+          };
+        }
+
+        // Preserve existing active role, status ('APPROVED'), and password; store pending role-change request
+        const updatedUser: User = {
+          ...existingUser,
+          requestedRole: user.role,
+          requestedName: cleanName,
+          requestedAt: new Date().toISOString(),
+        };
+        const updated = get().users.map((u) => (u.id === existingUser.id ? updatedUser : u));
+        saveToStorage('users', updated);
+        set({ users: updated });
+        get().triggerSync('registerUser', {
+          user: updatedUser,
+          isRoleChangeRequest: true,
+        });
+        return {
+          success: true,
+          isRoleChangeRequest: true,
+          message: `Role change request to ${user.role} submitted! Your password remains unchanged, and you can continue signing in with your existing ${existingUser.role} role until an administrator approves.`,
+          user: updatedUser,
+        };
+      }
+
+      // Existing PENDING_APPROVAL or DENIED user re-requesting with a new role / updated name without changing password
+      const updatedUser: User = {
+        ...existingUser,
+        name: cleanName,
+        role: user.role,
+        status: 'PENDING_APPROVAL',
+        requestedRole: undefined,
+        requestedName: undefined,
+        requestedAt: undefined,
+      };
+      const updated = get().users.map((u) => (u.id === existingUser.id ? updatedUser : u));
+      saveToStorage('users', updated);
+      set({ users: updated });
+      get().triggerSync('registerUser', {
+        user: updatedUser,
+        isReRequest: true,
+      });
+      return {
+        success: true,
+        isReRequest: true,
+        message: `Access request updated to ${user.role}! Your existing password remains unchanged. Please wait for administrator approval.`,
+        user: updatedUser,
+      };
+    }
+
+    // 3. Brand new user registration
     const updated = [...get().users, user];
     saveToStorage('users', updated);
     set({ users: updated });
-    get().triggerSync('registerUser', { user, tempPassword });
+    get().triggerSync('registerUser', { user, tempPassword, resetLink });
     return { success: true, message: 'User registered successfully.', user };
   },
   
   approveUser: (userId, role) => {
-    const updated = get().users.map((u) => 
-      u.id === userId ? { ...u, status: 'APPROVED' as const, ...(role ? { role } : {}) } : u
-    );
+    let resolvedRole = role;
+    let resolvedName: string | undefined;
+    const updated = get().users.map((u) => {
+      if (u.id !== userId) return u;
+      resolvedRole = role || u.requestedRole || u.role;
+      resolvedName = u.requestedName || u.name;
+      return {
+        ...u,
+        status: 'APPROVED' as const,
+        role: resolvedRole,
+        name: resolvedName,
+        requestedRole: undefined,
+        requestedName: undefined,
+        requestedAt: undefined,
+      };
+    });
     saveToStorage('users', updated);
     set({ users: updated });
-    get().triggerSync('approveUser', { userId, newStatus: 'APPROVED', role });
+    get().triggerSync('approveUser', {
+      userId,
+      newStatus: 'APPROVED',
+      role: resolvedRole,
+      name: resolvedName,
+    });
   },
 
   denyUser: (userId) => {
-    const updated = get().users.map((u) => 
-      u.id === userId ? { ...u, status: 'DENIED' as const } : u
-    );
+    const target = get().users.find((u) => u.id === userId);
+    const isRoleChangeDenial = Boolean(target && target.status === 'APPROVED' && target.requestedRole);
+    const updated = get().users.map((u) => {
+      if (u.id !== userId) return u;
+      if (isRoleChangeDenial) {
+        return {
+          ...u,
+          requestedRole: undefined,
+          requestedName: undefined,
+          requestedAt: undefined,
+        };
+      }
+      return {
+        ...u,
+        status: 'DENIED' as const,
+        requestedRole: undefined,
+        requestedName: undefined,
+        requestedAt: undefined,
+      };
+    });
     saveToStorage('users', updated);
     set({ users: updated });
-    get().triggerSync('approveUser', { userId, newStatus: 'DENIED' });
+    if (isRoleChangeDenial && target) {
+      get().triggerSync('approveUser', {
+        userId,
+        newStatus: 'APPROVED',
+        role: target.role,
+        clearRequestedRole: true,
+      });
+    } else {
+      get().triggerSync('approveUser', { userId, newStatus: 'DENIED' });
+    }
   },
 
   updateUser: async (userId, updates) => {

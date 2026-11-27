@@ -14,7 +14,7 @@ function setupDatabase() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   
   const tables = {
-    'Users': ['id', 'name', 'email', 'phone', 'role', 'status', 'createdAt', 'passwordHash'],
+    'Users': ['id', 'name', 'email', 'phone', 'role', 'status', 'createdAt', 'passwordHash', 'requestedRole', 'requestedName'],
     'User_Registrations': ['id', 'name', 'email', 'phone', 'requested_role', 'status', 'registered_at', 'temp_password_sent'],
     'Master_Products': ['id', 'name_en', 'name_te', 'category', 'brand_en', 'brand_te', 'inner_wt_kg', 'inner_count', 'outer_wt_kg', 'stock_physical', 'stock_reserved', 'price_bag', 'cost_bag', 'retail_price_bag'],
     'Master_Customers': ['id', 'name_en', 'name_te', 'phone', 'business_en', 'business_te', 'address_en', 'address_te', 'current_due'],
@@ -740,23 +740,26 @@ function doPost(e) {
     if (action === 'registerUser') {
       const user = body.user;
       const tempPass = body.tempPassword || '';
+      const resetLink = body.resetLink || '';
+      const isRoleChangeRequest = Boolean(body.isRoleChangeRequest);
+      const isReRequest = Boolean(body.isReRequest);
       
-      // 1. Record registration in dedicated User_Registrations sheet
+      // 1. Record registration / role request in dedicated User_Registrations sheet
       const regSheet = ss.getSheetByName('User_Registrations');
       if (regSheet) {
         regSheet.appendRow([
           user.id,
-          user.name,
+          isRoleChangeRequest ? (user.requestedName || user.name) : user.name,
           user.email,
           user.phone,
-          user.role,
-          user.status || 'PENDING_APPROVAL',
+          isRoleChangeRequest ? (user.requestedRole || user.role) : user.role,
+          'PENDING_APPROVAL',
           new Date().toISOString(),
-          tempPass ? 'SENT' : 'NO'
+          isRoleChangeRequest ? 'NO (ROLE_CHANGE)' : isReRequest ? 'NO (RE_REQUEST)' : (tempPass ? 'SENT' : 'NO')
         ]);
       }
 
-      // 2. Register or update in Users sheet with hashed password
+      // 2. Register or update in Users sheet
       const userSheet = ss.getSheetByName('Users');
       if (userSheet) {
         const uData = userSheet.getDataRange().getValues();
@@ -776,35 +779,51 @@ function doPost(e) {
           }
         }
 
-        const rowValues = [
-          user.id,
-          user.name,
-          user.email,
-          user.phone,
-          user.role,
-          user.status || 'PENDING_APPROVAL',
-          new Date().toISOString(),
-          user.passwordHash || ''
-        ];
-
-        if (foundIdx !== -1) {
-          userSheet.getRange(foundIdx, 1, 1, rowValues.length).setValues([rowValues]);
+        if (isRoleChangeRequest && foundIdx !== -1) {
+          // Existing APPROVED user: preserve active role, status, and passwordHash; store pending requestedRole & requestedName
+          userSheet.getRange(foundIdx, 9).setValue(user.requestedRole || '');
+          userSheet.getRange(foundIdx, 10).setValue(user.requestedName || user.name || '');
+        } else if (isReRequest && foundIdx !== -1) {
+          // Existing PENDING/DENIED user re-requesting: update name, role, status without altering passwordHash
+          userSheet.getRange(foundIdx, 2).setValue(user.name);
+          userSheet.getRange(foundIdx, 5).setValue(user.role);
+          userSheet.getRange(foundIdx, 6).setValue('PENDING_APPROVAL');
+          userSheet.getRange(foundIdx, 9).setValue('');
+          userSheet.getRange(foundIdx, 10).setValue('');
         } else {
-          userSheet.appendRow(rowValues);
+          const rowValues = [
+            user.id,
+            user.name,
+            user.email,
+            user.phone,
+            user.role,
+            user.status || 'PENDING_APPROVAL',
+            new Date().toISOString(),
+            user.passwordHash || '',
+            user.requestedRole || '',
+            user.requestedName || ''
+          ];
+
+          if (foundIdx !== -1) {
+            userSheet.getRange(foundIdx, 1, 1, rowValues.length).setValues([rowValues]);
+          } else {
+            userSheet.appendRow(rowValues);
+          }
         }
         deduplicateUsersTable(ss);
       }
 
-      // 3. Send automated confirmation email with temporary password
-      if (tempPass && user.email) {
+      // 3. Send automated confirmation email with temporary password and reset link (only for new registrations)
+      if (!isRoleChangeRequest && !isReRequest && (tempPass || resetLink) && user.email) {
         try {
           MailApp.sendEmail({
             to: user.email,
-            subject: 'Kaatha Wholesale - Access Request & Temporary Sign-In Code',
+            subject: 'Kaatha Wholesale - Access Request & Password Setup',
             body: 'Hello ' + user.name + ',\n\n' +
-                  'Your registration request for Kaatha Wholesale has been received.\n\n' +
-                  'Temporary Password: ' + tempPass + '\n\n' +
-                  'Security Notice: For your account protection, you will be required to choose a new permanent password on your first sign-in.\n\n' +
+                  'Your registration request for Kaatha Wholesale has been received and is pending administrator approval.\n\n' +
+                  (tempPass ? ('Temporary Password: ' + tempPass + '\n') : '') +
+                  (resetLink ? ('Password Setup Link: ' + resetLink + '\n\n') : '\n') +
+                  'Security Notice: Please set your permanent password using the link above. You will be able to sign in once an administrator approves your request.\n\n' +
                   'Regards,\nKaatha Wholesale Enterprise'
           });
         } catch (mailErr) {
@@ -814,7 +833,11 @@ function doPost(e) {
 
       return createResponse({ 
         status: 'success', 
-        message: 'Registration recorded in User_Registrations sheet and confirmation email dispatched',
+        message: isRoleChangeRequest
+          ? 'Role change request recorded; existing privileges preserved until admin approval'
+          : isReRequest
+          ? 'Access request updated with new role without password change'
+          : 'Registration recorded in User_Registrations sheet and confirmation email dispatched',
         userId: user.id 
       });
     }
@@ -884,16 +907,17 @@ function doPost(e) {
       if (!checkBackendPermission(ss, userRole, 'user_management_page', 'approve_user')) {
         return createResponse({ status: 'error', message: 'Permission denied: approve_user is disabled for role ' + userRole });
       }
-      const { userId, newStatus, role } = body;
+      const { userId, newStatus, role, name, clearRequestedRole } = body;
       
-      // Update in User_Registrations
+      // Update in User_Registrations (latest matching entry)
       const regSheet = ss.getSheetByName('User_Registrations');
       if (regSheet) {
         const rData = regSheet.getDataRange().getValues();
-        for (let i = 1; i < rData.length; i++) {
+        for (let i = rData.length - 1; i >= 1; i--) {
           if (rData[i][0] === userId) {
-            if (newStatus) regSheet.getRange(i + 1, 6).setValue(newStatus);
-            if (role) regSheet.getRange(i + 1, 5).setValue(role);
+            if (newStatus) regSheet.getRange(i + 1, 6).setValue(clearRequestedRole ? 'DENIED' : newStatus);
+            if (role && !clearRequestedRole) regSheet.getRange(i + 1, 5).setValue(role);
+            if (name) regSheet.getRange(i + 1, 2).setValue(name);
             break;
           }
         }
@@ -905,8 +929,13 @@ function doPost(e) {
         const data = userSheet.getDataRange().getValues();
         for (let i = 1; i < data.length; i++) {
           if (data[i][0] === userId) {
+            if (name) userSheet.getRange(i + 1, 2).setValue(name);
             if (newStatus) userSheet.getRange(i + 1, 6).setValue(newStatus);
             if (role) userSheet.getRange(i + 1, 5).setValue(role);
+            if (newStatus === 'APPROVED' || newStatus === 'DENIED' || clearRequestedRole) {
+              userSheet.getRange(i + 1, 9).setValue('');
+              userSheet.getRange(i + 1, 10).setValue('');
+            }
             return createResponse({ status: 'success', message: 'User status updated' });
           }
         }
