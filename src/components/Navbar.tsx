@@ -19,7 +19,8 @@ import {
   LogOut,
   RefreshCw,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  LayoutDashboard
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -75,8 +76,9 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
             {/* Brand Logo & Name (Clickable to redirect to index/initial page) */}
             <button
               onClick={() => {
-                setActiveTab('orders');
-                navigate('/orders');
+                const target = hasPageAccess('dashboard_page') ? 'dashboard' : 'orders';
+                setActiveTab(target);
+                navigate(`/${target}`);
               }}
               className="flex items-center gap-2 sm:gap-2.5 shrink-0 text-left cursor-pointer group focus:outline-none"
               title={language === 'TE' ? 'కాతా హోమ్ పేజీకి వెళ్లండి' : 'Go to Kaatha Home / Initial Page'}
@@ -102,6 +104,20 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
 
             {/* Desktop Pill Navigation */}
             <nav className="hidden lg:flex items-center p-1 bg-slate-100/90 rounded-full border border-slate-200/70 space-x-0.5 xl:space-x-1 shrink min-w-0 overflow-x-auto no-scrollbar">
+              {hasPageAccess('dashboard_page') && (
+                <button
+                  onClick={() => setActiveTab('dashboard')}
+                  className={`relative inline-flex items-center gap-1.5 px-2 xl:px-2.5 2xl:px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
+                    activeTab === 'dashboard'
+                      ? 'bg-slate-900 text-white shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+                  }`}
+                >
+                  <LayoutDashboard className="w-3.5 h-3.5 shrink-0" />
+                  <span>{language === 'TE' ? 'డాష్‌బోర్డ్' : 'Dashboard'}</span>
+                </button>
+              )}
+
               {hasPageAccess('orders_page') && (
                 <button
                   onClick={() => setActiveTab('orders')}
@@ -301,6 +317,18 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
 
       {/* MOBILE BOTTOM NAVIGATION BAR */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-slate-200 px-2 py-1.5 flex items-center justify-around shadow-lg">
+        {hasPageAccess('dashboard_page') && (
+          <button
+            onClick={() => setActiveTab('dashboard')}
+            className={`flex flex-col items-center gap-0.5 py-1 px-2.5 rounded-xl text-[10px] font-bold transition-colors ${
+              activeTab === 'dashboard' ? 'text-[#FF5A36]' : 'text-slate-500'
+            }`}
+          >
+            <LayoutDashboard className="w-5 h-5" />
+            <span>{language === 'TE' ? 'డాష్‌బోర్డ్' : 'Dashboard'}</span>
+          </button>
+        )}
+
         {hasPageAccess('orders_page') && (
           <button
             onClick={() => setActiveTab('orders')}

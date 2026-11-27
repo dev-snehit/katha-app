@@ -2,6 +2,7 @@ export const en = {
   appTitle: "Kaatha Wholesale",
   tagline: "Rice & Groceries Wholesale Platform",
   nav: {
+    dashboard: "Dashboard",
     pendingOrders: "Orders Yet to Deliver",
     stock: "Stock Registry",
     customers: "Customers",

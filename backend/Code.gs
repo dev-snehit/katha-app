@@ -163,6 +163,7 @@ function lockDatabaseSheets(ss, sheetNames) {
  */
 var DEFAULT_BACKEND_ROLE_PERMISSIONS = {
   OWNER: {
+    dashboard_page: { enabled: true, functionalities: { view_dashboard: true, view_kpi_metrics: true, view_order_funnel_chart: true, view_inventory_health: true, view_credit_risk_table: true, view_recent_activity: true, quick_actions: true } },
     orders_page: { enabled: true, functionalities: { view_orders: true, create_order: true, edit_order: true, delete_order: true, approve_order: true, dispatch_order: true, deliver_order: true, send_whatsapp_bill: true } },
     stock_page: { enabled: true, functionalities: { view_stock: true, add_product: true, edit_product: true, delete_product: true, unpack_bag: true } },
     customers_page: { enabled: true, functionalities: { view_customers: true, add_customer: true, edit_customer: true, delete_customer: true } },
@@ -171,6 +172,7 @@ var DEFAULT_BACKEND_ROLE_PERMISSIONS = {
     user_management_page: { enabled: true, functionalities: { view_users: true, approve_user: true, deny_user: true, edit_user: true, delete_user: true, manage_role_permissions: true } }
   },
   ADMIN: {
+    dashboard_page: { enabled: true, functionalities: { view_dashboard: true, view_kpi_metrics: true, view_order_funnel_chart: true, view_inventory_health: true, view_credit_risk_table: true, view_recent_activity: true, quick_actions: true } },
     orders_page: { enabled: true, functionalities: { view_orders: true, create_order: true, edit_order: true, delete_order: true, approve_order: true, dispatch_order: true, deliver_order: true, send_whatsapp_bill: true } },
     stock_page: { enabled: true, functionalities: { view_stock: true, add_product: true, edit_product: true, delete_product: true, unpack_bag: true } },
     customers_page: { enabled: true, functionalities: { view_customers: true, add_customer: true, edit_customer: true, delete_customer: true } },
@@ -179,6 +181,7 @@ var DEFAULT_BACKEND_ROLE_PERMISSIONS = {
     user_management_page: { enabled: true, functionalities: { view_users: true, approve_user: true, deny_user: true, edit_user: true, delete_user: true, manage_role_permissions: true } }
   },
   STAFF: {
+    dashboard_page: { enabled: true, functionalities: { view_dashboard: true, view_kpi_metrics: true, view_order_funnel_chart: true, view_inventory_health: true, view_credit_risk_table: false, view_recent_activity: true, quick_actions: true } },
     orders_page: { enabled: true, functionalities: { view_orders: true, create_order: true, edit_order: false, delete_order: false, approve_order: false, dispatch_order: true, deliver_order: true, send_whatsapp_bill: true } },
     stock_page: { enabled: true, functionalities: { view_stock: true, add_product: false, edit_product: false, delete_product: false, unpack_bag: true } },
     customers_page: { enabled: true, functionalities: { view_customers: true, add_customer: true, edit_customer: false, delete_customer: false } },
@@ -187,6 +190,7 @@ var DEFAULT_BACKEND_ROLE_PERMISSIONS = {
     user_management_page: { enabled: false, functionalities: { view_users: false, approve_user: false, deny_user: false, edit_user: false, delete_user: false, manage_role_permissions: false } }
   },
   CUSTOMER: {
+    dashboard_page: { enabled: false, functionalities: { view_dashboard: false, view_kpi_metrics: false, view_order_funnel_chart: false, view_inventory_health: false, view_credit_risk_table: false, view_recent_activity: false, quick_actions: false } },
     orders_page: { enabled: true, functionalities: { view_orders: true, create_order: true, edit_order: false, delete_order: false, approve_order: false, dispatch_order: false, deliver_order: false, send_whatsapp_bill: false } },
     stock_page: { enabled: true, functionalities: { view_stock: true, add_product: false, edit_product: false, delete_product: false, unpack_bag: false } },
     customers_page: { enabled: false, functionalities: { view_customers: false, add_customer: false, edit_customer: false, delete_customer: false } },
@@ -653,6 +657,86 @@ function doPost(e) {
     }
 
     // --- User Operations ---
+    if (action === 'createUser') {
+      if (!checkBackendPermission(ss, userRole, 'user_management_page', 'create_user')) {
+        return createResponse({ status: 'error', message: 'Permission denied: create_user is disabled for role ' + userRole });
+      }
+      const user = body.user;
+      const tempPass = body.tempPassword || '';
+      const resetLink = body.resetLink || '';
+
+      const userSheet = ss.getSheetByName('Users');
+      if (userSheet) {
+        const uData = userSheet.getDataRange().getValues();
+        let foundIdx = -1;
+        const normEmail = (user.email || '').toLowerCase().trim();
+        const rawPhone = (user.phone || '').replace(/\D/g, '');
+        const normPhone = rawPhone.length > 10 ? rawPhone.slice(-10) : rawPhone;
+
+        for (let i = 1; i < uData.length; i++) {
+          const rowEmail = (uData[i][2] || '').toString().toLowerCase().trim();
+          const rowRawPhone = (uData[i][3] || '').toString().replace(/\D/g, '');
+          const rowPhone = rowRawPhone.length > 10 ? rowRawPhone.slice(-10) : rowRawPhone;
+
+          if (uData[i][0] === user.id || (normEmail && rowEmail === normEmail) || (normPhone && normPhone.length === 10 && rowPhone === normPhone)) {
+            foundIdx = i + 1;
+            break;
+          }
+        }
+
+        const rowValues = [
+          user.id,
+          user.name,
+          user.email,
+          user.phone,
+          user.role,
+          'APPROVED',
+          new Date().toISOString(),
+          user.passwordHash || ''
+        ];
+
+        if (foundIdx !== -1) {
+          userSheet.getRange(foundIdx, 1, 1, rowValues.length).setValues([rowValues]);
+        } else {
+          userSheet.appendRow(rowValues);
+        }
+        deduplicateUsersTable(ss);
+      }
+
+      // Send automated email with credentials and direct password setup link
+      if (user.email) {
+        try {
+          var emailBody = 'Hello ' + user.name + ',\n\n' +
+            'Your account for Kaatha Wholesale has been created by the administrator.\n\n' +
+            'Role: ' + user.role + '\n' +
+            'Email: ' + user.email + '\n';
+
+          if (tempPass) {
+            emailBody += 'Temporary Password: ' + tempPass + '\n\n';
+          }
+          if (resetLink) {
+            emailBody += 'Direct Password Setup Link:\n' + resetLink + '\n\n';
+          }
+          emailBody += 'Security Notice: Please sign in with your temporary password and set your permanent password on initial login.\n\n' +
+            'Regards,\nKaatha Wholesale Enterprise';
+
+          MailApp.sendEmail({
+            to: user.email,
+            subject: 'Kaatha Wholesale - Your Account Credentials & Password Setup',
+            body: emailBody
+          });
+        } catch (mailErr) {
+          console.warn('MailApp createUser error:', mailErr);
+        }
+      }
+
+      return createResponse({ 
+        status: 'success', 
+        message: 'User created in database with temporary credentials and notification email dispatched',
+        userId: user.id 
+      });
+    }
+
     if (action === 'registerUser') {
       const user = body.user;
       const tempPass = body.tempPassword || '';

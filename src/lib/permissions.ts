@@ -20,6 +20,65 @@ export interface PageMeta {
 
 export const PERMISSION_PAGES_META: PageMeta[] = [
   {
+    key: 'dashboard_page',
+    labelEn: 'Business Performance Dashboard',
+    labelTe: 'వ్యాపార పనితీరు డాష్‌బోర్డ్',
+    navKey: 'dashboard',
+    descriptionEn: 'At-a-glance business clarity, live KPIs, interactive charts, and cross-module intelligence',
+    descriptionTe: 'వ్యాపార లావాదేవీలు, పనితీరు సూచికలు మరియు గ్రాఫికల్ విశ్లేషణల సమగ్ర సమాచారం',
+    functionalities: [
+      {
+        key: 'view_dashboard',
+        labelEn: 'View Dashboard Overview',
+        labelTe: 'డాష్‌బోర్డ్ ముఖ్యాంశాలు చూడటం',
+        descriptionEn: 'Allow viewing main business dashboard summary',
+        descriptionTe: 'వ్యాపార డాష్‌బోర్డ్ సారాంశం చూసే అనుమతి',
+      },
+      {
+        key: 'view_kpi_metrics',
+        labelEn: 'View Revenue & Financial KPIs',
+        labelTe: 'ఆదాయం & లాభనష్టాల సూచికలు',
+        descriptionEn: 'Allow viewing gross pipeline value, realized collections, and credit dues cards',
+        descriptionTe: 'మొత్తం అమ్మకాల విలువ, వసూళ్లు మరియు బకాయిల కార్డులను చూసే అనుమతి',
+      },
+      {
+        key: 'view_order_funnel_chart',
+        labelEn: 'View Order Pipeline Funnel Chart',
+        labelTe: 'ఆర్డర్ల పైప్‌లైన్ ఫన్నెల్ చార్ట్',
+        descriptionEn: 'Allow viewing interactive distribution graphs across order fulfillment stages',
+        descriptionTe: 'ఆర్డర్ల పంపిణీ మరియు డెలివరీ స్థితి గ్రాఫ్‌లను చూసే అనుమతి',
+      },
+      {
+        key: 'view_inventory_health',
+        labelEn: 'View Inventory Health & Stock Chart',
+        labelTe: 'స్టాక్ నిల్వలు & విశ్లేషణ గ్రాఫ్',
+        descriptionEn: 'Allow viewing physical vs reserved stock breakdown and low-stock indicators',
+        descriptionTe: 'గోడౌన్ నిల్వలు మరియు తక్కువ స్టాక్ హెచ్చరికలను చూసే అనుమతి',
+      },
+      {
+        key: 'view_credit_risk_table',
+        labelEn: 'View Customer Credit & Receivables Table',
+        labelTe: 'కస్టమర్ల బకాయిల విశ్లేషణ పట్టిక',
+        descriptionEn: 'Allow viewing top outstanding dues and credit risk exposure rankings',
+        descriptionTe: 'ఎక్కువ బకాయి ఉన్న కస్టమర్ల వివరాల పట్టికను చూసే అనుమతి',
+      },
+      {
+        key: 'view_recent_activity',
+        labelEn: 'View Recent Real-time Activity Feed',
+        labelTe: 'ఇటీవలి లావాదేవీల ఫీడ్',
+        descriptionEn: 'Allow reviewing the chronological live audit feed of transactions and actions',
+        descriptionTe: 'తాజా ఆర్డర్లు మరియు స్టాక్ లావాదేవీల లైవ్ ఫీడ్ చూసే అనుమతి',
+      },
+      {
+        key: 'quick_actions',
+        labelEn: 'Access Quick Action Shortcuts',
+        labelTe: 'త్వరిత చర్యల షార్ట్‌కట్‌లు',
+        descriptionEn: 'Allow navigating directly from dashboard to New Order, Add Stock, and Collect Payments',
+        descriptionTe: 'డాష్‌బోర్డ్ నుండి నేరుగా కొత్త ఆర్డర్ లేదా సరుకు చేర్చే షార్ట్‌కట్ అనుమతి',
+      },
+    ],
+  },
+  {
     key: 'orders_page',
     labelEn: 'Orders Pipeline & Dispatch',
     labelTe: 'ఆర్డర్లు & డెలివరీ పైప్‌లైన్',
@@ -297,6 +356,18 @@ export const PERMISSION_PAGES_META: PageMeta[] = [
  */
 export const DEFAULT_ROLE_PERMISSIONS: RolePermissionsConfig = {
   OWNER: {
+    dashboard_page: {
+      enabled: true,
+      functionalities: {
+        view_dashboard: true,
+        view_kpi_metrics: true,
+        view_order_funnel_chart: true,
+        view_inventory_health: true,
+        view_credit_risk_table: true,
+        view_recent_activity: true,
+        quick_actions: true,
+      },
+    },
     orders_page: {
       enabled: true,
       functionalities: {
@@ -359,6 +430,18 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissionsConfig = {
     },
   },
   ADMIN: {
+    dashboard_page: {
+      enabled: true,
+      functionalities: {
+        view_dashboard: true,
+        view_kpi_metrics: true,
+        view_order_funnel_chart: true,
+        view_inventory_health: true,
+        view_credit_risk_table: true,
+        view_recent_activity: true,
+        quick_actions: true,
+      },
+    },
     orders_page: {
       enabled: true,
       functionalities: {
@@ -421,6 +504,18 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissionsConfig = {
     },
   },
   STAFF: {
+    dashboard_page: {
+      enabled: true,
+      functionalities: {
+        view_dashboard: true,
+        view_kpi_metrics: true,
+        view_order_funnel_chart: true,
+        view_inventory_health: true,
+        view_credit_risk_table: false,
+        view_recent_activity: true,
+        quick_actions: true,
+      },
+    },
     orders_page: {
       enabled: true,
       functionalities: {
@@ -483,6 +578,18 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissionsConfig = {
     },
   },
   CUSTOMER: {
+    dashboard_page: {
+      enabled: false,
+      functionalities: {
+        view_dashboard: false,
+        view_kpi_metrics: false,
+        view_order_funnel_chart: false,
+        view_inventory_health: false,
+        view_credit_risk_table: false,
+        view_recent_activity: false,
+        quick_actions: false,
+      },
+    },
     orders_page: {
       enabled: true,
       functionalities: {

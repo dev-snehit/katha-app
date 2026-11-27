@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAppStore, normalizeEmail, normalizePhone } from '../../store/useAppStore';
 import { User, Role, UserStatus } from '../../contracts';
-import { ShieldCheck, UserCheck, UserX, Clock, Plus, Pencil, Trash2, Sparkles, CheckCircle2, AlertCircle, Users, Sliders } from 'lucide-react';
+import { ShieldCheck, UserCheck, UserX, Clock, Plus, Pencil, Trash2, Sparkles, CheckCircle2, AlertCircle, Users, Sliders, Copy, Check, KeyRound, Mail } from 'lucide-react';
 import { useModalDismiss } from '../../hooks/useModalDismiss';
 import { useRouter } from '../../lib/router';
 import { AlertDialog, DialogType } from '../ui/AlertDialog';
@@ -10,6 +10,7 @@ import { RolePermissionsManager } from './RolePermissionsManager';
 export const UserRequestsView: React.FC = () => {
   const { 
     users, 
+    createUser,
     approveUser, 
     denyUser, 
     registerUser, 
@@ -24,13 +25,19 @@ export const UserRequestsView: React.FC = () => {
   const isTe = language === 'TE';
   const [adminSubTab, setAdminSubTab] = useState<'users' | 'permissions'>('users');
 
-  // Simulate Signup Modal State
+  // Create User Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [role, setRole] = useState<Role>('STAFF');
   const [modalError, setModalError] = useState<string | null>(null);
+  const [createdUserResult, setCreatedUserResult] = useState<{
+    user: User;
+    tempPassword?: string;
+    resetLink?: string;
+  } | null>(null);
+  const [copiedCredentials, setCopiedCredentials] = useState(false);
 
   // Edit Active User Modal State
   const [editingUser, setEditingUser] = useState<User | null>(null);
@@ -77,6 +84,8 @@ export const UserRequestsView: React.FC = () => {
   const closeModal = () => {
     setIsModalOpen(false);
     setModalError(null);
+    setCreatedUserResult(null);
+    setCopiedCredentials(false);
     if (route.view === 'admin' && route.subView) {
       navigate('/admin');
     }
@@ -113,8 +122,8 @@ export const UserRequestsView: React.FC = () => {
     });
   };
 
-  // 1. Simulate Signup submission
-  const handleSimulateSignup = (e: React.FormEvent) => {
+  // 1. Create User in Database & Dispatch Temporary Credentials
+  const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setModalError(null);
 
@@ -122,26 +131,21 @@ export const UserRequestsView: React.FC = () => {
     const cleanPhone = normalizePhone(phone);
 
     if (cleanPhone.length !== 10) {
-      setModalError(isTe ? 'మొబైల్ నంబర్ 10 అంకెలు ఉండాలి. దయచేసి సరిచూసుకోండి.' : 'Mobile number should have 10 digits. Please verify.');
+      setModalError(isTe ? 'మొబైల్ నంబర్ 10 అంకెలు ఉండాలి. దయచేసి సరిచూసుకోండి.' : 'Mobile number must be exactly 10 digits.');
       return;
     }
 
     startActionLoading(
-      'Registering user request...',
-      'యూజర్ అభ్యర్థన నమోదు చేయబడుతోంది...'
+      'Creating user account in database...',
+      'డేటాబేస్‌లో యూజర్ ఖాతా నమోదు చేయబడుతోంది...'
     );
 
-    const newUser: User = {
-      id: crypto.randomUUID ? crypto.randomUUID() : `user-${Date.now()}`,
+    const res = await createUser({
       name: name.trim(),
       email: cleanEmail,
       phone: cleanPhone,
       role,
-      status: 'PENDING_APPROVAL',
-      createdAt: new Date().toISOString(),
-    };
-
-    const res = registerUser(newUser);
+    });
     stopActionLoading();
 
     if (!res.success) {
@@ -149,11 +153,18 @@ export const UserRequestsView: React.FC = () => {
       return;
     }
 
-    setIsModalOpen(false);
-    setName('');
-    setEmail('');
-    setPhone('');
-    setModalError(null);
+    if (res.user) {
+      setCreatedUserResult({
+        user: res.user,
+        tempPassword: res.tempPassword,
+        resetLink: res.resetLink,
+      });
+      setName('');
+      setEmail('');
+      setPhone('');
+      setRole('STAFF');
+      setModalError(null);
+    }
   };
 
   // 2. Open Edit Active User modal
@@ -282,14 +293,17 @@ export const UserRequestsView: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {/* Simulate User Signup Button */}
+          {/* Create User Button */}
           {hasFunctionalityAccess('user_management_page', 'create_user') && (
             <button
-              onClick={() => navigate('/admin/new-user')}
+              onClick={() => {
+                setCreatedUserResult(null);
+                navigate('/admin/new-user');
+              }}
               className="inline-flex items-center gap-2 bg-gradient-to-r from-[#FF5A36] to-[#FF6B4A] hover:from-[#f04f2c] hover:to-[#f05a38] text-white font-bold text-xs sm:text-sm px-4 py-2.5 rounded-xl shadow-md shadow-orange-500/20 transition-all active:scale-95"
             >
               <Plus className="w-4 h-4" />
-              <span>{isTe ? 'యూజర్ రిజిస్ట్రేషన్ సైన్-అప్' : 'Simulate User Signup'}</span>
+              <span>{isTe ? 'కొత్త యూజర్‌ను సృష్టించండి' : 'Create User'}</span>
             </button>
           )}
         </div>
@@ -587,7 +601,7 @@ export const UserRequestsView: React.FC = () => {
         </div>
       )}
 
-      {/* Simulate Signup Modal */}
+      {/* Create User Modal */}
       {isModalOpen && (
         <div 
           className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200"
@@ -601,9 +615,19 @@ export const UserRequestsView: React.FC = () => {
             <div className="w-12 h-1.5 rounded-full bg-slate-300 mx-auto mb-3 sm:hidden" />
 
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4 shrink-0">
-              <h2 className="text-xl font-bold text-slate-900">
-                {isTe ? 'కొత్త యూజర్ రిజిస్ట్రేషన్ నమోదు' : 'Simulate New User Registration'}
-              </h2>
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-orange-50 text-[#FF5A36] flex items-center justify-center">
+                  <KeyRound className="w-4 h-4" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-black text-slate-900">
+                    {isTe ? 'డేటాబేస్‌లో కొత్త యూజర్‌ను సృష్టించండి' : 'Create User in Database'}
+                  </h2>
+                  <p className="text-[11px] text-slate-400 font-medium">
+                    {isTe ? 'తాత్కాలిక పాస్‌వర్డ్‌తో ఖాతా సృష్టించబడుతుంది & ఈమెయిల్ పంపబడుతుంది' : 'Creates an entry in db with temporary password and email link for setup'}
+                  </p>
+                </div>
+              </div>
               <button
                 type="button"
                 onClick={closeModal}
@@ -613,93 +637,199 @@ export const UserRequestsView: React.FC = () => {
               </button>
             </div>
 
-            <form onSubmit={handleSimulateSignup} className="flex-1 flex flex-col min-h-0">
-              <div className="flex-1 overflow-y-auto no-scrollbar pr-1 space-y-4">
-                {modalError && (
-                  <div className="p-3 text-xs bg-rose-50 text-rose-700 rounded-lg border border-rose-200 font-medium">
-                    {modalError}
-                  </div>
-                )}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      {isTe ? 'పూర్తి పేరు *' : 'Full Name *'}
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. Ramesh Kumar"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      className="w-full text-sm border border-slate-300 rounded-lg p-2.5 outline-none focus:border-[#FF5A36]"
-                    />
+            {createdUserResult ? (
+              <div className="flex-1 flex flex-col justify-between overflow-y-auto no-scrollbar pr-1 space-y-4">
+                <div className="space-y-4">
+                  <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-start gap-3">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                    <div className="text-xs">
+                      <h4 className="font-black text-emerald-900 text-sm mb-1">
+                        {isTe ? 'యూజర్ ఖాతా డేటాబేస్‌లో విజయవంతంగా సృష్టించబడింది!' : 'User Account Successfully Created in Database!'}
+                      </h4>
+                      <p className="text-emerald-800">
+                        {isTe
+                          ? `ఖాతా వివరాలు మరియు తాత్కాలిక పాస్‌వర్డ్ ${createdUserResult.user.email} ఈమెయిల్‌కు పంపబడ్డాయి.`
+                          : `The user entry has been saved in the database, and an automated email with credentials was dispatched to ${createdUserResult.user.email}.`}
+                      </p>
+                    </div>
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      {isTe ? 'ఈమెయిల్ చిరునామా *' : 'Email Address *'}
-                    </label>
-                    <input
-                      type="email"
-                      required
-                      placeholder="ramesh@example.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="w-full text-sm border border-slate-300 rounded-lg p-2.5 outline-none focus:border-[#FF5A36] font-mono"
-                    />
+                  {/* Credentials Card */}
+                  <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 space-y-3">
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div>
+                        <span className="text-slate-400 block">{isTe ? 'పేరు' : 'Name'}</span>
+                        <span className="font-bold text-slate-900">{createdUserResult.user.name}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block">{isTe ? 'పాత్ర' : 'Role'}</span>
+                        <span className="font-bold text-slate-900">{createdUserResult.user.role}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block">{isTe ? 'ఈమెయిల్' : 'Email'}</span>
+                        <span className="font-mono font-bold text-slate-900">{createdUserResult.user.email}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block">{isTe ? 'మొబైల్' : 'Mobile'}</span>
+                        <span className="font-mono font-bold text-slate-900">{createdUserResult.user.phone}</span>
+                      </div>
+                    </div>
+
+                    <div className="pt-3 border-t border-slate-200">
+                      <label className="text-[11px] font-bold text-slate-500 uppercase block mb-1">
+                        {isTe ? 'తాత్కాలిక పాస్‌వర్డ్ (Temporary Password):' : 'Temporary Password:'}
+                      </label>
+                      <div className="flex items-center gap-2 bg-white p-2.5 rounded-xl border border-slate-300 font-mono font-black text-sm text-slate-900">
+                        <KeyRound className="w-4 h-4 text-[#FF5A36] shrink-0" />
+                        <span className="flex-1">{createdUserResult.tempPassword}</span>
+                      </div>
+                    </div>
+
+                    {createdUserResult.resetLink && (
+                      <div className="pt-2">
+                        <label className="text-[11px] font-bold text-slate-500 uppercase block mb-1">
+                          {isTe ? 'పాస్‌వర్డ్ సెటప్ లింక్ (Direct Setup Link):' : 'Direct Password Setup Link:'}
+                        </label>
+                        <div className="p-2.5 bg-white rounded-xl border border-slate-300 font-mono text-[11px] text-slate-700 break-all">
+                          {createdUserResult.resetLink}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      {isTe ? 'మొబైల్ నంబర్ *' : 'Mobile Number *'}
-                    </label>
-                    <input
-                      type="tel"
-                      required
-                      maxLength={10}
-                      placeholder="9848011223"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                      className="w-full text-sm border border-slate-300 rounded-lg p-2.5 outline-none focus:border-[#FF5A36] font-mono"
-                    />
-                  </div>
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-200 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const text = `Kaatha Wholesale Account Credentials:\nName: ${createdUserResult.user.name}\nEmail: ${createdUserResult.user.email}\nTemporary Password: ${createdUserResult.tempPassword}\nReset Link: ${createdUserResult.resetLink || ''}`;
+                      navigator.clipboard.writeText(text);
+                      setCopiedCredentials(true);
+                      setTimeout(() => setCopiedCredentials(false), 2500);
+                    }}
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 transition-colors"
+                  >
+                    {copiedCredentials ? (
+                      <>
+                        <Check className="w-4 h-4 text-emerald-600" />
+                        <span className="text-emerald-700">{isTe ? 'కాపీ చేయబడింది!' : 'Credentials Copied!'}</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-4 h-4 text-slate-600" />
+                        <span>{isTe ? 'వివరాలను కాపీ చేయండి' : 'Copy All Credentials'}</span>
+                      </>
+                    )}
+                  </button>
 
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      {isTe ? 'కోరిన పాత్ర *' : 'Requested Role *'}
-                    </label>
-                    <select
-                      value={role}
-                      onChange={(e) => setRole(e.target.value as Role)}
-                      className="w-full text-sm border border-slate-300 rounded-lg p-2.5 outline-none focus:border-[#FF5A36]"
-                    >
-                      <option value="STAFF">Warehouse Staff</option>
-                      <option value="OWNER">Business Owner</option>
-                      <option value="CUSTOMER">Retail Customer</option>
-                      <option value="ADMIN">Administrator</option>
-                    </select>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={closeModal}
+                    className="w-full sm:w-auto px-6 py-2.5 text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white rounded-xl shadow-md transition-colors"
+                  >
+                    {isTe ? 'పూర్తయింది' : 'Done'}
+                  </button>
                 </div>
               </div>
+            ) : (
+              <form onSubmit={handleCreateUser} className="flex-1 flex flex-col min-h-0">
+                <div className="flex-1 overflow-y-auto no-scrollbar pr-1 space-y-4">
+                  {modalError && (
+                    <div className="p-3 text-xs bg-rose-50 text-rose-700 rounded-lg border border-rose-200 font-medium">
+                      {modalError}
+                    </div>
+                  )}
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200 shrink-0">
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg"
-                >
-                  {isTe ? 'రద్దు చేయి' : 'Cancel'}
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 text-xs font-bold bg-[#FF5A36] hover:bg-[#e04826] text-white rounded-lg shadow-md transition-colors"
-                >
-                  {isTe ? 'రిజిస్ట్రేషన్ నమోదు చేయి' : 'Submit Registration'}
-                </button>
-              </div>
-            </form>
+                  <div className="p-3.5 bg-orange-50/70 border border-orange-200 rounded-2xl text-xs text-orange-950 font-medium flex items-start gap-2.5">
+                    <Mail className="w-4 h-4 text-[#FF5A36] shrink-0 mt-0.5" />
+                    <span>
+                      {isTe 
+                        ? 'ఈ యూజర్ నేరుగా డేటాబేస్‌లో నమోదు చేయబడతారు. వారికి ఒక తాత్కాలిక పాస్‌వర్డ్ మరియు పాస్‌వర్డ్ రీసెట్ లింక్ ఈమెయిల్ చేయబడుతుంది.' 
+                        : 'Creates an active entry in the database. A temporary password and unique reset password link will be emailed to the user for initial login setup.'}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        {isTe ? 'పూర్తి పేరు *' : 'Full Name *'}
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Ramesh Kumar"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        className="w-full text-sm border border-slate-300 rounded-lg p-2.5 outline-none focus:border-[#FF5A36]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        {isTe ? 'ఈమెయిల్ చిరునామా *' : 'Email Address *'}
+                      </label>
+                      <input
+                        type="email"
+                        required
+                        placeholder="ramesh@example.com"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="w-full text-sm border border-slate-300 rounded-lg p-2.5 outline-none focus:border-[#FF5A36] font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        {isTe ? 'మొబైల్ నంబర్ *' : 'Mobile Number *'}
+                      </label>
+                      <input
+                        type="tel"
+                        required
+                        maxLength={10}
+                        placeholder="9848011223"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                        className="w-full text-sm border border-slate-300 rounded-lg p-2.5 outline-none focus:border-[#FF5A36] font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        {isTe ? 'యూజర్ పాత్ర *' : 'User Role *'}
+                      </label>
+                      <select
+                        value={role}
+                        onChange={(e) => setRole(e.target.value as Role)}
+                        className="w-full text-sm border border-slate-300 rounded-lg p-2.5 outline-none focus:border-[#FF5A36]"
+                      >
+                        <option value="STAFF">Warehouse Staff</option>
+                        <option value="OWNER">Business Owner</option>
+                        <option value="CUSTOMER">Retail Customer</option>
+                        <option value="ADMIN">Administrator</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200 shrink-0">
+                  <button
+                    type="button"
+                    onClick={closeModal}
+                    className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg"
+                  >
+                    {isTe ? 'రద్దు చేయి' : 'Cancel'}
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2.5 text-xs font-bold bg-[#FF5A36] hover:bg-[#e04826] text-white rounded-lg shadow-md transition-colors"
+                  >
+                    {isTe ? 'యూజర్‌ను సృష్టించండి & ఈమెయిల్ పంపండి' : 'Create User & Send Email'}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}

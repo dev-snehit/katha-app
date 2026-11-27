@@ -4,6 +4,7 @@ export const te: Translations = {
   appTitle: "కాతా హోల్‌సేల్",
   tagline: "బియ్యం మరియు కిరాణా హోల్‌సేల్ వ్యాపార వేదిక",
   nav: {
+    dashboard: "డాష్‌బోర్డ్",
     pendingOrders: "డెలివరీ చేయాల్సిన ఆర్డర్లు",
     stock: "స్టాక్ రిజిస్ట్రీ",
     customers: "కస్టమర్లు",

@@ -87,6 +87,13 @@ export interface AppState {
 
   // Actions & Mutators
   setCurrentUser: (user: User | null) => void;
+  createUser: (userData: { name: string; email: string; phone: string; role: Role }) => Promise<{
+    success: boolean;
+    message: string;
+    user?: User;
+    tempPassword?: string;
+    resetLink?: string;
+  }>;
   registerUser: (user: User, tempPassword?: string) => { success: boolean; message: string; user?: User };
   approveUser: (userId: string, role?: Role) => void;
   denyUser: (userId: string) => void;
@@ -749,6 +756,91 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ currentUser: user, isAuthenticated: !!user });
   },
   
+  createUser: async (userData: { name: string; email: string; phone: string; role: Role }) => {
+    const normEmail = normalizeEmail(userData.email);
+    const normPhone = normalizePhone(userData.phone);
+
+    // 1. Check duplicate email: no user allowed with already used email
+    const existingEmail = get().users.find((u) => {
+      const uEmail = normalizeEmail(u.email);
+      return (
+        uEmail === normEmail ||
+        ((normEmail === 'dev.snehit@gmail.com' || normEmail === 'dev.snehit@gmail') &&
+          (uEmail === 'dev.snehit@gmail.com' || uEmail === 'dev.snehit@gmail'))
+      );
+    });
+
+    if (existingEmail) {
+      return {
+        success: false,
+        message: 'An account with this email address already exists in the database.',
+      };
+    }
+
+    // 2. Check duplicate phone: no user allowed with already used mobile number
+    if (normPhone) {
+      const existingPhone = get().users.find((u) => {
+        const uPhone = normalizePhone(u.phone);
+        return uPhone.length >= 10 && uPhone === normPhone;
+      });
+
+      if (existingPhone) {
+        return {
+          success: false,
+          message: 'An account with this mobile number already exists in the database.',
+        };
+      }
+    }
+
+    // 3. Generate a secure temporary password e.g. Kaatha@7482
+    const randomDigits = Math.floor(1000 + Math.random() * 9000);
+    const tempPassword = `Kaatha@${randomDigits}`;
+    const passwordHash = await hashPassword(tempPassword);
+
+    // 4. Generate unique password reset token and link
+    const resetToken = `rst-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // 24 hours valid
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const basePath = typeof window !== 'undefined' && window.location.pathname.startsWith('/katha-app') ? '/katha-app' : '';
+    const resetLink = `${origin}${basePath}/reset-password/${resetToken}`;
+
+    const newUser: User = {
+      id: crypto.randomUUID ? crypto.randomUUID() : `usr-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      name: userData.name.trim(),
+      email: normEmail,
+      phone: normPhone,
+      role: userData.role,
+      status: 'APPROVED',
+      createdAt: new Date().toISOString(),
+      password: tempPassword,
+      passwordHash: passwordHash,
+      mustResetPassword: true,
+      resetPasswordToken: resetToken,
+      resetPasswordExpires: expiresAt,
+    };
+
+    const updated = [...get().users, newUser];
+    saveToStorage('users', updated);
+    set({ users: updated });
+
+    // Sync directly to the database via createUser action
+    await get().triggerSync('createUser', { 
+      user: newUser, 
+      tempPassword, 
+      resetLink,
+      resetToken,
+      expiresAt 
+    });
+
+    return {
+      success: true,
+      message: 'User account created in database with temporary password and password setup link dispatched.',
+      user: newUser,
+      tempPassword,
+      resetLink,
+    };
+  },
+
   registerUser: (user, tempPassword) => {
     const normEmail = normalizeEmail(user.email);
     const normPhone = normalizePhone(user.phone);

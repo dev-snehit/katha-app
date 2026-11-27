@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { Navbar } from './components/Navbar';
+import { DashboardView } from './components/dashboard/DashboardView';
 import { PendingOrdersView } from './components/orders/PendingOrdersView';
 import { StockRegistryView } from './components/stock/StockRegistryView';
 import { CustomerDirectoryView } from './components/customers/CustomerDirectoryView';
@@ -20,7 +21,7 @@ import {
 
 export default function App() {
   const { route, navigate, goBack } = useRouter();
-  const [lastActiveTab, setLastActiveTab] = useState<string>('orders');
+  const [lastActiveTab, setLastActiveTab] = useState<string>('dashboard');
   const { 
     language, 
     isAuthenticated, 
@@ -44,7 +45,7 @@ export default function App() {
   // Derive active tab from route
   const activeTab = route.view === 'settings' 
     ? lastActiveTab 
-    : (route.view === 'auth' ? 'orders' : route.view);
+    : (route.view === 'auth' ? 'dashboard' : route.view);
 
   // Track the last non-settings view tab
   useEffect(() => {
@@ -57,6 +58,7 @@ export default function App() {
   useEffect(() => {
     if (isAuthenticated && currentUser) {
       const pageKeyMap: Record<string, string> = {
+        dashboard: 'dashboard_page',
         orders: 'orders_page',
         stock: 'stock_page',
         customers: 'customers_page',
@@ -66,7 +68,7 @@ export default function App() {
       };
       const pageKey = pageKeyMap[route.view];
       if (pageKey && !hasPageAccess(pageKey)) {
-        const pages = ['orders', 'stock', 'customers', 'suppliers', 'exports'];
+        const pages = ['dashboard', 'orders', 'stock', 'customers', 'suppliers', 'exports'];
         const firstAvailable = pages.find((p) => hasPageAccess(pageKeyMap[p])) || 'orders';
         navigate(`/${firstAvailable}`, { replace: true });
       }
@@ -81,10 +83,11 @@ export default function App() {
         clearIntendedRoute();
         navigate(intended, { replace: true });
       } else if (route.view === 'auth') {
-        navigate('/orders', { replace: true });
+        const defaultTarget = hasPageAccess('dashboard_page') ? 'dashboard' : 'orders';
+        navigate(`/${defaultTarget}`, { replace: true });
       }
     }
-  }, [isAuthenticated, currentUser, route.view, navigate]);
+  }, [isAuthenticated, currentUser, route.view, hasPageAccess, navigate]);
 
   // Remember intended protected route when unauthenticated
   useEffect(() => {
@@ -134,6 +137,7 @@ export default function App() {
           }`}
           aria-hidden={isConnectingServer}
         >
+          {activeTab === 'dashboard' && hasPageAccess('dashboard_page') && <DashboardView />}
           {activeTab === 'orders' && hasPageAccess('orders_page') && <PendingOrdersView setActiveTab={handleTabChange} />}
           {activeTab === 'stock' && hasPageAccess('stock_page') && <StockRegistryView />}
           {activeTab === 'customers' && hasPageAccess('customers_page') && <CustomerDirectoryView />}

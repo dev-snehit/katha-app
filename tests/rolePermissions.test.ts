@@ -23,6 +23,7 @@ describe('Role Specific Permissions & Access Governance', () => {
   describe('PERMISSION_PAGES_META and DEFAULT_ROLE_PERMISSIONS matrix', () => {
     it('defines metadata for all core application modules', () => {
       const pageKeys = PERMISSION_PAGES_META.map((p) => p.key);
+      expect(pageKeys).toContain('dashboard_page');
       expect(pageKeys).toContain('orders_page');
       expect(pageKeys).toContain('stock_page');
       expect(pageKeys).toContain('customers_page');
@@ -188,6 +189,31 @@ describe('Role Specific Permissions & Access Governance', () => {
       const updatedStore = useAppStore.getState();
       expect(updatedStore.hasPageAccess('suppliers_page')).toBe(false);
       expect(updatedStore.hasFunctionalityAccess('suppliers_page', 'view_suppliers')).toBe(false);
+    });
+
+    it('creates active user in store with temporary password and reset link', async () => {
+      const store = useAppStore.getState();
+      const res = await store.createUser({
+        name: 'New Miller Staff',
+        email: 'staff.miller@kaatha.internal',
+        phone: '9848099112',
+        role: 'STAFF',
+      });
+
+      expect(res.success).toBe(true);
+      expect(res.user).toBeDefined();
+      expect(res.user?.status).toBe('APPROVED');
+      expect(res.user?.mustResetPassword).toBe(true);
+      expect(res.tempPassword).toBeDefined();
+      expect(res.tempPassword).toMatch(/^Kaatha@\d{4}$/);
+      expect(res.resetLink).toBeDefined();
+      expect(res.resetLink).toContain('/reset-password/rst-');
+
+      // Verify user in store state
+      const stateUsers = useAppStore.getState().users;
+      const created = stateUsers.find((u) => u.email === 'staff.miller@kaatha.internal');
+      expect(created).toBeDefined();
+      expect(created?.passwordHash).toBeDefined();
     });
   });
 });

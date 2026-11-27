@@ -51,6 +51,16 @@ describe('Router & Deep Linking Suite (Pure Slash Path Routing)', () => {
       });
     });
 
+    it('correctly parses /dashboard view', () => {
+      expect(parseRoute('/dashboard')).toMatchObject({
+        path: '/dashboard',
+        view: 'dashboard',
+        subView: null,
+        paramId: null,
+        isModalOpen: false,
+      });
+    });
+
     it('parses orders view, /orders/:orderid param, and new order modal sub-route', () => {
       const ordersRoute = parseRoute('/orders');
       expect(ordersRoute.view).toBe('orders');

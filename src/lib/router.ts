@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-export type MainView = 'orders' | 'stock' | 'customers' | 'suppliers' | 'exports' | 'admin' | 'settings' | 'auth';
+export type MainView = 'dashboard' | 'orders' | 'stock' | 'customers' | 'suppliers' | 'exports' | 'admin' | 'settings' | 'auth';
 export type SubView = 'new' | 'edit' | 'new-user' | 'login' | 'register' | 'forgot' | 'reset' | null;
 
 export interface RouteInfo {
@@ -122,6 +122,12 @@ export function parseRoute(rawPathOrUrl?: string): RouteInfo {
   let paramId: string | null = null;
 
   switch (firstSeg) {
+    case 'dashboard':
+    case 'home':
+    case 'overview':
+      view = 'dashboard';
+      break;
+
     case 'stock':
     case 'stocks':
     case 'inventory':
@@ -347,6 +353,10 @@ export function updateDocumentTitle(route: RouteInfo, language: 'EN' | 'TE'): vo
   let titlePart = '';
 
   switch (route.view) {
+    case 'dashboard':
+      titlePart = isTe ? 'వ్యాపార డాష్‌బోర్డ్' : 'Business Dashboard';
+      break;
+
     case 'orders':
       if (route.subView === 'new') {
         titlePart = isTe ? 'కొత్త ఆర్డర్' : 'Place Order';
@@ -393,7 +403,7 @@ export function updateDocumentTitle(route: RouteInfo, language: 'EN' | 'TE'): vo
 
     case 'admin':
       if (route.subView === 'new-user') {
-        titlePart = isTe ? 'వినియోగదారుని నమోదు' : 'Simulate User Signup';
+        titlePart = isTe ? 'కొత్త యూజర్‌ను సృష్టించండి' : 'Create User';
       } else {
         titlePart = isTe ? 'వినియోగదారుల నిర్వహణ' : 'User Requests & Admin';
       }
