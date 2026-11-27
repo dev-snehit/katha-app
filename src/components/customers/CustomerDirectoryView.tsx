@@ -19,7 +19,8 @@ export const CustomerDirectoryView: React.FC = () => {
     updateCustomer, 
     deleteCustomer,
     startActionLoading, 
-    stopActionLoading 
+    stopActionLoading,
+    hasFunctionalityAccess 
   } = useAppStore();
   const { route, navigate } = useRouter();
   const isAdminOrOwner = currentUser?.role === 'ADMIN' || currentUser?.role === 'OWNER';
@@ -240,13 +241,15 @@ export const CustomerDirectoryView: React.FC = () => {
           </p>
         </div>
 
-        <button
-          onClick={handleOpenAddModal}
-          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white font-black text-sm px-6 py-3 rounded-full shadow-lg shadow-orange-500/25 transition-all active:scale-95"
-        >
-          <Plus className="w-4 h-4 stroke-[3]" />
-          <span>{language === 'TE' ? 'కస్టమర్‌ను చేర్చండి' : 'Add Customer'}</span>
-        </button>
+        {hasFunctionalityAccess('customers_page', 'add_customer') && (
+          <button
+            onClick={handleOpenAddModal}
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white font-black text-sm px-6 py-3 rounded-full shadow-lg shadow-orange-500/25 transition-all active:scale-95"
+          >
+            <Plus className="w-4 h-4 stroke-[3]" />
+            <span>{language === 'TE' ? 'కస్టమర్‌ను చేర్చండి' : 'Add Customer'}</span>
+          </button>
+        )}
       </div>
 
       {/* Empty State */}
@@ -338,25 +341,25 @@ export const CustomerDirectoryView: React.FC = () => {
                     <Send className="w-3.5 h-3.5" />
                     WhatsApp Statement
                   </button>
-                  {isAdminOrOwner && (
-                    <>
-                      <button
-                        onClick={() => handleOpenEditModal(c)}
-                        className="inline-flex items-center justify-center gap-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold py-2 px-3 rounded-xl transition-colors"
-                        title={language === 'TE' ? 'సవరించండి' : 'Edit Customer'}
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                        <span>{language === 'TE' ? 'సవరించండి' : 'Edit'}</span>
-                      </button>
-                      <button
-                        onClick={() => handleDeleteCustomer(c)}
-                        className="inline-flex items-center justify-center gap-1 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold py-2 px-3 rounded-xl border border-rose-200 transition-colors"
-                        title={language === 'TE' ? 'ఖాతా తొలగించండి' : 'Delete Customer Account'}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                        <span>{language === 'TE' ? 'తొలగించు' : 'Delete'}</span>
-                      </button>
-                    </>
+                  {hasFunctionalityAccess('customers_page', 'edit_customer') && (
+                    <button
+                      onClick={() => handleOpenEditModal(c)}
+                      className="inline-flex items-center justify-center gap-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold py-2 px-3 rounded-xl transition-colors"
+                      title={language === 'TE' ? 'సవరించండి' : 'Edit Customer'}
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                      <span>{language === 'TE' ? 'సవరించండి' : 'Edit'}</span>
+                    </button>
+                  )}
+                  {hasFunctionalityAccess('customers_page', 'delete_customer') && (
+                    <button
+                      onClick={() => handleDeleteCustomer(c)}
+                      className="inline-flex items-center justify-center gap-1 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold py-2 px-3 rounded-xl border border-rose-200 transition-colors"
+                      title={language === 'TE' ? 'ఖాతా తొలగించండి' : 'Delete Customer Account'}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>{language === 'TE' ? 'తొలగించు' : 'Delete'}</span>
+                    </button>
                   )}
                 </div>
               </div>

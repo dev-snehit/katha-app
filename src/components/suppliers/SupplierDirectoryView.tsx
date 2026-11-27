@@ -18,7 +18,8 @@ export const SupplierDirectoryView: React.FC = () => {
     updateSupplier, 
     deleteSupplier,
     startActionLoading, 
-    stopActionLoading 
+    stopActionLoading,
+    hasFunctionalityAccess 
   } = useAppStore();
   const { route, navigate } = useRouter();
   const isAdminOrOwner = currentUser?.role === 'ADMIN' || currentUser?.role === 'OWNER';
@@ -222,13 +223,15 @@ export const SupplierDirectoryView: React.FC = () => {
           </p>
         </div>
 
-        <button
-          onClick={handleOpenAddModal}
-          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white font-black text-sm px-6 py-3 rounded-full shadow-lg shadow-orange-500/25 transition-all active:scale-95"
-        >
-          <Plus className="w-4 h-4 stroke-[3]" />
-          <span>{language === 'TE' ? 'సప్లయర్‌ను చేర్చండి' : 'Add Supplier'}</span>
-        </button>
+        {hasFunctionalityAccess('suppliers_page', 'add_supplier') && (
+          <button
+            onClick={handleOpenAddModal}
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white font-black text-sm px-6 py-3 rounded-full shadow-lg shadow-orange-500/25 transition-all active:scale-95"
+          >
+            <Plus className="w-4 h-4 stroke-[3]" />
+            <span>{language === 'TE' ? 'సప్లయర్‌ను చేర్చండి' : 'Add Supplier'}</span>
+          </button>
+        )}
       </div>
 
       {/* Empty State */}
@@ -310,25 +313,25 @@ export const SupplierDirectoryView: React.FC = () => {
                     </>
                   )}
                 </button>
-                {isAdminOrOwner && (
-                  <>
-                    <button
-                      onClick={() => handleOpenEditModal(s)}
-                      className="inline-flex items-center justify-center gap-1 text-xs font-bold py-2.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
-                      title={language === 'TE' ? 'సవరించండి' : 'Edit Supplier'}
-                    >
-                      <Pencil className="w-3.5 h-3.5" />
-                      <span>{language === 'TE' ? 'సవరించండి' : 'Edit'}</span>
-                    </button>
-                    <button
-                      onClick={() => handleDeleteSupplier(s)}
-                      className="inline-flex items-center justify-center gap-1 text-xs font-bold py-2.5 px-3 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-colors"
-                      title={language === 'TE' ? 'సరఫరాదారుని తొలగించండి' : 'Delete Supplier'}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      <span>{language === 'TE' ? 'తొలగించు' : 'Delete'}</span>
-                    </button>
-                  </>
+                {hasFunctionalityAccess('suppliers_page', 'edit_supplier') && (
+                  <button
+                    onClick={() => handleOpenEditModal(s)}
+                    className="inline-flex items-center justify-center gap-1 text-xs font-bold py-2.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+                    title={language === 'TE' ? 'సవరించండి' : 'Edit Supplier'}
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                    <span>{language === 'TE' ? 'సవరించండి' : 'Edit'}</span>
+                  </button>
+                )}
+                {hasFunctionalityAccess('suppliers_page', 'delete_supplier') && (
+                  <button
+                    onClick={() => handleDeleteSupplier(s)}
+                    className="inline-flex items-center justify-center gap-1 text-xs font-bold py-2.5 px-3 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-colors"
+                    title={language === 'TE' ? 'సరఫరాదారుని తొలగించండి' : 'Delete Supplier'}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>{language === 'TE' ? 'తొలగించు' : 'Delete'}</span>
+                  </button>
                 )}
               </div>
             </div>

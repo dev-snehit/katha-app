@@ -21,7 +21,8 @@ function setupDatabase() {
     'Master_Suppliers': ['id', 'business_en', 'business_te', 'owner_en', 'owner_te', 'bank_name', 'account_no', 'ifsc_code', 'nickname_en', 'nickname_te'],
     'Master_Orders_Sales': ['id', 'order_no', 'customer_id', 'customer_name', 'customer_phone', 'date', 'total_bags', 'total_weight_kg', 'subtotal', 'discount', 'grand_total', 'payment_mode', 'status', 'approved_by'],
     'Pending_Orders': ['id', 'order_no', 'customer_id', 'customer_name', 'date', 'total_bags', 'discount', 'grand_total', 'status', 'submitted_by'],
-    'Master_Purchases': ['id', 'purchase_no', 'supplier_id', 'date', 'total_bags', 'grand_total', 'reference_bill']
+    'Master_Purchases': ['id', 'purchase_no', 'supplier_id', 'date', 'total_bags', 'grand_total', 'reference_bill'],
+    'Role_Permissions': ['role', 'config_json', 'updated_at', 'updated_by']
   };
 
   for (const [sheetName, headers] of Object.entries(tables)) {
@@ -57,6 +58,15 @@ function setupDatabase() {
       'APPROVED',
       new Date().toISOString()
     ]);
+  }
+
+  // Pre-seed default Role_Permissions if empty
+  const permSheet = ss.getSheetByName('Role_Permissions');
+  if (permSheet && permSheet.getLastRow() === 1) {
+    const roles = ['OWNER', 'ADMIN', 'STAFF', 'CUSTOMER'];
+    roles.forEach(r => {
+      permSheet.appendRow([r, JSON.stringify(DEFAULT_BACKEND_ROLE_PERMISSIONS[r]), new Date().toISOString(), 'SYSTEM']);
+    });
   }
 
   // Deduplicate and clean Users sheet
@@ -147,6 +157,86 @@ function lockDatabaseSheets(ss, sheetNames) {
   }
 }
 
+/**
+ * Default role-specific permissions JSON configuration in backend.
+ * Defines list of features and functionalities accepted as boolean to globally control what can be seen and executed.
+ */
+var DEFAULT_BACKEND_ROLE_PERMISSIONS = {
+  OWNER: {
+    orders_page: { enabled: true, functionalities: { view_orders: true, create_order: true, edit_order: true, delete_order: true, approve_order: true, dispatch_order: true, deliver_order: true, send_whatsapp_bill: true } },
+    stock_page: { enabled: true, functionalities: { view_stock: true, add_product: true, edit_product: true, delete_product: true, unpack_bag: true } },
+    customers_page: { enabled: true, functionalities: { view_customers: true, add_customer: true, edit_customer: true, delete_customer: true } },
+    suppliers_page: { enabled: true, functionalities: { view_suppliers: true, add_supplier: true, edit_supplier: true, delete_supplier: true } },
+    reports_page: { enabled: true, functionalities: { view_reports: true, export_data: true, generate_statement: true } },
+    user_management_page: { enabled: true, functionalities: { view_users: true, approve_user: true, deny_user: true, edit_user: true, delete_user: true, manage_role_permissions: true } }
+  },
+  ADMIN: {
+    orders_page: { enabled: true, functionalities: { view_orders: true, create_order: true, edit_order: true, delete_order: true, approve_order: true, dispatch_order: true, deliver_order: true, send_whatsapp_bill: true } },
+    stock_page: { enabled: true, functionalities: { view_stock: true, add_product: true, edit_product: true, delete_product: true, unpack_bag: true } },
+    customers_page: { enabled: true, functionalities: { view_customers: true, add_customer: true, edit_customer: true, delete_customer: true } },
+    suppliers_page: { enabled: true, functionalities: { view_suppliers: true, add_supplier: true, edit_supplier: true, delete_supplier: true } },
+    reports_page: { enabled: true, functionalities: { view_reports: true, export_data: true, generate_statement: true } },
+    user_management_page: { enabled: true, functionalities: { view_users: true, approve_user: true, deny_user: true, edit_user: true, delete_user: true, manage_role_permissions: true } }
+  },
+  STAFF: {
+    orders_page: { enabled: true, functionalities: { view_orders: true, create_order: true, edit_order: false, delete_order: false, approve_order: false, dispatch_order: true, deliver_order: true, send_whatsapp_bill: true } },
+    stock_page: { enabled: true, functionalities: { view_stock: true, add_product: false, edit_product: false, delete_product: false, unpack_bag: true } },
+    customers_page: { enabled: true, functionalities: { view_customers: true, add_customer: true, edit_customer: false, delete_customer: false } },
+    suppliers_page: { enabled: true, functionalities: { view_suppliers: true, add_supplier: false, edit_supplier: false, delete_supplier: false } },
+    reports_page: { enabled: true, functionalities: { view_reports: true, export_data: false, generate_statement: true } },
+    user_management_page: { enabled: false, functionalities: { view_users: false, approve_user: false, deny_user: false, edit_user: false, delete_user: false, manage_role_permissions: false } }
+  },
+  CUSTOMER: {
+    orders_page: { enabled: true, functionalities: { view_orders: true, create_order: true, edit_order: false, delete_order: false, approve_order: false, dispatch_order: false, deliver_order: false, send_whatsapp_bill: false } },
+    stock_page: { enabled: true, functionalities: { view_stock: true, add_product: false, edit_product: false, delete_product: false, unpack_bag: false } },
+    customers_page: { enabled: false, functionalities: { view_customers: false, add_customer: false, edit_customer: false, delete_customer: false } },
+    suppliers_page: { enabled: false, functionalities: { view_suppliers: false, add_supplier: false, edit_supplier: false, delete_supplier: false } },
+    reports_page: { enabled: false, functionalities: { view_reports: false, export_data: false, generate_statement: false } },
+    user_management_page: { enabled: false, functionalities: { view_users: false, approve_user: false, deny_user: false, edit_user: false, delete_user: false, manage_role_permissions: false } }
+  }
+};
+
+function getOrInitRolePermissions(ss) {
+  var sheet = ss.getSheetByName('Role_Permissions');
+  if (!sheet) {
+    sheet = ss.insertSheet('Role_Permissions');
+    sheet.appendRow(['role', 'config_json', 'updated_at', 'updated_by']);
+    var roles = ['OWNER', 'ADMIN', 'STAFF', 'CUSTOMER'];
+    roles.forEach(function(r) {
+      sheet.appendRow([r, JSON.stringify(DEFAULT_BACKEND_ROLE_PERMISSIONS[r]), new Date().toISOString(), 'SYSTEM']);
+    });
+  }
+
+  var data = sheet.getDataRange().getValues();
+  var map = {};
+  for (var i = 1; i < data.length; i++) {
+    var r = data[i][0];
+    var json = data[i][1];
+    if (r && json) {
+      try {
+        map[r] = typeof json === 'string' ? JSON.parse(json) : json;
+      } catch (err) {
+        map[r] = DEFAULT_BACKEND_ROLE_PERMISSIONS[r];
+      }
+    }
+  }
+  return map;
+}
+
+function checkBackendPermission(ss, userRole, pageKey, funcKey) {
+  if (!userRole) return false;
+  if (userRole === 'OWNER') return true; // Owner has full uninhibited permissions
+  var perms = getOrInitRolePermissions(ss);
+  var roleConfig = perms[userRole] || DEFAULT_BACKEND_ROLE_PERMISSIONS[userRole];
+  if (!roleConfig) return false;
+  var page = roleConfig[pageKey];
+  if (!page || page.enabled === false) return false;
+  if (page.functionalities && page.functionalities[funcKey] !== undefined) {
+    return page.functionalities[funcKey] === true;
+  }
+  return true;
+}
+
 function doGet(e) {
   try {
     setupDatabase();
@@ -164,7 +254,7 @@ function doGet(e) {
 
     if (action === 'getData') {
       const result = {};
-      const sheetNames = ['Users', 'Master_Products', 'Master_Customers', 'Master_Suppliers', 'Master_Orders_Sales', 'Pending_Orders', 'Master_Purchases'];
+      const sheetNames = ['Users', 'Master_Products', 'Master_Customers', 'Master_Suppliers', 'Master_Orders_Sales', 'Pending_Orders', 'Master_Purchases', 'Role_Permissions'];
       
       for (const name of sheetNames) {
         const sheet = ss.getSheetByName(name);
@@ -180,34 +270,14 @@ function doGet(e) {
           result[name] = [];
         }
       }
+      result['rolePermissions'] = getOrInitRolePermissions(ss);
       return createResponse({ status: 'success', data: result });
     }
 
     if (action === 'lockSheets') {
-      const sheetNames = ['Users', 'Master_Products', 'Master_Customers', 'Master_Suppliers', 'Master_Orders_Sales', 'Pending_Orders', 'Master_Purchases'];
+      const sheetNames = ['Users', 'Master_Products', 'Master_Customers', 'Master_Suppliers', 'Master_Orders_Sales', 'Pending_Orders', 'Master_Purchases', 'Role_Permissions'];
       lockDatabaseSheets(ss, sheetNames);
       return createResponse({ status: 'success', message: 'Sheets locked and protected by default' });
-    }
-
-    if (action === 'getData') {
-      const result = {};
-      const sheetNames = ['Users', 'Master_Products', 'Master_Customers', 'Master_Suppliers', 'Master_Orders_Sales', 'Pending_Orders', 'Master_Purchases'];
-      
-      for (const name of sheetNames) {
-        const sheet = ss.getSheetByName(name);
-        if (sheet && sheet.getLastRow() > 1) {
-          const rows = sheet.getDataRange().getValues();
-          const headers = rows[0];
-          result[name] = rows.slice(1).map(row => {
-            const obj = {};
-            headers.forEach((h, i) => obj[h] = row[i]);
-            return obj;
-          });
-        } else {
-          result[name] = [];
-        }
-      }
-      return createResponse({ status: 'success', data: result });
     }
 
     return createResponse({ status: 'error', message: 'Unknown action: ' + action });
@@ -225,6 +295,7 @@ function doPost(e) {
 
     const body = JSON.parse(e.postData.contents);
     const action = body.action;
+    const userRole = body.userRole || body.role || 'STAFF';
     const ss = SpreadsheetApp.getActiveSpreadsheet();
 
     if (action === 'ping') {
@@ -238,7 +309,7 @@ function doPost(e) {
 
     if (action === 'getData') {
       const result = {};
-      const sheetNames = ['Users', 'Master_Products', 'Master_Customers', 'Master_Suppliers', 'Master_Orders_Sales', 'Pending_Orders', 'Master_Purchases'];
+      const sheetNames = ['Users', 'Master_Products', 'Master_Customers', 'Master_Suppliers', 'Master_Orders_Sales', 'Pending_Orders', 'Master_Purchases', 'Role_Permissions'];
       
       for (const name of sheetNames) {
         const sheet = ss.getSheetByName(name);
@@ -254,13 +325,66 @@ function doPost(e) {
           result[name] = [];
         }
       }
+      result['rolePermissions'] = getOrInitRolePermissions(ss);
       return createResponse({ status: 'success', data: result });
     }
 
     if (action === 'lockSheets') {
-      const sheetNames = ['Users', 'Master_Products', 'Master_Customers', 'Master_Suppliers', 'Master_Orders_Sales', 'Pending_Orders', 'Master_Purchases'];
+      const sheetNames = ['Users', 'Master_Products', 'Master_Customers', 'Master_Suppliers', 'Master_Orders_Sales', 'Pending_Orders', 'Master_Purchases', 'Role_Permissions'];
       lockDatabaseSheets(ss, sheetNames);
       return createResponse({ status: 'success', message: 'Sheets locked and protected by default' });
+    }
+
+    // --- Role Permissions Operations ---
+    if (action === 'saveRolePermissions') {
+      if (!checkBackendPermission(ss, userRole, 'user_management_page', 'manage_role_permissions')) {
+        return createResponse({ status: 'error', message: 'Permission denied: manage_role_permissions is disabled for role ' + userRole });
+      }
+
+      const { role: targetRole, config, allPermissions } = body;
+      const sheet = ss.getSheetByName('Role_Permissions') || ss.insertSheet('Role_Permissions');
+      if (sheet.getLastRow() === 0) {
+        sheet.appendRow(['role', 'config_json', 'updated_at', 'updated_by']);
+      }
+
+      if (allPermissions && typeof allPermissions === 'object') {
+        const roles = ['OWNER', 'ADMIN', 'STAFF', 'CUSTOMER'];
+        roles.forEach(r => {
+          if (allPermissions[r]) {
+            let found = false;
+            const pData = sheet.getDataRange().getValues();
+            for (let i = 1; i < pData.length; i++) {
+              if (pData[i][0] === r) {
+                sheet.getRange(i + 1, 2).setValue(JSON.stringify(allPermissions[r]));
+                sheet.getRange(i + 1, 3).setValue(new Date().toISOString());
+                sheet.getRange(i + 1, 4).setValue(userRole);
+                found = true;
+                break;
+              }
+            }
+            if (!found) {
+              sheet.appendRow([r, JSON.stringify(allPermissions[r]), new Date().toISOString(), userRole]);
+            }
+          }
+        });
+      } else if (targetRole && config) {
+        let found = false;
+        const pData = sheet.getDataRange().getValues();
+        for (let i = 1; i < pData.length; i++) {
+          if (pData[i][0] === targetRole) {
+            sheet.getRange(i + 1, 2).setValue(JSON.stringify(config));
+            sheet.getRange(i + 1, 3).setValue(new Date().toISOString());
+            sheet.getRange(i + 1, 4).setValue(userRole);
+            found = true;
+            break;
+          }
+        }
+        if (!found) {
+          sheet.appendRow([targetRole, JSON.stringify(config), new Date().toISOString(), userRole]);
+        }
+      }
+
+      return createResponse({ status: 'success', message: 'Role permissions saved to database' });
     }
 
     // --- Order Operations ---
@@ -270,6 +394,19 @@ function doPost(e) {
       const sheet = ss.getSheetByName(targetSheetName);
       const data = sheet.getDataRange().getValues();
       let found = false;
+      for (let i = 1; i < data.length; i++) {
+        if (data[i][0] === order.id) {
+          found = true;
+          break;
+        }
+      }
+
+      if (found && !checkBackendPermission(ss, userRole, 'orders_page', 'edit_order')) {
+        return createResponse({ status: 'error', message: 'Permission denied: edit_order is disabled for role ' + userRole });
+      }
+      if (!found && !checkBackendPermission(ss, userRole, 'orders_page', 'create_order')) {
+        return createResponse({ status: 'error', message: 'Permission denied: create_order is disabled for role ' + userRole });
+      }
       
       if (order.status === 'APPROVED') {
         const rowData = [
@@ -324,6 +461,16 @@ function doPost(e) {
 
     if (action === 'updateOrderStatus') {
       const { orderId, newStatus, approvedByRole } = body;
+      if (newStatus === 'APPROVED' && !checkBackendPermission(ss, userRole, 'orders_page', 'approve_order')) {
+        return createResponse({ status: 'error', message: 'Permission denied: approve_order is disabled for role ' + userRole });
+      }
+      if (newStatus === 'DISPATCHED' && !checkBackendPermission(ss, userRole, 'orders_page', 'dispatch_order')) {
+        return createResponse({ status: 'error', message: 'Permission denied: dispatch_order is disabled for role ' + userRole });
+      }
+      if (newStatus === 'DELIVERED' && !checkBackendPermission(ss, userRole, 'orders_page', 'deliver_order')) {
+        return createResponse({ status: 'error', message: 'Permission denied: deliver_order is disabled for role ' + userRole });
+      }
+
       // Search in Pending_Orders
       const pendingSheet = ss.getSheetByName('Pending_Orders');
       const salesSheet = ss.getSheetByName('Master_Orders_Sales');
@@ -360,6 +507,9 @@ function doPost(e) {
     }
 
     if (action === 'deleteOrder') {
+      if (!checkBackendPermission(ss, userRole, 'orders_page', 'delete_order')) {
+        return createResponse({ status: 'error', message: 'Permission denied: delete_order is disabled for role ' + userRole });
+      }
       const { orderId } = body;
       const pendingSheet = ss.getSheetByName('Pending_Orders');
       if (pendingSheet) {
@@ -393,15 +543,28 @@ function doPost(e) {
 
       for (let i = 1; i < data.length; i++) {
         if (data[i][0] === c.id) {
-          sheet.getRange(i + 1, 1, 1, 9).setValues([[
-            c.id, c.name, c.nameTe || '', c.phone, c.businessName || '', c.businessNameTe || '', c.address || '', c.addressTe || '', c.currentDue || 0
-          ]]);
           found = true;
           break;
         }
       }
 
-      if (!found) {
+      if (found && !checkBackendPermission(ss, userRole, 'customers_page', 'edit_customer')) {
+        return createResponse({ status: 'error', message: 'Permission denied: edit_customer is disabled for role ' + userRole });
+      }
+      if (!found && !checkBackendPermission(ss, userRole, 'customers_page', 'add_customer')) {
+        return createResponse({ status: 'error', message: 'Permission denied: add_customer is disabled for role ' + userRole });
+      }
+
+      if (found) {
+        for (let i = 1; i < data.length; i++) {
+          if (data[i][0] === c.id) {
+            sheet.getRange(i + 1, 1, 1, 9).setValues([[
+              c.id, c.name, c.nameTe || '', c.phone, c.businessName || '', c.businessNameTe || '', c.address || '', c.addressTe || '', c.currentDue || 0
+            ]]);
+            break;
+          }
+        }
+      } else {
         sheet.appendRow([
           c.id, c.name, c.nameTe || '', c.phone, c.businessName || '', c.businessNameTe || '', c.address || '', c.addressTe || '', c.currentDue || 0
         ]);
@@ -418,15 +581,28 @@ function doPost(e) {
 
       for (let i = 1; i < data.length; i++) {
         if (data[i][0] === s.id) {
-          sheet.getRange(i + 1, 1, 1, 10).setValues([[
-            s.id, s.businessName, s.businessNameTe || '', s.ownerName || '', s.ownerNameTe || '', s.bankName, s.accountNumber, s.ifscCode, s.nickname, s.nicknameTe || ''
-          ]]);
           found = true;
           break;
         }
       }
 
-      if (!found) {
+      if (found && !checkBackendPermission(ss, userRole, 'suppliers_page', 'edit_supplier')) {
+        return createResponse({ status: 'error', message: 'Permission denied: edit_supplier is disabled for role ' + userRole });
+      }
+      if (!found && !checkBackendPermission(ss, userRole, 'suppliers_page', 'add_supplier')) {
+        return createResponse({ status: 'error', message: 'Permission denied: add_supplier is disabled for role ' + userRole });
+      }
+
+      if (found) {
+        for (let i = 1; i < data.length; i++) {
+          if (data[i][0] === s.id) {
+            sheet.getRange(i + 1, 1, 1, 10).setValues([[
+              s.id, s.businessName, s.businessNameTe || '', s.ownerName || '', s.ownerNameTe || '', s.bankName, s.accountNumber, s.ifscCode, s.nickname, s.nicknameTe || ''
+            ]]);
+            break;
+          }
+        }
+      } else {
         sheet.appendRow([
           s.id, s.businessName, s.businessNameTe || '', s.ownerName || '', s.ownerNameTe || '', s.bankName, s.accountNumber, s.ifscCode, s.nickname, s.nicknameTe || ''
         ]);
@@ -443,17 +619,30 @@ function doPost(e) {
 
       for (let i = 1; i < data.length; i++) {
         if (data[i][0] === p.id) {
-          sheet.getRange(i + 1, 1, 1, 14).setValues([[
-            p.id, p.name, p.nameTe || '', p.category, p.brandOrMill || '', p.brandOrMillTe || '',
-            p.innerBagWeightKg, p.innerBagsPerOuter, p.outerBagTotalKg, p.stockPhysicalOuter, p.stockReservedOuter,
-            p.wholesalePriceBag, p.costPricePerBag, p.retailPriceBag || 0
-          ]]);
           found = true;
           break;
         }
       }
 
-      if (!found) {
+      if (found && !checkBackendPermission(ss, userRole, 'stock_page', 'edit_product')) {
+        return createResponse({ status: 'error', message: 'Permission denied: edit_product is disabled for role ' + userRole });
+      }
+      if (!found && !checkBackendPermission(ss, userRole, 'stock_page', 'add_product')) {
+        return createResponse({ status: 'error', message: 'Permission denied: add_product is disabled for role ' + userRole });
+      }
+
+      if (found) {
+        for (let i = 1; i < data.length; i++) {
+          if (data[i][0] === p.id) {
+            sheet.getRange(i + 1, 1, 1, 14).setValues([[
+              p.id, p.name, p.nameTe || '', p.category, p.brandOrMill || '', p.brandOrMillTe || '',
+              p.innerBagWeightKg, p.innerBagsPerOuter, p.outerBagTotalKg, p.stockPhysicalOuter, p.stockReservedOuter,
+              p.wholesalePriceBag, p.costPricePerBag, p.retailPriceBag || 0
+            ]]);
+            break;
+          }
+        }
+      } else {
         sheet.appendRow([
           p.id, p.name, p.nameTe || '', p.category, p.brandOrMill || '', p.brandOrMillTe || '',
           p.innerBagWeightKg, p.innerBagsPerOuter, p.outerBagTotalKg, p.stockPhysicalOuter, p.stockReservedOuter,
@@ -608,6 +797,9 @@ function doPost(e) {
     }
 
     if (action === 'approveUser') {
+      if (!checkBackendPermission(ss, userRole, 'user_management_page', 'approve_user')) {
+        return createResponse({ status: 'error', message: 'Permission denied: approve_user is disabled for role ' + userRole });
+      }
       const { userId, newStatus, role } = body;
       
       // Update in User_Registrations
@@ -639,6 +831,9 @@ function doPost(e) {
     }
 
     if (action === 'updateUser') {
+      if (!checkBackendPermission(ss, userRole, 'user_management_page', 'edit_user')) {
+        return createResponse({ status: 'error', message: 'Permission denied: edit_user is disabled for role ' + userRole });
+      }
       const { userId, name, role, status } = body;
       const userSheet = ss.getSheetByName('Users');
       if (userSheet) {
@@ -657,6 +852,9 @@ function doPost(e) {
     }
 
     if (action === 'deleteUser') {
+      if (!checkBackendPermission(ss, userRole, 'user_management_page', 'delete_user')) {
+        return createResponse({ status: 'error', message: 'Permission denied: delete_user is disabled for role ' + userRole });
+      }
       const { userId } = body;
       const userSheet = ss.getSheetByName('Users');
       if (userSheet) {
@@ -677,6 +875,9 @@ function doPost(e) {
     }
 
     if (action === 'deleteProduct') {
+      if (!checkBackendPermission(ss, userRole, 'stock_page', 'delete_product')) {
+        return createResponse({ status: 'error', message: 'Permission denied: delete_product is disabled for role ' + userRole });
+      }
       const { productId } = body;
       const sheet = ss.getSheetByName('Master_Products');
       if (sheet) {
@@ -692,6 +893,9 @@ function doPost(e) {
     }
 
     if (action === 'deleteCustomer') {
+      if (!checkBackendPermission(ss, userRole, 'customers_page', 'delete_customer')) {
+        return createResponse({ status: 'error', message: 'Permission denied: delete_customer is disabled for role ' + userRole });
+      }
       const { customerId } = body;
       const sheet = ss.getSheetByName('Master_Customers');
       if (sheet) {
@@ -707,6 +911,9 @@ function doPost(e) {
     }
 
     if (action === 'deleteSupplier') {
+      if (!checkBackendPermission(ss, userRole, 'suppliers_page', 'delete_supplier')) {
+        return createResponse({ status: 'error', message: 'Permission denied: delete_supplier is disabled for role ' + userRole });
+      }
       const { supplierId } = body;
       const sheet = ss.getSheetByName('Master_Suppliers');
       if (sheet) {

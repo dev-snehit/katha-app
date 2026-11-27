@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 
 export const ExportCenterView: React.FC = () => {
-  const { orders, inventory, customers, suppliers, language } = useAppStore();
+  const { orders, inventory, customers, suppliers, language, hasFunctionalityAccess } = useAppStore();
   const t = language === 'TE' ? te : en;
 
   const todayStr = new Date().toISOString().slice(0, 10);
@@ -132,13 +132,19 @@ export const ExportCenterView: React.FC = () => {
           </div>
 
           <div className="pt-4 mt-2">
-            <button
-              onClick={() => generateSalesReportPDF(filteredOrders, `Sales Report - ${periodLabel}`)}
-              className="w-full inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2.5 px-3 rounded-xl shadow-md transition-colors"
-            >
-              <Download className="w-4 h-4" />
-              Download Sales PDF
-            </button>
+            {hasFunctionalityAccess('reports_page', 'generate_statement') ? (
+              <button
+                onClick={() => generateSalesReportPDF(filteredOrders, `Sales Report - ${periodLabel}`)}
+                className="w-full inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2.5 px-3 rounded-xl shadow-md transition-colors"
+              >
+                <Download className="w-4 h-4" />
+                Download Sales PDF
+              </button>
+            ) : (
+              <p className="text-center text-xs text-slate-400 font-semibold py-2">
+                {language === 'TE' ? 'అనుమతి లేదు' : 'Access Restricted'}
+              </p>
+            )}
           </div>
         </div>
 
@@ -160,13 +166,19 @@ export const ExportCenterView: React.FC = () => {
           </div>
 
           <div className="pt-4 mt-2">
-            <button
-              onClick={() => generateNumberTallyPDF(filteredOrders, inventory, filterMode === 'RANGE', `Item-Wise Number Tally - ${periodLabel}`)}
-              className="w-full inline-flex items-center justify-center gap-2 bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold py-2.5 px-3 rounded-xl shadow-md transition-colors"
-            >
-              <Download className="w-4 h-4" />
-              Download Tally PDF
-            </button>
+            {hasFunctionalityAccess('reports_page', 'generate_statement') ? (
+              <button
+                onClick={() => generateNumberTallyPDF(filteredOrders, inventory, filterMode === 'RANGE', `Item-Wise Number Tally - ${periodLabel}`)}
+                className="w-full inline-flex items-center justify-center gap-2 bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold py-2.5 px-3 rounded-xl shadow-md transition-colors"
+              >
+                <Download className="w-4 h-4" />
+                Download Tally PDF
+              </button>
+            ) : (
+              <p className="text-center text-xs text-slate-400 font-semibold py-2">
+                {language === 'TE' ? 'అనుమతి లేదు' : 'Access Restricted'}
+              </p>
+            )}
           </div>
         </div>
 
@@ -188,13 +200,19 @@ export const ExportCenterView: React.FC = () => {
           </div>
 
           <div className="pt-4 mt-2">
-            <button
-              onClick={() => generateStockPositionPDF(inventory, `Closing Stock Position - ${periodLabel}`)}
-              className="w-full inline-flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-2.5 px-3 rounded-xl shadow-md transition-colors"
-            >
-              <Download className="w-4 h-4" />
-              Download Stock PDF
-            </button>
+            {hasFunctionalityAccess('reports_page', 'generate_statement') ? (
+              <button
+                onClick={() => generateStockPositionPDF(inventory, `Closing Stock Position - ${periodLabel}`)}
+                className="w-full inline-flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-2.5 px-3 rounded-xl shadow-md transition-colors"
+              >
+                <Download className="w-4 h-4" />
+                Download Stock PDF
+              </button>
+            ) : (
+              <p className="text-center text-xs text-slate-400 font-semibold py-2">
+                {language === 'TE' ? 'అనుమతి లేదు' : 'Access Restricted'}
+              </p>
+            )}
           </div>
         </div>
 
@@ -216,13 +234,19 @@ export const ExportCenterView: React.FC = () => {
           </div>
 
           <div className="pt-4 mt-2">
-            <button
-              onClick={() => exportMasterExcelFile(inventory, customers, suppliers, orders)}
-              className="w-full inline-flex items-center justify-center gap-2 bg-brand-700 hover:bg-brand-600 text-white text-xs font-bold py-2.5 px-3 rounded-xl shadow-md transition-colors"
-            >
-              <Download className="w-4 h-4" />
-              Export Master Excel
-            </button>
+            {hasFunctionalityAccess('reports_page', 'export_data') ? (
+              <button
+                onClick={() => exportMasterExcelFile(inventory, customers, suppliers, orders)}
+                className="w-full inline-flex items-center justify-center gap-2 bg-brand-700 hover:bg-brand-600 text-white text-xs font-bold py-2.5 px-3 rounded-xl shadow-md transition-colors"
+              >
+                <Download className="w-4 h-4" />
+                Export Master Excel
+              </button>
+            ) : (
+              <p className="text-center text-xs text-slate-400 font-semibold py-2">
+                {language === 'TE' ? 'అనుమతి లేదు' : 'Access Restricted'}
+              </p>
+            )}
           </div>
         </div>
       </div>

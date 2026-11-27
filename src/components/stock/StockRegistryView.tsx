@@ -20,7 +20,8 @@ export const StockRegistryView: React.FC = () => {
     updateProduct, 
     deleteProduct,
     startActionLoading,
-    stopActionLoading 
+    stopActionLoading,
+    hasFunctionalityAccess 
   } = useAppStore();
   const { route, navigate } = useRouter();
   const isAdminOrOwner = currentUser?.role === 'ADMIN' || currentUser?.role === 'OWNER';
@@ -327,13 +328,15 @@ export const StockRegistryView: React.FC = () => {
           </p>
         </div>
 
-        <button
-          onClick={handleOpenAddModal}
-          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white font-black text-sm px-6 py-3 rounded-full shadow-lg shadow-orange-500/25 transition-all active:scale-95"
-        >
-          <Plus className="w-4 h-4 stroke-[3]" />
-          <span>{language === 'TE' ? 'కొత్త సరుకు చేర్చండి' : 'Add Commodity'}</span>
-        </button>
+        {hasFunctionalityAccess('stock_page', 'add_product') && (
+          <button
+            onClick={handleOpenAddModal}
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white font-black text-sm px-6 py-3 rounded-full shadow-lg shadow-orange-500/25 transition-all active:scale-95"
+          >
+            <Plus className="w-4 h-4 stroke-[3]" />
+            <span>{language === 'TE' ? 'కొత్త సరుకు చేర్చండి' : 'Add Commodity'}</span>
+          </button>
+        )}
       </div>
 
       {/* Zero Data Empty State */}
@@ -438,7 +441,7 @@ export const StockRegistryView: React.FC = () => {
                   </div>
 
                   <div className="flex items-center gap-2 mt-2 pt-2 border-t border-slate-100">
-                    {item.innerBagsPerOuter > 1 && (
+                    {item.innerBagsPerOuter > 1 && hasFunctionalityAccess('stock_page', 'unpack_bag') && (
                       <button
                         onClick={() => handleConfirmUnpack(item)}
                         disabled={item.stockPhysicalOuter <= 0}
@@ -450,24 +453,24 @@ export const StockRegistryView: React.FC = () => {
                           : `Unpack 1 Bag (${item.innerBagsPerOuter} Pkts)`}
                       </button>
                     )}
-                    {isAdminOrOwner && (
-                      <>
-                        <button
-                          onClick={() => handleOpenEditModal(item)}
-                          className="inline-flex items-center justify-center gap-1 text-xs font-bold py-2 px-3 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 transition-colors"
-                        >
-                          <Pencil className="w-3.5 h-3.5" />
-                          <span>{language === 'TE' ? 'సవరించండి' : 'Edit'}</span>
-                        </button>
-                        <button
-                          onClick={() => handleDeleteProduct(item)}
-                          className="inline-flex items-center justify-center gap-1 text-xs font-bold py-2 px-3 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-colors"
-                          title={language === 'TE' ? 'సరుకు తొలగించండి' : 'Delete Commodity'}
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                          <span>{language === 'TE' ? 'తొలగించు' : 'Delete'}</span>
-                        </button>
-                      </>
+                    {hasFunctionalityAccess('stock_page', 'edit_product') && (
+                      <button
+                        onClick={() => handleOpenEditModal(item)}
+                        className="inline-flex items-center justify-center gap-1 text-xs font-bold py-2 px-3 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 transition-colors"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                        <span>{language === 'TE' ? 'సవరించండి' : 'Edit'}</span>
+                      </button>
+                    )}
+                    {hasFunctionalityAccess('stock_page', 'delete_product') && (
+                      <button
+                        onClick={() => handleDeleteProduct(item)}
+                        className="inline-flex items-center justify-center gap-1 text-xs font-bold py-2 px-3 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-colors"
+                        title={language === 'TE' ? 'సరుకు తొలగించండి' : 'Delete Commodity'}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>{language === 'TE' ? 'తొలగించు' : 'Delete'}</span>
+                      </button>
                     )}
                   </div>
                 </div>
@@ -534,7 +537,7 @@ export const StockRegistryView: React.FC = () => {
                       </td>
                       <td className="px-4 py-4 text-right">
                         <div className="inline-flex items-center gap-1.5 justify-end">
-                          {item.innerBagsPerOuter > 1 && (
+                          {item.innerBagsPerOuter > 1 && hasFunctionalityAccess('stock_page', 'unpack_bag') && (
                             <button
                               onClick={() => handleConfirmUnpack(item)}
                               disabled={item.stockPhysicalOuter <= 0}
@@ -544,25 +547,25 @@ export const StockRegistryView: React.FC = () => {
                               {language === 'TE' ? '1 బస్తా విప్పండి' : 'Unpack 1 Bag'}
                             </button>
                           )}
-                          {isAdminOrOwner && (
-                            <>
-                              <button
-                                onClick={() => handleOpenEditModal(item)}
-                                className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 transition-colors"
-                                title={language === 'TE' ? 'సవరించండి' : 'Edit Stock'}
-                              >
-                                <Pencil className="w-3.5 h-3.5" />
-                                <span>{language === 'TE' ? 'సవరించండి' : 'Edit'}</span>
-                              </button>
-                              <button
-                                onClick={() => handleDeleteProduct(item)}
-                                className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-colors"
-                                title={language === 'TE' ? 'సరుకు తొలగించండి' : 'Delete Commodity'}
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                                <span>{language === 'TE' ? 'తొలగించు' : 'Delete'}</span>
-                              </button>
-                            </>
+                          {hasFunctionalityAccess('stock_page', 'edit_product') && (
+                            <button
+                              onClick={() => handleOpenEditModal(item)}
+                              className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 transition-colors"
+                              title={language === 'TE' ? 'సవరించండి' : 'Edit Stock'}
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                              <span>{language === 'TE' ? 'సవరించండి' : 'Edit'}</span>
+                            </button>
+                          )}
+                          {hasFunctionalityAccess('stock_page', 'delete_product') && (
+                            <button
+                              onClick={() => handleDeleteProduct(item)}
+                              className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-colors"
+                              title={language === 'TE' ? 'సరుకు తొలగించండి' : 'Delete Commodity'}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>{language === 'TE' ? 'తొలగించు' : 'Delete'}</span>
+                            </button>
                           )}
                         </div>
                       </td>

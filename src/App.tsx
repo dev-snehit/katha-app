@@ -21,7 +21,15 @@ import {
 export default function App() {
   const { route, navigate, goBack } = useRouter();
   const [lastActiveTab, setLastActiveTab] = useState<string>('orders');
-  const { language, isAuthenticated, currentUser, connectAndHydrateServer, isConnectingServer, actionLoading } = useAppStore();
+  const { 
+    language, 
+    isAuthenticated, 
+    currentUser, 
+    connectAndHydrateServer, 
+    isConnectingServer, 
+    actionLoading,
+    hasPageAccess 
+  } = useAppStore();
 
   // Establish persistent server connection & hydrate latest database records on initial load
   useEffect(() => {
@@ -45,12 +53,25 @@ export default function App() {
     }
   }, [route.view]);
 
-  // Redirect non-admin users away from the admin route
+  // Redirect users away from views disabled in role permissions
   useEffect(() => {
-    if (isAuthenticated && currentUser && route.view === 'admin' && currentUser.role !== 'ADMIN') {
-      navigate('/orders', { replace: true });
+    if (isAuthenticated && currentUser) {
+      const pageKeyMap: Record<string, string> = {
+        orders: 'orders_page',
+        stock: 'stock_page',
+        customers: 'customers_page',
+        suppliers: 'suppliers_page',
+        exports: 'reports_page',
+        admin: 'user_management_page',
+      };
+      const pageKey = pageKeyMap[route.view];
+      if (pageKey && !hasPageAccess(pageKey)) {
+        const pages = ['orders', 'stock', 'customers', 'suppliers', 'exports'];
+        const firstAvailable = pages.find((p) => hasPageAccess(pageKeyMap[p])) || 'orders';
+        navigate(`/${firstAvailable}`, { replace: true });
+      }
     }
-  }, [isAuthenticated, currentUser, route.view, navigate]);
+  }, [isAuthenticated, currentUser, route.view, hasPageAccess, navigate]);
 
   // Handle post-login redirection to intended bookmarked route
   useEffect(() => {
@@ -113,12 +134,12 @@ export default function App() {
           }`}
           aria-hidden={isConnectingServer}
         >
-          {activeTab === 'orders' && <PendingOrdersView setActiveTab={handleTabChange} />}
-          {activeTab === 'stock' && <StockRegistryView />}
-          {activeTab === 'customers' && <CustomerDirectoryView />}
-          {activeTab === 'suppliers' && <SupplierDirectoryView />}
-          {activeTab === 'exports' && <ExportCenterView />}
-          {activeTab === 'admin' && currentUser.role === 'ADMIN' && <UserRequestsView />}
+          {activeTab === 'orders' && hasPageAccess('orders_page') && <PendingOrdersView setActiveTab={handleTabChange} />}
+          {activeTab === 'stock' && hasPageAccess('stock_page') && <StockRegistryView />}
+          {activeTab === 'customers' && hasPageAccess('customers_page') && <CustomerDirectoryView />}
+          {activeTab === 'suppliers' && hasPageAccess('suppliers_page') && <SupplierDirectoryView />}
+          {activeTab === 'exports' && hasPageAccess('reports_page') && <ExportCenterView />}
+          {activeTab === 'admin' && hasPageAccess('user_management_page') && <UserRequestsView />}
         </div>
 
         {/* Action Loading Spinner with Simple Message */}

@@ -39,7 +39,8 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
     syncStatus, 
     lastSyncTime,
     syncAllToGoogleSheets,
-    connectAndHydrateServer 
+    connectAndHydrateServer,
+    hasPageAccess 
   } = useAppStore();
   
   const [isSignOutDialogOpen, setIsSignOutDialogOpen] = useState(false);
@@ -101,77 +102,87 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
 
             {/* Desktop Pill Navigation */}
             <nav className="hidden lg:flex items-center p-1 bg-slate-100/90 rounded-full border border-slate-200/70 space-x-0.5 xl:space-x-1 shrink min-w-0 overflow-x-auto no-scrollbar">
-              <button
-                onClick={() => setActiveTab('orders')}
-                className={`relative inline-flex items-center gap-1.5 px-2 xl:px-2.5 2xl:px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
-                  activeTab === 'orders'
-                    ? 'bg-slate-900 text-white shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
-                }`}
-              >
-                <Truck className="w-3.5 h-3.5 shrink-0" />
-                <span className="hidden 2xl:inline">{t.nav.pendingOrders}</span>
-                <span className="2xl:hidden">{language === 'TE' ? 'ఆర్డర్లు' : 'Orders'}</span>
-                {pendingCount > 0 && (
-                  <span className="px-1.5 py-0.2 rounded-full text-[10px] font-extrabold bg-[#FF5A36] text-white">
-                    {pendingCount}
-                  </span>
-                )}
-              </button>
+              {hasPageAccess('orders_page') && (
+                <button
+                  onClick={() => setActiveTab('orders')}
+                  className={`relative inline-flex items-center gap-1.5 px-2 xl:px-2.5 2xl:px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
+                    activeTab === 'orders'
+                      ? 'bg-slate-900 text-white shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+                  }`}
+                >
+                  <Truck className="w-3.5 h-3.5 shrink-0" />
+                  <span className="hidden 2xl:inline">{t.nav.pendingOrders}</span>
+                  <span className="2xl:hidden">{language === 'TE' ? 'ఆర్డర్లు' : 'Orders'}</span>
+                  {pendingCount > 0 && (
+                    <span className="px-1.5 py-0.2 rounded-full text-[10px] font-extrabold bg-[#FF5A36] text-white">
+                      {pendingCount}
+                    </span>
+                  )}
+                </button>
+              )}
 
-              <button
-                onClick={() => setActiveTab('stock')}
-                className={`inline-flex items-center gap-1.5 px-2 xl:px-2.5 2xl:px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
-                  activeTab === 'stock'
-                    ? 'bg-slate-900 text-white shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
-                }`}
-              >
-                <Package className="w-3.5 h-3.5 shrink-0" />
-                <span className="hidden 2xl:inline">{t.nav.stock}</span>
-                <span className="2xl:hidden">{language === 'TE' ? 'స్టాక్' : 'Stock'}</span>
-              </button>
+              {hasPageAccess('stock_page') && (
+                <button
+                  onClick={() => setActiveTab('stock')}
+                  className={`inline-flex items-center gap-1.5 px-2 xl:px-2.5 2xl:px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
+                    activeTab === 'stock'
+                      ? 'bg-slate-900 text-white shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+                  }`}
+                >
+                  <Package className="w-3.5 h-3.5 shrink-0" />
+                  <span className="hidden 2xl:inline">{t.nav.stock}</span>
+                  <span className="2xl:hidden">{language === 'TE' ? 'స్టాక్' : 'Stock'}</span>
+                </button>
+              )}
 
-              <button
-                onClick={() => setActiveTab('customers')}
-                className={`inline-flex items-center gap-1.5 px-2 xl:px-2.5 2xl:px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
-                  activeTab === 'customers'
-                    ? 'bg-slate-900 text-white shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
-                }`}
-              >
-                <Users className="w-3.5 h-3.5 shrink-0" />
-                <span className="hidden 2xl:inline">{t.nav.customers}</span>
-                <span className="2xl:hidden">{language === 'TE' ? 'కస్టమర్లు' : 'Clients'}</span>
-              </button>
+              {hasPageAccess('customers_page') && (
+                <button
+                  onClick={() => setActiveTab('customers')}
+                  className={`inline-flex items-center gap-1.5 px-2 xl:px-2.5 2xl:px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
+                    activeTab === 'customers'
+                      ? 'bg-slate-900 text-white shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+                  }`}
+                >
+                  <Users className="w-3.5 h-3.5 shrink-0" />
+                  <span className="hidden 2xl:inline">{t.nav.customers}</span>
+                  <span className="2xl:hidden">{language === 'TE' ? 'కస్టమర్లు' : 'Clients'}</span>
+                </button>
+              )}
 
-              <button
-                onClick={() => setActiveTab('suppliers')}
-                className={`inline-flex items-center gap-1.5 px-2 xl:px-2.5 2xl:px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
-                  activeTab === 'suppliers'
-                    ? 'bg-slate-900 text-white shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
-                }`}
-              >
-                <Building2 className="w-3.5 h-3.5 shrink-0" />
-                <span className="hidden 2xl:inline">{t.nav.suppliers}</span>
-                <span className="2xl:hidden">{language === 'TE' ? 'మిల్లులు' : 'Mills'}</span>
-              </button>
+              {hasPageAccess('suppliers_page') && (
+                <button
+                  onClick={() => setActiveTab('suppliers')}
+                  className={`inline-flex items-center gap-1.5 px-2 xl:px-2.5 2xl:px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
+                    activeTab === 'suppliers'
+                      ? 'bg-slate-900 text-white shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+                  }`}
+                >
+                  <Building2 className="w-3.5 h-3.5 shrink-0" />
+                  <span className="hidden 2xl:inline">{t.nav.suppliers}</span>
+                  <span className="2xl:hidden">{language === 'TE' ? 'మిల్లులు' : 'Mills'}</span>
+                </button>
+              )}
 
-              <button
-                onClick={() => setActiveTab('exports')}
-                className={`inline-flex items-center gap-1.5 px-2 xl:px-2.5 2xl:px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
-                  activeTab === 'exports'
-                    ? 'bg-slate-900 text-white shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
-                }`}
-              >
-                <FileSpreadsheet className="w-3.5 h-3.5 shrink-0" />
-                <span className="hidden 2xl:inline">{t.nav.exportCenter}</span>
-                <span className="2xl:hidden">{language === 'TE' ? 'రిపోర్టులు' : 'Reports'}</span>
-              </button>
+              {hasPageAccess('reports_page') && (
+                <button
+                  onClick={() => setActiveTab('exports')}
+                  className={`inline-flex items-center gap-1.5 px-2 xl:px-2.5 2xl:px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
+                    activeTab === 'exports'
+                      ? 'bg-slate-900 text-white shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+                  }`}
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5 shrink-0" />
+                  <span className="hidden 2xl:inline">{t.nav.exportCenter}</span>
+                  <span className="2xl:hidden">{language === 'TE' ? 'రిపోర్టులు' : 'Reports'}</span>
+                </button>
+              )}
 
-              {currentUser?.role === 'ADMIN' && (
+              {hasPageAccess('user_management_page') && (
                 <button
                   onClick={() => setActiveTab('admin')}
                   className={`inline-flex items-center gap-1.5 px-2 xl:px-2.5 2xl:px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
@@ -290,64 +301,74 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
 
       {/* MOBILE BOTTOM NAVIGATION BAR */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-slate-200 px-2 py-1.5 flex items-center justify-around shadow-lg">
-        <button
-          onClick={() => setActiveTab('orders')}
-          className={`flex flex-col items-center gap-0.5 py-1 px-2.5 rounded-xl text-[10px] font-bold transition-colors ${
-            activeTab === 'orders' ? 'text-[#FF5A36]' : 'text-slate-500'
-          }`}
-        >
-          <div className="relative">
-            <Truck className="w-5 h-5" />
-            {pendingCount > 0 && (
-              <span className="absolute -top-1 -right-2 px-1.5 py-0.2 rounded-full text-[9px] font-extrabold bg-[#FF5A36] text-white">
-                {pendingCount}
-              </span>
-            )}
-          </div>
-          <span>{language === 'TE' ? 'ఆర్డర్లు' : 'Orders'}</span>
-        </button>
+        {hasPageAccess('orders_page') && (
+          <button
+            onClick={() => setActiveTab('orders')}
+            className={`flex flex-col items-center gap-0.5 py-1 px-2.5 rounded-xl text-[10px] font-bold transition-colors ${
+              activeTab === 'orders' ? 'text-[#FF5A36]' : 'text-slate-500'
+            }`}
+          >
+            <div className="relative">
+              <Truck className="w-5 h-5" />
+              {pendingCount > 0 && (
+                <span className="absolute -top-1 -right-2 px-1.5 py-0.2 rounded-full text-[9px] font-extrabold bg-[#FF5A36] text-white">
+                  {pendingCount}
+                </span>
+              )}
+            </div>
+            <span>{language === 'TE' ? 'ఆర్డర్లు' : 'Orders'}</span>
+          </button>
+        )}
 
-        <button
-          onClick={() => setActiveTab('stock')}
-          className={`flex flex-col items-center gap-0.5 py-1 px-2.5 rounded-xl text-[10px] font-bold transition-colors ${
-            activeTab === 'stock' ? 'text-[#FF5A36]' : 'text-slate-500'
-          }`}
-        >
-          <Package className="w-5 h-5" />
-          <span>{language === 'TE' ? 'స్టాక్' : 'Stock'}</span>
-        </button>
+        {hasPageAccess('stock_page') && (
+          <button
+            onClick={() => setActiveTab('stock')}
+            className={`flex flex-col items-center gap-0.5 py-1 px-2.5 rounded-xl text-[10px] font-bold transition-colors ${
+              activeTab === 'stock' ? 'text-[#FF5A36]' : 'text-slate-500'
+            }`}
+          >
+            <Package className="w-5 h-5" />
+            <span>{language === 'TE' ? 'స్టాక్' : 'Stock'}</span>
+          </button>
+        )}
 
-        <button
-          onClick={() => setActiveTab('customers')}
-          className={`flex flex-col items-center gap-0.5 py-1 px-2.5 rounded-xl text-[10px] font-bold transition-colors ${
-            activeTab === 'customers' ? 'text-[#FF5A36]' : 'text-slate-500'
-          }`}
-        >
-          <Users className="w-5 h-5" />
-          <span>{language === 'TE' ? 'కస్టమర్లు' : 'Clients'}</span>
-        </button>
+        {hasPageAccess('customers_page') && (
+          <button
+            onClick={() => setActiveTab('customers')}
+            className={`flex flex-col items-center gap-0.5 py-1 px-2.5 rounded-xl text-[10px] font-bold transition-colors ${
+              activeTab === 'customers' ? 'text-[#FF5A36]' : 'text-slate-500'
+            }`}
+          >
+            <Users className="w-5 h-5" />
+            <span>{language === 'TE' ? 'కస్టమర్లు' : 'Clients'}</span>
+          </button>
+        )}
 
-        <button
-          onClick={() => setActiveTab('suppliers')}
-          className={`flex flex-col items-center gap-0.5 py-1 px-2.5 rounded-xl text-[10px] font-bold transition-colors ${
-            activeTab === 'suppliers' ? 'text-[#FF5A36]' : 'text-slate-500'
-          }`}
-        >
-          <Building2 className="w-5 h-5" />
-          <span>{language === 'TE' ? 'మిల్లులు' : 'Mills'}</span>
-        </button>
+        {hasPageAccess('suppliers_page') && (
+          <button
+            onClick={() => setActiveTab('suppliers')}
+            className={`flex flex-col items-center gap-0.5 py-1 px-2.5 rounded-xl text-[10px] font-bold transition-colors ${
+              activeTab === 'suppliers' ? 'text-[#FF5A36]' : 'text-slate-500'
+            }`}
+          >
+            <Building2 className="w-5 h-5" />
+            <span>{language === 'TE' ? 'మిల్లులు' : 'Mills'}</span>
+          </button>
+        )}
 
-        <button
-          onClick={() => setActiveTab('exports')}
-          className={`flex flex-col items-center gap-0.5 py-1 px-2.5 rounded-xl text-[10px] font-bold transition-colors ${
-            activeTab === 'exports' ? 'text-[#FF5A36]' : 'text-slate-500'
-          }`}
-        >
-          <FileSpreadsheet className="w-5 h-5" />
-          <span>{language === 'TE' ? 'రిపోర్టులు' : 'Reports'}</span>
-        </button>
+        {hasPageAccess('reports_page') && (
+          <button
+            onClick={() => setActiveTab('exports')}
+            className={`flex flex-col items-center gap-0.5 py-1 px-2.5 rounded-xl text-[10px] font-bold transition-colors ${
+              activeTab === 'exports' ? 'text-[#FF5A36]' : 'text-slate-500'
+            }`}
+          >
+            <FileSpreadsheet className="w-5 h-5" />
+            <span>{language === 'TE' ? 'రిపోర్టులు' : 'Reports'}</span>
+          </button>
+        )}
 
-        {currentUser?.role === 'ADMIN' && (
+        {hasPageAccess('user_management_page') && (
           <button
             onClick={() => setActiveTab('admin')}
             className={`flex flex-col items-center gap-0.5 py-1 px-2.5 rounded-xl text-[10px] font-bold transition-colors ${

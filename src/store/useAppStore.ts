@@ -8,11 +8,19 @@ import {
   Role, 
   UserStatus,
   SupportedLanguage,
-  INITIAL_ADMIN_USER
+  INITIAL_ADMIN_USER,
+  RolePermissionsConfig,
+  PagePermissionConfig
 } from '../contracts';
 import { pushToGoogleSheet, pullFromGoogleSheet, lockRemoteSheets } from '../lib/syncService';
 import { DEFAULT_SERVER_URL } from '../config/backend';
 import { hashPassword, generateTemporaryPassword } from '../lib/crypto';
+import { 
+  DEFAULT_ROLE_PERMISSIONS, 
+  isPageEnabled, 
+  isFunctionalityEnabled, 
+  mergeWithDefaultPermissions 
+} from '../lib/permissions';
 
 export type SyncStatus = 'IDLE' | 'SYNCING' | 'SYNCED' | 'ERROR' | 'UNLINKED';
 
@@ -103,6 +111,13 @@ export interface AppState {
   updateProduct: (product: Product) => void;
   deleteProduct: (productId: string) => Promise<boolean>;
   unpackProduct: (productId: string) => void;
+
+  // Role-Specific Features & Permissions Configuration
+  rolePermissions: RolePermissionsConfig;
+  updateRolePermissions: (role: Role, config: Record<string, PagePermissionConfig>) => Promise<boolean>;
+  hasPageAccess: (pageKey: string) => boolean;
+  hasFunctionalityAccess: (pageKey: string, funcKey: string) => boolean;
+  canRolePerform: (role: Role, pageKey: string, funcKey: string) => boolean;
 }
 
 export interface ActionLoadingState {
@@ -170,6 +185,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   currentUser: initialCurrentUser,
   isAuthenticated: !!initialCurrentUser,
   users: initialUsers,
+
+  // Role Permissions
+  rolePermissions: loadFromStorage<RolePermissionsConfig>('role_permissions', DEFAULT_ROLE_PERMISSIONS),
 
   login: async (email: string, password: string) => {
     let cleanEmail = email.trim().toLowerCase();
@@ -441,8 +459,15 @@ export const useAppStore = create<AppState>((set, get) => ({
       return;
     }
 
+    const user = get().currentUser;
+    const enrichedPayload = {
+      ...payload,
+      userRole: payload?.userRole || user?.role || 'STAFF',
+      userId: payload?.userId || user?.id,
+    };
+
     set({ syncStatus: 'SYNCING', syncError: null });
-    const res = await pushToGoogleSheet(backendUrl, action, payload);
+    const res = await pushToGoogleSheet(backendUrl, action, enrichedPayload);
     if (res.success) {
       set({
         syncStatus: 'SYNCED',
@@ -675,6 +700,14 @@ export const useAppStore = create<AppState>((set, get) => ({
               }
             }
           }
+        }
+
+        // Hydrate Role Permissions matrix if returned by backend
+        const incomingRolePerms = res.data.rolePermissions || res.data.Role_Permissions;
+        if (incomingRolePerms) {
+          const mergedPerms = mergeWithDefaultPermissions(incomingRolePerms);
+          saveToStorage('role_permissions', mergedPerms);
+          set({ rolePermissions: mergedPerms });
         }
 
         set({
@@ -1079,5 +1112,31 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (affectedProduct) {
       get().triggerSync('saveProduct', { product: affectedProduct });
     }
+  },
+
+  updateRolePermissions: async (role: Role, config: Record<string, PagePermissionConfig>) => {
+    const current = get().rolePermissions;
+    const updated: RolePermissionsConfig = {
+      ...current,
+      [role]: config,
+    };
+    saveToStorage('role_permissions', updated);
+    set({ rolePermissions: updated });
+    await get().triggerSync('saveRolePermissions', { role, config, allPermissions: updated });
+    return true;
+  },
+
+  hasPageAccess: (pageKey: string) => {
+    const user = get().currentUser;
+    return isPageEnabled(get().rolePermissions, user?.role, pageKey);
+  },
+
+  hasFunctionalityAccess: (pageKey: string, funcKey: string) => {
+    const user = get().currentUser;
+    return isFunctionalityEnabled(get().rolePermissions, user?.role, pageKey, funcKey);
+  },
+
+  canRolePerform: (role: Role, pageKey: string, funcKey: string) => {
+    return isFunctionalityEnabled(get().rolePermissions, role, pageKey, funcKey);
   }
 }));

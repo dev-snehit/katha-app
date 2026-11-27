@@ -149,3 +149,12 @@ export const OrderSchema = z.object({
   createdAt: z.string(),
 });
 export type Order = z.infer<typeof OrderSchema>;
+
+// --- Role-Based Feature Permissions Contract ---
+export const PagePermissionConfigSchema = z.object({
+  enabled: z.boolean(),
+  functionalities: z.record(z.string(), z.boolean()),
+});
+export type PagePermissionConfig = z.infer<typeof PagePermissionConfigSchema>;
+
+export type RolePermissionsConfig = Record<Role, Record<string, PagePermissionConfig>>;

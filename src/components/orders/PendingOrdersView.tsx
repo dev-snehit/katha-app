@@ -45,7 +45,8 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
     markOrderDispatched, 
     markOrderDelivered,
     startActionLoading,
-    stopActionLoading 
+    stopActionLoading,
+    hasFunctionalityAccess 
   } = useAppStore();
 
   const { route, navigate } = useRouter();
@@ -665,15 +666,17 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
         </div>
 
         {/* Primary Action Button */}
-        <div>
-          <button
-            onClick={handleOpenNewOrder}
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-gradient-to-r from-orange-500 via-orange-600 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white font-black text-sm px-6 py-3.5 sm:py-3 rounded-full shadow-lg shadow-orange-500/25 transition-all active:scale-95 min-h-[48px]"
-          >
-            <Plus className="w-5 h-5 stroke-[3]" />
-            <span>{isTe ? 'కొత్త ఆర్డర్' : 'New Order'}</span>
-          </button>
-        </div>
+        {hasFunctionalityAccess('orders_page', 'create_order') && (
+          <div>
+            <button
+              onClick={handleOpenNewOrder}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-gradient-to-r from-orange-500 via-orange-600 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white font-black text-sm px-6 py-3.5 sm:py-3 rounded-full shadow-lg shadow-orange-500/25 transition-all active:scale-95 min-h-[48px]"
+            >
+              <Plus className="w-5 h-5 stroke-[3]" />
+              <span>{isTe ? 'కొత్త ఆర్డర్' : 'New Order'}</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Multi-Segment Color Pipeline Strip */}
@@ -850,7 +853,7 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
                 {/* Card Action Footer */}
                 <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
                   <div className="flex items-center gap-1.5 flex-1">
-                    {order.status === 'PENDING_REVIEW' && (currentUser?.role === 'ADMIN' || currentUser?.role === 'OWNER') && (
+                    {order.status === 'PENDING_REVIEW' && hasFunctionalityAccess('orders_page', 'approve_order') && (
                       <button
                         onClick={() => handleApproveOrder(order)}
                         className="flex-1 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold py-2.5 px-3 rounded-xl shadow-sm transition-all active:scale-95 text-center min-h-[40px]"
@@ -859,7 +862,7 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
                       </button>
                     )}
 
-                    {order.status === 'APPROVED' && (
+                    {order.status === 'APPROVED' && hasFunctionalityAccess('orders_page', 'dispatch_order') && (
                       <button
                         onClick={() => handleDispatchOrder(order)}
                         className="flex-1 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold py-2.5 px-3 rounded-xl shadow-sm transition-all active:scale-95 text-center min-h-[40px]"
@@ -868,7 +871,7 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
                       </button>
                     )}
 
-                    {order.status === 'DISPATCHED' && (
+                    {order.status === 'DISPATCHED' && hasFunctionalityAccess('orders_page', 'deliver_order') && (
                       <button
                         onClick={() => handleDeliverOrder(order)}
                         className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2.5 px-3 rounded-xl shadow-sm transition-all active:scale-95 text-center min-h-[40px]"
@@ -885,34 +888,34 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
                   </div>
 
                   <div className="flex items-center gap-1.5">
-                    {isAdminOrOwner && (
-                      <>
-                        {order.status !== 'DELIVERED' && (
-                          <button
-                            onClick={() => handleOpenEditOrder(order)}
-                            className="p-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 transition-colors"
-                            title={isTe ? 'ఆర్డర్ సవరించండి' : 'Edit Order'}
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </button>
-                        )}
-                        <button
-                          onClick={() => handleDeleteOrder(order)}
-                          className="p-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-colors"
-                          title={isTe ? 'ఆర్డర్ తొలగించండి' : 'Delete Order'}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </>
+                    {order.status !== 'DELIVERED' && hasFunctionalityAccess('orders_page', 'edit_order') && (
+                      <button
+                        onClick={() => handleOpenEditOrder(order)}
+                        className="p-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 transition-colors"
+                        title={isTe ? 'ఆర్డర్ సవరించండి' : 'Edit Order'}
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                    )}
+                    {hasFunctionalityAccess('orders_page', 'delete_order') && (
+                      <button
+                        onClick={() => handleDeleteOrder(order)}
+                        className="p-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-colors"
+                        title={isTe ? 'ఆర్డర్ తొలగించండి' : 'Delete Order'}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     )}
 
-                    <button
-                      onClick={() => triggerWhatsAppBill(order)}
-                      className="p-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 transition-colors"
-                      title={isTe ? 'వాట్సాప్ బిల్లు పంపండి' : 'Send WhatsApp Statement'}
-                    >
-                      <Share2 className="w-4 h-4" />
-                    </button>
+                    {hasFunctionalityAccess('orders_page', 'send_whatsapp_bill') && (
+                      <button
+                        onClick={() => triggerWhatsAppBill(order)}
+                        className="p-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 transition-colors"
+                        title={isTe ? 'వాట్సాప్ బిల్లు పంపండి' : 'Send WhatsApp Statement'}
+                      >
+                        <Share2 className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>

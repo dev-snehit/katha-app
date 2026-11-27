@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useAppStore, normalizeEmail, normalizePhone } from '../../store/useAppStore';
 import { User, Role, UserStatus } from '../../contracts';
-import { ShieldCheck, UserCheck, UserX, Clock, Plus, Pencil, Trash2, Sparkles, CheckCircle2, AlertCircle } from 'lucide-react';
+import { ShieldCheck, UserCheck, UserX, Clock, Plus, Pencil, Trash2, Sparkles, CheckCircle2, AlertCircle, Users, Sliders } from 'lucide-react';
 import { useModalDismiss } from '../../hooks/useModalDismiss';
 import { useRouter } from '../../lib/router';
 import { AlertDialog, DialogType } from '../ui/AlertDialog';
+import { RolePermissionsManager } from './RolePermissionsManager';
 
 export const UserRequestsView: React.FC = () => {
   const { 
@@ -14,13 +15,14 @@ export const UserRequestsView: React.FC = () => {
     registerUser, 
     updateUser, 
     deleteUser, 
-    cleanDuplicateUsers,
     startActionLoading,
     stopActionLoading,
+    hasFunctionalityAccess,
     language 
   } = useAppStore();
   const { route, navigate } = useRouter();
   const isTe = language === 'TE';
+  const [adminSubTab, setAdminSubTab] = useState<'users' | 'permissions'>('users');
 
   // Simulate Signup Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -36,9 +38,6 @@ export const UserRequestsView: React.FC = () => {
   const [editRole, setEditRole] = useState<Role>('STAFF');
   const [editStatus, setEditStatus] = useState<UserStatus>('APPROVED');
   const [editError, setEditError] = useState<string | null>(null);
-
-  // Clean Duplicates Toast State
-  const [cleanFeedback, setCleanFeedback] = useState<string | null>(null);
 
   // Confirmation Dialog State
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -263,33 +262,6 @@ export const UserRequestsView: React.FC = () => {
     });
   };
 
-  // 7. Clean Duplicates from database & state
-  const handleCleanDuplicates = () => {
-    requestConfirmation({
-      title: isTe ? 'డూప్లికేట్ యూజర్లను తొలగించాలా?' : 'Clean Duplicate User Records?',
-      message: isTe
-        ? 'క్లౌడ్ డేటాబేస్ మరియు లోకల్ రికార్డులలో ఒకే ఈమెయిల్ లేదా ఫోన్ నంబర్‌తో ఉన్న నకిలీ రికార్డులను శుభ్రం చేయాలనుకుంటున్నారా?'
-        : 'Are you sure you want to scan and purge duplicate user records in the cloud database and local state by unique email and phone number?',
-      type: 'info',
-      actionText: isTe ? 'క్లీన్ చేయి' : 'Purge Duplicates',
-      cancelText: isTe ? 'రద్దు చేయి' : 'Cancel',
-      onAction: async () => {
-        startActionLoading(
-          'Scanning and purging duplicate users from database...',
-          'డేటాబేస్ నుండి డూప్లికేట్ యూజర్లను క్లీన్ చేస్తున్నాము...'
-        );
-        const res = await cleanDuplicateUsers();
-        stopActionLoading();
-        setCleanFeedback(
-          isTe
-            ? `విజయవంతంగా ${res.removed} డూప్లికేట్ రికార్డులను తొలగించాము. ప్రస్తుతం మొత్తం ${res.total} మంది ప్రత్యేక యూజర్లు ఉన్నారు.`
-            : `Successfully removed ${res.removed} duplicate records. Database now holds ${res.total} unique clean users.`
-        );
-        setTimeout(() => setCleanFeedback(null), 6000);
-      },
-    });
-  };
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -310,44 +282,58 @@ export const UserRequestsView: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {/* Clean Duplicates Button */}
-          <button
-            onClick={handleCleanDuplicates}
-            className="inline-flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs px-3.5 py-2.5 rounded-xl border border-slate-200 shadow-sm transition-all active:scale-95"
-            title={isTe ? 'డేటాబేస్ నుండి నకిలీ రికార్డులను తొలగించండి' : 'Purge duplicate users from database and keep records clean'}
-          >
-            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-            <span>{isTe ? 'డూప్లికేట్స్ క్లీన్ చేయండి' : 'Clean Duplicates'}</span>
-          </button>
-
           {/* Simulate User Signup Button */}
-          <button
-            onClick={() => navigate('/admin/new-user')}
-            className="inline-flex items-center gap-2 bg-gradient-to-r from-[#FF5A36] to-[#FF6B4A] hover:from-[#f04f2c] hover:to-[#f05a38] text-white font-bold text-xs sm:text-sm px-4 py-2.5 rounded-xl shadow-md shadow-orange-500/20 transition-all active:scale-95"
-          >
-            <Plus className="w-4 h-4" />
-            <span>{isTe ? 'యూజర్ రిజిస్ట్రేషన్ సైన్-అప్' : 'Simulate User Signup'}</span>
-          </button>
+          {hasFunctionalityAccess('user_management_page', 'create_user') && (
+            <button
+              onClick={() => navigate('/admin/new-user')}
+              className="inline-flex items-center gap-2 bg-gradient-to-r from-[#FF5A36] to-[#FF6B4A] hover:from-[#f04f2c] hover:to-[#f05a38] text-white font-bold text-xs sm:text-sm px-4 py-2.5 rounded-xl shadow-md shadow-orange-500/20 transition-all active:scale-95"
+            >
+              <Plus className="w-4 h-4" />
+              <span>{isTe ? 'యూజర్ రిజిస్ట్రేషన్ సైన్-అప్' : 'Simulate User Signup'}</span>
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Clean Feedback Banner */}
-      {cleanFeedback && (
-        <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center justify-between gap-3 animate-in fade-in duration-200">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>{cleanFeedback}</span>
-          </div>
-          <button 
-            onClick={() => setCleanFeedback(null)}
-            className="text-emerald-600 hover:text-emerald-900 font-bold text-sm"
-          >
-            &times;
-          </button>
-        </div>
-      )}
+      {/* Sub-Tab Navigation Switcher */}
+      <div className="flex items-center gap-2 border-b border-slate-200 pb-3">
+        <button
+          onClick={() => setAdminSubTab('users')}
+          className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+            adminSubTab === 'users'
+              ? 'bg-slate-900 text-white shadow-sm'
+              : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+          }`}
+        >
+          <Users className="w-4 h-4" />
+          <span>{isTe ? 'యూజర్ ఖాతాలు & రిజిస్ట్రేషన్లు' : 'User Accounts & Registrations'}</span>
+          {pendingUsers.length > 0 && (
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] font-extrabold bg-[#FF5A36] text-white">
+              {pendingUsers.length}
+            </span>
+          )}
+        </button>
 
-      {/* Pending Requests Section */}
+        {hasFunctionalityAccess('user_management_page', 'manage_role_permissions') && (
+          <button
+            onClick={() => setAdminSubTab('permissions')}
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+              adminSubTab === 'permissions'
+                ? 'bg-[#FF5A36] text-white shadow-sm'
+                : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+            }`}
+          >
+            <Sliders className="w-4 h-4" />
+            <span>{isTe ? 'రోల్ నిర్దిష్ట నియంత్రణలు' : 'Role Specific Controls'}</span>
+          </button>
+        )}
+      </div>
+
+      {adminSubTab === 'permissions' ? (
+        <RolePermissionsManager />
+      ) : (
+        <>
+          {/* Pending Requests Section */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden p-5">
         <h2 className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
           <Clock className="w-4 h-4 text-amber-500" />
@@ -378,20 +364,24 @@ export const UserRequestsView: React.FC = () => {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => handleApproveUser(user)}
-                    className="inline-flex items-center gap-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-1.5 px-3 rounded-lg shadow-sm transition-colors active:scale-95"
-                  >
-                    <UserCheck className="w-3.5 h-3.5" />
-                    <span>{isTe ? 'ఆమోదించు' : 'Approve'}</span>
-                  </button>
-                  <button
-                    onClick={() => handleDenyUser(user)}
-                    className="inline-flex items-center gap-1 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold py-1.5 px-3 rounded-lg border border-rose-200 transition-colors active:scale-95"
-                  >
-                    <UserX className="w-3.5 h-3.5" />
-                    <span>{isTe ? 'తిరస్కరించు' : 'Deny'}</span>
-                  </button>
+                  {hasFunctionalityAccess('user_management_page', 'approve_user') && (
+                    <button
+                      onClick={() => handleApproveUser(user)}
+                      className="inline-flex items-center gap-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-1.5 px-3 rounded-lg shadow-sm transition-colors active:scale-95"
+                    >
+                      <UserCheck className="w-3.5 h-3.5" />
+                      <span>{isTe ? 'ఆమోదించు' : 'Approve'}</span>
+                    </button>
+                  )}
+                  {hasFunctionalityAccess('user_management_page', 'deny_user') && (
+                    <button
+                      onClick={() => handleDenyUser(user)}
+                      className="inline-flex items-center gap-1 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold py-1.5 px-3 rounded-lg border border-rose-200 transition-colors active:scale-95"
+                    >
+                      <UserX className="w-3.5 h-3.5" />
+                      <span>{isTe ? 'తిరస్కరించు' : 'Deny'}</span>
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
@@ -443,23 +433,27 @@ export const UserRequestsView: React.FC = () => {
                   <td className="px-5 py-3 text-right">
                     <div className="inline-flex items-center gap-1.5 justify-end">
                       {/* Modify active user button */}
-                      <button
-                        onClick={() => handleStartEditUser(u)}
-                        className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200 transition-all inline-flex items-center gap-1 text-xs font-bold"
-                        title={isTe ? 'యూజర్ వివరాలను సవరించండి' : 'Modify user name, role, status'}
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                        <span className="hidden sm:inline">{isTe ? 'సవరించు' : 'Edit'}</span>
-                      </button>
+                      {hasFunctionalityAccess('user_management_page', 'edit_user') && (
+                        <button
+                          onClick={() => handleStartEditUser(u)}
+                          className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200 transition-all inline-flex items-center gap-1 text-xs font-bold"
+                          title={isTe ? 'యూజర్ వివరాలను సవరించండి' : 'Modify user name, role, status'}
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline">{isTe ? 'సవరించు' : 'Edit'}</span>
+                        </button>
+                      )}
 
                       {/* Delete user button */}
-                      <button
-                        onClick={() => handleDeleteUser(u)}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-all"
-                        title={isTe ? 'యూజర్‌ను తొలగించండి' : 'Remove user'}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      {hasFunctionalityAccess('user_management_page', 'delete_user') && (
+                        <button
+                          onClick={() => handleDeleteUser(u)}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-all"
+                          title={isTe ? 'యూజర్‌ను తొలగించండి' : 'Remove user'}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -708,6 +702,8 @@ export const UserRequestsView: React.FC = () => {
             </form>
           </div>
         </div>
+      )}
+        </>
       )}
 
       {/* Confirmation Alert Dialog */}
