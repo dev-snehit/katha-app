@@ -4,18 +4,42 @@ import { en } from '../../locales/en';
 import { te } from '../../locales/te';
 import { getLocalizedText } from '../../lib/bilingualHelper';
 import { Supplier } from '../../contracts';
-import { Building2, Plus, Copy, Check, CreditCard, Inbox, Pencil } from 'lucide-react';
+import { Building2, Plus, Copy, Check, CreditCard, Inbox, Pencil, Trash2 } from 'lucide-react';
 import { useModalDismiss } from '../../hooks/useModalDismiss';
 import { useRouter } from '../../lib/router';
+import { AlertDialog } from '../ui/AlertDialog';
 
 export const SupplierDirectoryView: React.FC = () => {
-  const { suppliers, language, currentUser, addSupplier, updateSupplier } = useAppStore();
+  const { 
+    suppliers, 
+    language, 
+    currentUser, 
+    addSupplier, 
+    updateSupplier, 
+    deleteSupplier,
+    startActionLoading, 
+    stopActionLoading 
+  } = useAppStore();
   const { route, navigate } = useRouter();
   const isAdminOrOwner = currentUser?.role === 'ADMIN' || currentUser?.role === 'OWNER';
   const t = language === 'TE' ? te : en;
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    type?: 'danger' | 'warning' | 'info';
+    actionText: string;
+    onAction: () => Promise<void> | void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    actionText: '',
+    onAction: () => {},
+  });
   const [businessName, setBusinessName] = useState('');
   const [businessNameTe, setBusinessNameTe] = useState('');
   const [ownerName, setOwnerName] = useState('');
@@ -104,7 +128,26 @@ export const SupplierDirectoryView: React.FC = () => {
         ifscCode: ifscCode.toUpperCase().trim(),
         nickname: nickname.trim(),
       };
-      updateSupplier(updatedSupplier);
+      
+      setConfirmDialog({
+        isOpen: true,
+        type: 'warning',
+        title: language === 'TE' ? 'సరఫరాదారు వివరాలు అప్‌డేట్ చేయాలా?' : 'Update Supplier Details?',
+        message: language === 'TE'
+          ? `మీరు "${businessName.trim()}" మిల్లు/సరఫరాదారు బ్యాంక్ మరియు వివరాలను సేవ్ చేయాలనుకుంటున్నారా?`
+          : `Are you sure you want to save updated bank & contact details for supplier "${businessName.trim()}"?`,
+        actionText: language === 'TE' ? 'అవును, అప్‌డేట్ చేయి' : 'Yes, Save Changes',
+        onAction: async () => {
+          startActionLoading(
+            `Updating supplier "${businessName.trim()}" in database...`,
+            `డేటాబేస్‌లో సరఫరాదారు "${businessName.trim()}" వివరాలు సేవ్ అవుతున్నాయి...`
+          );
+          await updateSupplier(updatedSupplier);
+          stopActionLoading();
+          closeModal();
+        }
+      });
+      return;
     } else {
       const newSupplier: Supplier = {
         id: crypto.randomUUID ? crypto.randomUUID() : `supp-${Date.now()}`,
@@ -117,10 +160,35 @@ export const SupplierDirectoryView: React.FC = () => {
         nickname: nickname.trim(),
         createdAt: new Date().toISOString(),
       };
+      startActionLoading(
+        `Saving supplier "${businessName.trim()}" to database...`,
+        `డేటాబేస్‌లో సరఫరాదారు "${businessName.trim()}" నమోదు చేయబడుతోంది...`
+      );
       addSupplier(newSupplier);
+      stopActionLoading();
+      closeModal();
     }
+  };
 
-    closeModal();
+  const handleDeleteSupplier = (s: Supplier) => {
+    setConfirmDialog({
+      isOpen: true,
+      type: 'danger',
+      title: language === 'TE' ? 'సరఫరాదారుని తొలగించాలా?' : 'Delete Supplier?',
+      message: language === 'TE'
+        ? `మీరు "${s.businessName}" మిల్లును శాశ్వతంగా తొలగించాలనుకుంటున్నారా? బ్యాంక్ వివరాలు మరియు రికార్డులు తొలగించబడతాయి.`
+        : `Are you sure you want to permanently delete supplier "${s.businessName}"? This action cannot be undone.`,
+      actionText: language === 'TE' ? 'అవును, తొలగించు' : 'Yes, Delete Supplier',
+      onAction: async () => {
+        startActionLoading(
+          `Deleting supplier "${s.businessName}" from database...`,
+          `డేటాబేస్ నుండి సరఫరాదారు "${s.businessName}" తొలగించబడుతోంది...`
+        );
+        await deleteSupplier(s.id);
+        stopActionLoading();
+        closeModal();
+      }
+    });
   };
 
   const copyBankDetails = (s: Supplier) => {
@@ -243,14 +311,24 @@ export const SupplierDirectoryView: React.FC = () => {
                   )}
                 </button>
                 {isAdminOrOwner && (
-                  <button
-                    onClick={() => handleOpenEditModal(s)}
-                    className="inline-flex items-center justify-center gap-1 text-xs font-bold py-2.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
-                    title={language === 'TE' ? 'సవరించండి' : 'Edit Supplier'}
-                  >
-                    <Pencil className="w-3.5 h-3.5" />
-                    <span>{language === 'TE' ? 'సవరించండి' : 'Edit'}</span>
-                  </button>
+                  <>
+                    <button
+                      onClick={() => handleOpenEditModal(s)}
+                      className="inline-flex items-center justify-center gap-1 text-xs font-bold py-2.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+                      title={language === 'TE' ? 'సవరించండి' : 'Edit Supplier'}
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                      <span>{language === 'TE' ? 'సవరించండి' : 'Edit'}</span>
+                    </button>
+                    <button
+                      onClick={() => handleDeleteSupplier(s)}
+                      className="inline-flex items-center justify-center gap-1 text-xs font-bold py-2.5 px-3 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-colors"
+                      title={language === 'TE' ? 'సరఫరాదారుని తొలగించండి' : 'Delete Supplier'}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>{language === 'TE' ? 'తొలగించు' : 'Delete'}</span>
+                    </button>
+                  </>
                 )}
               </div>
             </div>
@@ -389,27 +467,52 @@ export const SupplierDirectoryView: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200 shrink-0">
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  className="px-5 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-full"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-7 py-3 text-xs font-black bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white rounded-full shadow-lg shadow-orange-500/25 transition-all active:scale-95"
-                >
-                  {editingSupplier
-                    ? (language === 'TE' ? 'సప్లయర్‌ను నవీకరించండి' : 'Update Supplier')
-                    : (language === 'TE' ? 'సప్లయర్‌ను భద్రపరచండి' : 'Save Supplier')}
-                </button>
+              <div className="flex items-center justify-between gap-3 pt-3 border-t border-slate-200 shrink-0">
+                {editingSupplier && isAdminOrOwner ? (
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteSupplier(editingSupplier)}
+                    className="inline-flex items-center gap-1.5 px-4 py-2.5 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-full transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                    <span>{language === 'TE' ? 'సరఫరాదారుని తొలగించు' : 'Delete Supplier'}</span>
+                  </button>
+                ) : <div />}
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={closeModal}
+                    className="px-5 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-full"
+                  >
+                    {language === 'TE' ? 'రద్దు చేయి' : 'Cancel'}
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-7 py-3 text-xs font-black bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white rounded-full shadow-lg shadow-orange-500/25 transition-all active:scale-95"
+                  >
+                    {editingSupplier
+                      ? (language === 'TE' ? 'సప్లయర్‌ను నవీకరించండి' : 'Update Supplier')
+                      : (language === 'TE' ? 'సప్లయర్‌ను భద్రపరచండి' : 'Save Supplier')}
+                  </button>
+                </div>
               </div>
             </form>
           </div>
         </div>
       )}
+
+      {/* Confirmation Dialog for Edit / Delete */}
+      <AlertDialog
+        isOpen={confirmDialog.isOpen}
+        onClose={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
+        type={confirmDialog.type || 'warning'}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        actionText={confirmDialog.actionText}
+        cancelText={language === 'TE' ? 'రద్దు చేయి' : 'Cancel'}
+        onAction={confirmDialog.onAction}
+      />
     </div>
   );
 };

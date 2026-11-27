@@ -78,8 +78,8 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
                 navigate('/orders');
               }}
               className="flex items-center gap-2 sm:gap-2.5 shrink-0 text-left cursor-pointer group focus:outline-none"
-              title={language === 'TE' ? 'హోమ్ పేజీకి వెళ్లండి' : 'Go to Home / Initial Page'}
-              aria-label="Kaatha CRM Home"
+              title={language === 'TE' ? 'కాతా హోమ్ పేజీకి వెళ్లండి' : 'Go to Kaatha Home / Initial Page'}
+              aria-label={language === 'TE' ? 'కాతా CRM హోమ్' : 'Kaatha CRM Home'}
             >
               <div className="w-8 h-8 sm:w-9 sm:h-9 xl:w-10 xl:h-10 rounded-xl sm:rounded-2xl bg-gradient-to-tr from-[#FF5A36] to-[#FF8155] flex items-center justify-center text-white shadow-md shadow-orange-500/20 shrink-0 transition-transform group-hover:scale-105 active:scale-95">
                 <Flame className="w-4 h-4 sm:w-5 sm:h-5 fill-white" />
@@ -87,7 +87,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
               <div className="flex flex-col justify-center shrink-0">
                 <div className="flex items-center gap-1.5 whitespace-nowrap leading-tight">
                   <span className="text-sm sm:text-base xl:text-lg font-black tracking-tight text-slate-900 whitespace-nowrap group-hover:text-slate-700 transition-colors">
-                    Kaatha <span className="text-[#FF5A36]">CRM</span>
+                    {language === 'TE' ? 'కాతా' : 'Kaatha'} <span className="text-[#FF5A36]">CRM</span>
                   </span>
                   <span className="hidden 2xl:inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full bg-orange-50 text-orange-700 border border-orange-200 whitespace-nowrap">
                     <Sparkles className="w-2.5 h-2.5" /> Mandi OS
@@ -141,7 +141,8 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
                 }`}
               >
                 <Users className="w-3.5 h-3.5 shrink-0" />
-                <span>{t.nav.customers}</span>
+                <span className="hidden 2xl:inline">{t.nav.customers}</span>
+                <span className="2xl:hidden">{language === 'TE' ? 'కస్టమర్లు' : 'Clients'}</span>
               </button>
 
               <button
@@ -153,7 +154,8 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
                 }`}
               >
                 <Building2 className="w-3.5 h-3.5 shrink-0" />
-                <span>{t.nav.suppliers}</span>
+                <span className="hidden 2xl:inline">{t.nav.suppliers}</span>
+                <span className="2xl:hidden">{language === 'TE' ? 'మిల్లులు' : 'Mills'}</span>
               </button>
 
               <button
@@ -186,7 +188,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
             </nav>
 
             {/* Right Controls: Database Sync Pill, Settings, Language, User Profile & Sign Out */}
-            <div className="flex items-center gap-1 sm:gap-1.5 xl:gap-2 shrink-0 ml-auto">
+            <div className="flex items-center gap-1 sm:gap-1.5 xl:gap-2 shrink-0 ml-auto z-10">
               
               {/* Backend Database Sync Indicator Pill */}
               <button
@@ -225,7 +227,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
                    syncStatus === 'ERROR' ? (language === 'TE' ? 'రీకనెక్ట్ చేస్తోంది...' : 'Reconnecting...') : 
                    (language === 'TE' ? 'డేటాబేస్ కనెక్ట్' : 'Connect Database')}
                 </span>
-                <span className="hidden sm:inline 2xl:hidden text-[11px] whitespace-nowrap">
+                <span className="hidden xl:inline 2xl:hidden text-[11px] whitespace-nowrap">
                   {syncStatus === 'SYNCED' ? (language === 'TE' ? 'కనెక్ట్' : 'Connected') :
                    syncStatus === 'SYNCING' || isManualSyncing ? (language === 'TE' ? 'సింక్...' : 'Syncing...') :
                    syncStatus === 'ERROR' ? (language === 'TE' ? 'ఎర్రర్' : 'Error') : 
@@ -236,7 +238,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
               {/* Settings Button - Located reliably with utilities so it never flows out of the view */}
               <button
                 onClick={onOpenSettings}
-                className="p-1.5 sm:p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-full transition-colors shrink-0"
+                className="p-1.5 sm:p-2 text-slate-600 hover:text-slate-900 bg-slate-100/90 hover:bg-slate-200 border border-slate-200/80 rounded-full transition-colors shrink-0 shadow-xs"
                 title={language === 'TE' ? 'డేటాబేస్ & సర్వర్ సెట్టింగ్స్' : 'Backend Database Connection Settings'}
                 aria-label="Settings"
               >

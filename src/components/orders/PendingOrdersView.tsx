@@ -39,9 +39,12 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
     currentUser, 
     addOrder, 
     updateOrder, 
+    deleteOrder,
     approveOrder, 
     markOrderDispatched, 
-    markOrderDelivered 
+    markOrderDelivered,
+    startActionLoading,
+    stopActionLoading 
   } = useAppStore();
 
   const { route, navigate } = useRouter();
@@ -381,7 +384,26 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
         vehicleNumber,
         driverPhone,
       };
-      updateOrder(updatedOrder);
+
+      setDialogConfig({
+        isOpen: true,
+        type: 'warning',
+        title: isTe ? 'ఆర్డర్ మార్పులను సేవ్ చేయాలా?' : 'Update Order Details?',
+        message: isTe
+          ? `మీరు "${editingOrder.orderNumber}" ఆర్డర్‌ను సవరించి మార్పులను డేటాబేస్‌లో సేవ్ చేయాలనుకుంటున్నారా?`
+          : `Are you sure you want to update order "${editingOrder.orderNumber}" and sync changes to the database?`,
+        actionText: isTe ? 'అవును, సేవ్ చేయి' : 'Yes, Save Changes',
+        onAction: async () => {
+          startActionLoading(
+            `Updating order "${editingOrder.orderNumber}" in database...`,
+            `డేటాబేస్‌లో "${editingOrder.orderNumber}" ఆర్డర్ వివరాలు సేవ్ అవుతున్నాయి...`
+          );
+          await updateOrder(updatedOrder);
+          stopActionLoading();
+          closeModal();
+        }
+      });
+      return;
     } else {
       const newOrder: Order = {
         id: crypto.randomUUID ? crypto.randomUUID() : `ord-${Date.now()}`,
@@ -407,15 +429,100 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
         submittedByRole: currentUser?.role || 'STAFF',
         createdAt: new Date().toISOString(),
       };
+      startActionLoading(
+        `Placing order "${newOrder.orderNumber}" and reserving stock...`,
+        `"${newOrder.orderNumber}" ఆర్డర్ నమోదు అవుతోంది మరియు స్టాక్ రిజర్వ్ చేయబడుతోంది...`
+      );
       addOrder(newOrder);
+      stopActionLoading();
+      closeModal();
     }
+  };
 
-    closeModal();
+  const handleDeleteOrder = (order: Order) => {
+    setDialogConfig({
+      isOpen: true,
+      type: 'danger',
+      title: isTe ? 'ఆర్డర్‌ను తొలగించాలా?' : 'Delete Order?',
+      message: isTe
+        ? `మీరు "${order.orderNumber}" ఆర్డర్‌ను ఖచ్చితంగా తొలగించాలనుకుంటున్నారా? ఈ ఆర్డర్ కోసం రిజర్వ్ చేసిన సరుకు తిరిగి గోడౌన్ స్టాక్‌లోకి విడుదల చేయబడుతుంది.`
+        : `Are you sure you want to delete order "${order.orderNumber}"? All reserved stock will be safely released back to active godown inventory.`,
+      actionText: isTe ? 'అవును, తొలగించు' : 'Yes, Delete Order',
+      onAction: async () => {
+        startActionLoading(
+          `Deleting order "${order.orderNumber}" and restoring inventory...`,
+          `ఆర్డర్ "${order.orderNumber}" తొలగించబడుతోంది మరియు స్టాక్ పునరుద్ధరించబడుతోంది...`
+        );
+        await deleteOrder(order.id);
+        stopActionLoading();
+        if (isModalOpen) closeModal();
+      }
+    });
+  };
+
+  const handleApproveOrder = (order: Order) => {
+    setDialogConfig({
+      isOpen: true,
+      type: 'warning',
+      title: isTe ? 'ఆర్డర్‌ను ఆమోదించాలా?' : 'Approve Order?',
+      message: isTe
+        ? `మీరు "${order.orderNumber}" ఆర్డర్‌ను ఆమోదించి రవాణా పైప్‌లైన్‌కు పంపించాలనుకుంటున్నారా?`
+        : `Are you sure you want to approve order "${order.orderNumber}" and move it to the dispatch queue?`,
+      actionText: isTe ? 'అవును, ఆమోదించు' : 'Yes, Approve Order',
+      onAction: async () => {
+        startActionLoading(
+          `Approving order "${order.orderNumber}" in database...`,
+          `డేటాబేస్‌లో "${order.orderNumber}" ఆర్డర్ ఆమోదించబడుతోంది...`
+        );
+        await approveOrder(order.id, currentUser?.role || 'ADMIN');
+        stopActionLoading();
+      }
+    });
+  };
+
+  const handleDispatchOrder = (order: Order) => {
+    setDialogConfig({
+      isOpen: true,
+      type: 'warning',
+      title: isTe ? 'ఆర్డర్‌ను రవాణా చేయాలా?' : 'Mark Order Dispatched?',
+      message: isTe
+        ? `మీరు "${order.orderNumber}" ఆర్డర్ లోడింగ్ పూర్తి చేసి వాహనాన్ని డెలివరీకి పంపించాలనుకుంటున్నారా?`
+        : `Are you sure you want to mark order "${order.orderNumber}" as dispatched for delivery?`,
+      actionText: isTe ? 'అవును, రవాణా చేయి' : 'Yes, Mark Dispatched',
+      onAction: async () => {
+        startActionLoading(
+          `Marking order "${order.orderNumber}" as dispatched...`,
+          `"${order.orderNumber}" ఆర్డర్ రవాణా చేయబడినట్లుగా నమోదు అవుతోంది...`
+        );
+        await markOrderDispatched(order.id);
+        stopActionLoading();
+      }
+    });
+  };
+
+  const handleDeliverOrder = (order: Order) => {
+    setDialogConfig({
+      isOpen: true,
+      type: 'warning',
+      title: isTe ? 'డెలివరీని నిర్ధారించాలా?' : 'Confirm Order Delivery?',
+      message: isTe
+        ? `మీరు "${order.orderNumber}" ఆర్డర్ విజయవంతంగా డెలివరీ అయినట్లుగా నమోదు చేయాలనుకుంటున్నారా? కస్టమర్ ఖాతాకు బకాయిలు మరియు తుది నిల్వలు అప్‌డేట్ అవుతాయి.`
+        : `Are you sure you want to mark order "${order.orderNumber}" as delivered? This finalizes inventory deductions and updates the customer credit ledger.`,
+      actionText: isTe ? 'అవును, డెలివరీ అయింది' : 'Yes, Confirm Delivery',
+      onAction: async () => {
+        startActionLoading(
+          `Finalizing delivery for "${order.orderNumber}"...`,
+          `"${order.orderNumber}" ఆర్డర్ డెలివరీ పూర్తయినట్లు నమోదు అవుతోంది...`
+        );
+        await markOrderDelivered(order.id);
+        stopActionLoading();
+      }
+    });
   };
 
   const triggerWhatsAppBill = (order: Order) => {
     const text = encodeURIComponent(
-      `*KATHA WHOLESALE - INVOICE*\n` +
+      `*KAATHA WHOLESALE - INVOICE*\n` +
       `Order: ${order.orderNumber}\n` +
       `Customer: ${order.customerName}\n` +
       `Total Bags: ${order.totalOuterBags} Bags (${order.totalWeightKg} kg)\n` +
@@ -645,7 +752,7 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
                   <div className="flex items-center gap-1.5 flex-1">
                     {order.status === 'PENDING_REVIEW' && (currentUser?.role === 'ADMIN' || currentUser?.role === 'OWNER') && (
                       <button
-                        onClick={() => approveOrder(order.id, currentUser?.role || 'ADMIN')}
+                        onClick={() => handleApproveOrder(order)}
                         className="flex-1 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold py-2.5 px-3 rounded-xl shadow-sm transition-all active:scale-95 text-center min-h-[40px]"
                       >
                         {isTe ? 'ఆమోదించు' : 'Approve'}
@@ -654,7 +761,7 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
 
                     {order.status === 'APPROVED' && (
                       <button
-                        onClick={() => markOrderDispatched(order.id)}
+                        onClick={() => handleDispatchOrder(order)}
                         className="flex-1 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold py-2.5 px-3 rounded-xl shadow-sm transition-all active:scale-95 text-center min-h-[40px]"
                       >
                         {isTe ? 'రవాణా చేయండి' : 'Dispatch'}
@@ -663,7 +770,7 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
 
                     {order.status === 'DISPATCHED' && (
                       <button
-                        onClick={() => markOrderDelivered(order.id)}
+                        onClick={() => handleDeliverOrder(order)}
                         className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2.5 px-3 rounded-xl shadow-sm transition-all active:scale-95 text-center min-h-[40px]"
                       >
                         {isTe ? 'డెలివరీ చేయబడింది' : 'Delivered'}
@@ -678,14 +785,25 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
                   </div>
 
                   <div className="flex items-center gap-1.5">
-                    {isAdminOrOwner && order.status !== 'DELIVERED' && (
-                      <button
-                        onClick={() => handleOpenEditOrder(order)}
-                        className="p-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 transition-colors"
-                        title={isTe ? 'ఆర్డర్ సవరించండి' : 'Edit Order'}
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </button>
+                    {isAdminOrOwner && (
+                      <>
+                        {order.status !== 'DELIVERED' && (
+                          <button
+                            onClick={() => handleOpenEditOrder(order)}
+                            className="p-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 transition-colors"
+                            title={isTe ? 'ఆర్డర్ సవరించండి' : 'Edit Order'}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleDeleteOrder(order)}
+                          className="p-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-colors"
+                          title={isTe ? 'ఆర్డర్ తొలగించండి' : 'Delete Order'}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </>
                     )}
 
                     <button
@@ -987,20 +1105,33 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
             </div>
 
             {/* Form Actions */}
-            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100 shrink-0">
-              <button
-                type="button"
-                onClick={closeModal}
-                className="px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-full"
-              >
-                {isTe ? 'రద్దు చేయండి' : 'Cancel'}
-              </button>
-              <button
-                type="submit"
-                className="px-6 py-3 text-xs font-black bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white rounded-full shadow-lg shadow-orange-500/25 transition-all active:scale-95 min-h-[44px]"
-              >
-                {editingOrder ? (isTe ? 'ఆర్డర్‌ను నవీకరించండి' : 'Update Order') : (isTe ? 'ఆర్డర్‌ను నిర్ధారించండి' : 'Confirm & Place Order')}
-              </button>
+            <div className="flex items-center justify-between gap-2.5 pt-3 border-t border-slate-100 shrink-0">
+              {editingOrder && isAdminOrOwner ? (
+                <button
+                  type="button"
+                  onClick={() => handleDeleteOrder(editingOrder)}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-full transition-colors"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                  <span>{isTe ? 'ఆర్డర్ తొలగించు' : 'Delete Order'}</span>
+                </button>
+              ) : <div />}
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={closeModal}
+                  className="px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-full"
+                >
+                  {isTe ? 'రద్దు చేయండి' : 'Cancel'}
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-3 text-xs font-black bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white rounded-full shadow-lg shadow-orange-500/25 transition-all active:scale-95 min-h-[44px]"
+                >
+                  {editingOrder ? (isTe ? 'ఆర్డర్‌ను నవీకరించండి' : 'Update Order') : (isTe ? 'ఆర్డర్‌ను నిర్ధారించండి' : 'Confirm & Place Order')}
+                </button>
+              </div>
             </div>
           </form>
           </div>
@@ -1015,6 +1146,7 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
         message={dialogConfig.message}
         type={dialogConfig.type}
         actionText={dialogConfig.actionText}
+        cancelText={isTe ? 'రద్దు చేయి' : 'Cancel'}
         onAction={dialogConfig.onAction}
       />
     </div>

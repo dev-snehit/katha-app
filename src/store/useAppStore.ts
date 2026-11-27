@@ -6,6 +6,7 @@ import {
   Order, 
   User, 
   Role, 
+  UserStatus,
   SupportedLanguage,
   INITIAL_ADMIN_USER
 } from '../contracts';
@@ -52,6 +53,12 @@ export interface AppState {
   // Server connecting & hydration state (blocks main content with loading spinner)
   isConnectingServer: boolean;
   setIsConnectingServer: (status: boolean) => void;
+
+  // Action Loading state for on-screen loading spinner with simple message
+  actionLoading: ActionLoadingState | null;
+  setActionLoading: (loading: ActionLoadingState | null) => void;
+  startActionLoading: (message: string, messageTe?: string) => void;
+  stopActionLoading: () => void;
   
   // Domain entities (CLEAN SLATE: Zero dummy data)
   orders: Order[];
@@ -75,20 +82,33 @@ export interface AppState {
   registerUser: (user: User, tempPassword?: string) => { success: boolean; message: string; user?: User };
   approveUser: (userId: string, role?: Role) => void;
   denyUser: (userId: string) => void;
+  updateUser: (userId: string, updates: { name?: string; role?: Role; status?: UserStatus }) => Promise<boolean>;
+  deleteUser: (userId: string) => Promise<boolean>;
+  cleanDuplicateUsers: () => Promise<{ removed: number; total: number }>;
 
   addOrder: (order: Order) => void;
   updateOrder: (order: Order) => void;
+  deleteOrder: (orderId: string) => Promise<boolean>;
   approveOrder: (orderId: string, approvedByRole: Role) => void;
   markOrderDispatched: (orderId: string, vehicleNo?: string) => void;
   markOrderDelivered: (orderId: string) => void;
 
   addCustomer: (customer: Customer) => void;
   updateCustomer: (customer: Customer) => void;
+  deleteCustomer: (customerId: string) => Promise<boolean>;
   addSupplier: (supplier: Supplier) => void;
   updateSupplier: (supplier: Supplier) => void;
+  deleteSupplier: (supplierId: string) => Promise<boolean>;
   addProduct: (product: Product) => void;
   updateProduct: (product: Product) => void;
+  deleteProduct: (productId: string) => Promise<boolean>;
   unpackProduct: (productId: string) => void;
+}
+
+export interface ActionLoadingState {
+  isLoading: boolean;
+  message: string;
+  messageTe?: string;
 }
 
 // LocalStorage Persistence Helpers
@@ -386,6 +406,11 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   isConnectingServer: false,
   setIsConnectingServer: (status: boolean) => set({ isConnectingServer: status }),
+
+  actionLoading: null,
+  setActionLoading: (loading) => set({ actionLoading: loading }),
+  startActionLoading: (message, messageTe) => set({ actionLoading: { isLoading: true, message, messageTe } }),
+  stopActionLoading: () => set({ actionLoading: null }),
   
   // Clean empty state: zero mock/sample data
   orders: loadFromStorage<Order[]>('orders', []),
@@ -580,34 +605,58 @@ export const useAppStore = create<AppState>((set, get) => ({
           set({ orders: hydratedOrders });
         }
 
-        // Hydrate & merge Users
+        // Hydrate & merge Users with strict duplicate-free mapping
         if (Array.isArray(Users) && Users.length > 0) {
           const currentUsers = get().users;
-          const merged = [...currentUsers];
+          const userMap = new Map<string, User>();
+          const phoneMap = new Map<string, string>(); // phone -> emailKey
+
+          currentUsers.forEach((u) => {
+            const emailKey = normalizeEmail(u.email);
+            const phoneKey = normalizePhone(u.phone);
+            userMap.set(emailKey, u);
+            if (phoneKey.length === 10) phoneMap.set(phoneKey, emailKey);
+          });
+
           Users.forEach((u: any) => {
-            const idx = merged.findIndex(m => m.email.toLowerCase() === u.email.toLowerCase());
+            const cleanEmail = normalizeEmail(u.email);
+            const cleanPhone = normalizePhone(String(u.phone || ''));
             const passHash = u.passwordHash || u[''] || '';
-            if (idx >= 0) {
-              merged[idx] = {
-                ...merged[idx],
-                name: u.name || merged[idx].name,
-                role: u.role || merged[idx].role,
-                status: u.status || merged[idx].status,
+
+            // Match by email or by phone to merge duplicates
+            let existingKey = cleanEmail;
+            if (!userMap.has(existingKey) && cleanPhone.length === 10 && phoneMap.has(cleanPhone)) {
+              existingKey = phoneMap.get(cleanPhone)!;
+            }
+
+            const existing = userMap.get(existingKey);
+            if (existing) {
+              const updated = {
+                ...existing,
+                name: u.name || existing.name,
+                role: (u.role || existing.role) as Role,
+                status: (u.status || existing.status) as UserStatus,
+                phone: cleanPhone || existing.phone,
                 ...(passHash ? { passwordHash: passHash } : {})
               };
+              userMap.set(existingKey, updated);
             } else {
-              merged.push({
-                id: u.id || crypto.randomUUID(),
-                name: u.name,
-                email: u.email,
-                phone: String(u.phone || '9999999999'),
-                role: u.role || 'STAFF',
-                status: u.status || 'PENDING_APPROVAL',
+              const newUser: User = {
+                id: u.id || (crypto.randomUUID ? crypto.randomUUID() : `u-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`),
+                name: u.name || 'User',
+                email: cleanEmail,
+                phone: cleanPhone || '9999999999',
+                role: (u.role || 'STAFF') as Role,
+                status: (u.status || 'PENDING_APPROVAL') as UserStatus,
                 createdAt: u.createdAt || new Date().toISOString(),
                 ...(passHash ? { passwordHash: passHash } : {})
-              });
+              };
+              userMap.set(cleanEmail, newUser);
+              if (cleanPhone.length === 10) phoneMap.set(cleanPhone, cleanEmail);
             }
           });
+
+          const merged = Array.from(userMap.values());
           saveToStorage('users', merged);
           set({ users: merged });
 
@@ -736,6 +785,81 @@ export const useAppStore = create<AppState>((set, get) => ({
     get().triggerSync('approveUser', { userId, newStatus: 'DENIED' });
   },
 
+  updateUser: async (userId, updates) => {
+    const currentUsers = get().users;
+    const existing = currentUsers.find(u => u.id === userId);
+    if (!existing) return false;
+
+    const updatedUser: User = {
+      ...existing,
+      name: updates.name !== undefined ? updates.name.trim() : existing.name,
+      role: updates.role || existing.role,
+      status: updates.status || existing.status,
+    };
+
+    const updatedUsers = currentUsers.map(u => u.id === userId ? updatedUser : u);
+    saveToStorage('users', updatedUsers);
+    
+    const active = get().currentUser;
+    if (active && (active.id === userId || active.email.toLowerCase() === existing.email.toLowerCase())) {
+      saveToStorage('currentUser', updatedUser);
+      set({ users: updatedUsers, currentUser: updatedUser });
+    } else {
+      set({ users: updatedUsers });
+    }
+
+    await get().triggerSync('updateUser', {
+      userId,
+      name: updatedUser.name,
+      role: updatedUser.role,
+      status: updatedUser.status
+    });
+    return true;
+  },
+
+  deleteUser: async (userId) => {
+    const currentUsers = get().users;
+    const filtered = currentUsers.filter(u => u.id !== userId);
+    saveToStorage('users', filtered);
+    set({ users: filtered });
+    await get().triggerSync('deleteUser', { userId });
+    return true;
+  },
+
+  cleanDuplicateUsers: async () => {
+    const currentUsers = get().users;
+    const seenEmails = new Set<string>();
+    const seenPhones = new Set<string>();
+    const cleanUsers: User[] = [];
+
+    for (const u of currentUsers) {
+      const email = normalizeEmail(u.email);
+      const phone = normalizePhone(u.phone);
+
+      if (seenEmails.has(email) || (phone.length === 10 && seenPhones.has(phone))) {
+        continue;
+      }
+      seenEmails.add(email);
+      if (phone.length === 10) seenPhones.add(phone);
+      cleanUsers.push(u);
+    }
+
+    const removed = currentUsers.length - cleanUsers.length;
+    saveToStorage('users', cleanUsers);
+    set({ users: cleanUsers });
+
+    await get().triggerSync('cleanDuplicateUsers', {});
+    await get().triggerSync('syncAll', {
+      products: get().inventory,
+      customers: get().customers,
+      suppliers: get().suppliers,
+      orders: get().orders,
+      users: cleanUsers
+    });
+
+    return { removed, total: cleanUsers.length };
+  },
+
   addOrder: (order) => {
     // Reserve stock for items in the order
     const updatedInventory = get().inventory.map((prod) => {
@@ -785,6 +909,29 @@ export const useAppStore = create<AppState>((set, get) => ({
     saveToStorage('orders', updatedOrders);
     set({ orders: updatedOrders, inventory: updatedInventory });
     get().triggerSync('saveOrder', { order });
+  },
+
+  deleteOrder: async (orderId) => {
+    const targetOrder = get().orders.find((o) => o.id === orderId);
+    let updatedInventory = get().inventory;
+    if (targetOrder && targetOrder.status !== 'DELIVERED' && targetOrder.status !== 'CANCELLED') {
+      updatedInventory = updatedInventory.map((prod) => {
+        const item = targetOrder.items.find((i) => i.productId === prod.id && i.unitType === 'OUTER_BAG');
+        if (item) {
+          return {
+            ...prod,
+            stockReservedOuter: Math.max(0, prod.stockReservedOuter - item.quantity)
+          };
+        }
+        return prod;
+      });
+      saveToStorage('inventory', updatedInventory);
+    }
+    const updatedOrders = get().orders.filter((o) => o.id !== orderId);
+    saveToStorage('orders', updatedOrders);
+    set({ orders: updatedOrders, inventory: updatedInventory });
+    await get().triggerSync('deleteOrder', { orderId });
+    return true;
   },
 
   approveOrder: (orderId, approvedByRole) => {
@@ -862,6 +1009,14 @@ export const useAppStore = create<AppState>((set, get) => ({
     get().triggerSync('saveCustomer', { customer });
   },
 
+  deleteCustomer: async (customerId) => {
+    const updated = get().customers.filter((c) => c.id !== customerId);
+    saveToStorage('customers', updated);
+    set({ customers: updated });
+    await get().triggerSync('deleteCustomer', { customerId });
+    return true;
+  },
+
   addSupplier: (supplier) => {
     const updated = [...get().suppliers, supplier];
     saveToStorage('suppliers', updated);
@@ -876,6 +1031,14 @@ export const useAppStore = create<AppState>((set, get) => ({
     get().triggerSync('saveSupplier', { supplier });
   },
 
+  deleteSupplier: async (supplierId) => {
+    const updated = get().suppliers.filter((s) => s.id !== supplierId);
+    saveToStorage('suppliers', updated);
+    set({ suppliers: updated });
+    await get().triggerSync('deleteSupplier', { supplierId });
+    return true;
+  },
+
   addProduct: (product) => {
     const updated = [...get().inventory, product];
     saveToStorage('inventory', updated);
@@ -888,6 +1051,14 @@ export const useAppStore = create<AppState>((set, get) => ({
     saveToStorage('inventory', updated);
     set({ inventory: updated });
     get().triggerSync('saveProduct', { product });
+  },
+
+  deleteProduct: async (productId) => {
+    const updated = get().inventory.filter((p) => p.id !== productId);
+    saveToStorage('inventory', updated);
+    set({ inventory: updated });
+    await get().triggerSync('deleteProduct', { productId });
+    return true;
   },
   
   unpackProduct: (productId) => {

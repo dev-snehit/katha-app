@@ -59,8 +59,62 @@ function setupDatabase() {
     ]);
   }
 
+  // Deduplicate and clean Users sheet
+  deduplicateUsersTable(ss);
+
   // Lock and protect all specified database sheets by default
   lockDatabaseSheets(ss, Object.keys(tables));
+}
+
+/**
+ * Deduplicates user rows in Users sheet based on unique email and phone numbers,
+ * preserving only the latest, cleanest record and removing all duplicate rows.
+ */
+function deduplicateUsersTable(ss) {
+  const userSheet = ss.getSheetByName('Users');
+  if (!userSheet || userSheet.getLastRow() <= 1) return { removed: 0, total: 0 };
+
+  const data = userSheet.getDataRange().getValues();
+  const headers = data[0];
+  const rows = data.slice(1);
+
+  const emailIdx = headers.indexOf('email') !== -1 ? headers.indexOf('email') : 2;
+  const phoneIdx = headers.indexOf('phone') !== -1 ? headers.indexOf('phone') : 3;
+  const idIdx = headers.indexOf('id') !== -1 ? headers.indexOf('id') : 0;
+
+  const seenEmails = {};
+  const seenPhones = {};
+  const uniqueRows = [];
+
+  // Traverse in reverse so latest entries/updates are preserved
+  for (let i = rows.length - 1; i >= 0; i--) {
+    const row = rows[i];
+    const email = (row[emailIdx] || '').toString().trim().toLowerCase();
+    const rawPhone = (row[phoneIdx] || '').toString().replace(/\D/g, '');
+    const phone = rawPhone.length > 10 ? rawPhone.slice(-10) : rawPhone;
+
+    if (!email && !phone) continue;
+
+    // Check duplicate
+    if ((email && seenEmails[email]) || (phone && phone.length === 10 && seenPhones[phone])) {
+      continue;
+    }
+
+    if (email) seenEmails[email] = true;
+    if (phone && phone.length === 10) seenPhones[phone] = true;
+    uniqueRows.unshift(row);
+  }
+
+  const removedCount = rows.length - uniqueRows.length;
+  if (removedCount > 0) {
+    const cols = headers.length;
+    userSheet.getRange(2, 1, userSheet.getLastRow() - 1, cols).clearContent();
+    if (uniqueRows.length > 0) {
+      userSheet.getRange(2, 1, uniqueRows.length, cols).setValues(uniqueRows);
+    }
+  }
+
+  return { removed: removedCount, total: uniqueRows.length };
 }
 
 /**
@@ -404,10 +458,27 @@ function doPost(e) {
         ]);
       }
 
-      // 2. Also register in Users sheet with hashed password
+      // 2. Register or update in Users sheet with hashed password
       const userSheet = ss.getSheetByName('Users');
       if (userSheet) {
-        userSheet.appendRow([
+        const uData = userSheet.getDataRange().getValues();
+        let foundIdx = -1;
+        const normEmail = (user.email || '').toLowerCase().trim();
+        const rawPhone = (user.phone || '').replace(/\D/g, '');
+        const normPhone = rawPhone.length > 10 ? rawPhone.slice(-10) : rawPhone;
+
+        for (let i = 1; i < uData.length; i++) {
+          const rowEmail = (uData[i][2] || '').toString().toLowerCase().trim();
+          const rowRawPhone = (uData[i][3] || '').toString().replace(/\D/g, '');
+          const rowPhone = rowRawPhone.length > 10 ? rowRawPhone.slice(-10) : rowRawPhone;
+
+          if (uData[i][0] === user.id || (normEmail && rowEmail === normEmail) || (normPhone && normPhone.length === 10 && rowPhone === normPhone)) {
+            foundIdx = i + 1;
+            break;
+          }
+        }
+
+        const rowValues = [
           user.id,
           user.name,
           user.email,
@@ -416,7 +487,14 @@ function doPost(e) {
           user.status || 'PENDING_APPROVAL',
           new Date().toISOString(),
           user.passwordHash || ''
-        ]);
+        ];
+
+        if (foundIdx !== -1) {
+          userSheet.getRange(foundIdx, 1, 1, rowValues.length).setValues([rowValues]);
+        } else {
+          userSheet.appendRow(rowValues);
+        }
+        deduplicateUsersTable(ss);
       }
 
       // 3. Send automated confirmation email with temporary password
@@ -535,6 +613,89 @@ function doPost(e) {
       return createResponse({ status: 'error', message: 'User not found' });
     }
 
+    if (action === 'updateUser') {
+      const { userId, name, role, status } = body;
+      const userSheet = ss.getSheetByName('Users');
+      if (userSheet) {
+        const data = userSheet.getDataRange().getValues();
+        for (let i = 1; i < data.length; i++) {
+          if (data[i][0] === userId) {
+            if (name) userSheet.getRange(i + 1, 2).setValue(name);
+            if (role) userSheet.getRange(i + 1, 5).setValue(role);
+            if (status) userSheet.getRange(i + 1, 6).setValue(status);
+            deduplicateUsersTable(ss);
+            return createResponse({ status: 'success', message: 'User updated successfully' });
+          }
+        }
+      }
+      return createResponse({ status: 'error', message: 'User not found' });
+    }
+
+    if (action === 'deleteUser') {
+      const { userId } = body;
+      const userSheet = ss.getSheetByName('Users');
+      if (userSheet) {
+        const data = userSheet.getDataRange().getValues();
+        for (let i = 1; i < data.length; i++) {
+          if (data[i][0] === userId) {
+            userSheet.deleteRow(i + 1);
+            return createResponse({ status: 'success', message: 'User deleted successfully' });
+          }
+        }
+      }
+      return createResponse({ status: 'error', message: 'User not found' });
+    }
+
+    if (action === 'cleanDuplicateUsers') {
+      const stats = deduplicateUsersTable(ss);
+      return createResponse({ status: 'success', message: 'Deduplicated users table', stats });
+    }
+
+    if (action === 'deleteProduct') {
+      const { productId } = body;
+      const sheet = ss.getSheetByName('Master_Products');
+      if (sheet) {
+        const data = sheet.getDataRange().getValues();
+        for (let i = 1; i < data.length; i++) {
+          if (data[i][0] === productId) {
+            sheet.deleteRow(i + 1);
+            return createResponse({ status: 'success', message: 'Product deleted' });
+          }
+        }
+      }
+      return createResponse({ status: 'error', message: 'Product not found' });
+    }
+
+    if (action === 'deleteCustomer') {
+      const { customerId } = body;
+      const sheet = ss.getSheetByName('Master_Customers');
+      if (sheet) {
+        const data = sheet.getDataRange().getValues();
+        for (let i = 1; i < data.length; i++) {
+          if (data[i][0] === customerId) {
+            sheet.deleteRow(i + 1);
+            return createResponse({ status: 'success', message: 'Customer deleted' });
+          }
+        }
+      }
+      return createResponse({ status: 'error', message: 'Customer not found' });
+    }
+
+    if (action === 'deleteSupplier') {
+      const { supplierId } = body;
+      const sheet = ss.getSheetByName('Master_Suppliers');
+      if (sheet) {
+        const data = sheet.getDataRange().getValues();
+        for (let i = 1; i < data.length; i++) {
+          if (data[i][0] === supplierId) {
+            sheet.deleteRow(i + 1);
+            return createResponse({ status: 'success', message: 'Supplier deleted' });
+          }
+        }
+      }
+      return createResponse({ status: 'error', message: 'Supplier not found' });
+    }
+
     // --- Batch Full Sync ---
     if (action === 'syncAll') {
       const { products = [], customers = [], suppliers = [], orders = [], users = [] } = body;
@@ -575,6 +736,19 @@ function doPost(e) {
           s.id, s.businessName, s.businessNameTe || '', s.ownerName || '', s.ownerNameTe || '', s.bankName, s.accountNumber, s.ifscCode, s.nickname, s.nicknameTe || ''
         ]);
         suppSheet.getRange(2, 1, rows.length, 10).setValues(rows);
+      }
+
+      // Update Users (clean deduplicated records)
+      const userSheet = ss.getSheetByName('Users');
+      if (userSheet && users.length > 0) {
+        if (userSheet.getLastRow() > 1) {
+          userSheet.getRange(2, 1, userSheet.getLastRow() - 1, 8).clearContent();
+        }
+        const uRows = users.map(u => [
+          u.id, u.name, u.email, u.phone, u.role, u.status || 'APPROVED', u.createdAt || new Date().toISOString(), u.passwordHash || ''
+        ]);
+        userSheet.getRange(2, 1, uRows.length, 8).setValues(uRows);
+        deduplicateUsersTable(ss);
       }
 
       return createResponse({

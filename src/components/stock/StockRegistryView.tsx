@@ -4,19 +4,44 @@ import { en } from '../../locales/en';
 import { te } from '../../locales/te';
 import { getLocalizedText } from '../../lib/bilingualHelper';
 import { Product } from '../../contracts';
-import { Package, Plus, Layers, Inbox, Tag, CheckCircle2, AlertTriangle, Pencil } from 'lucide-react';
+import { Package, Plus, Layers, Inbox, Tag, CheckCircle2, AlertTriangle, Pencil, Trash2 } from 'lucide-react';
 import { validatePurchaseRecord, isPricingHierarchyValid } from '../../lib/purchaseValidation';
 import { useModalDismiss } from '../../hooks/useModalDismiss';
 import { useRouter } from '../../lib/router';
+import { AlertDialog } from '../ui/AlertDialog';
 
 export const StockRegistryView: React.FC = () => {
-  const { inventory, language, currentUser, unpackProduct, addProduct, updateProduct } = useAppStore();
+  const { 
+    inventory, 
+    language, 
+    currentUser, 
+    unpackProduct, 
+    addProduct, 
+    updateProduct, 
+    deleteProduct,
+    startActionLoading,
+    stopActionLoading 
+  } = useAppStore();
   const { route, navigate } = useRouter();
   const isAdminOrOwner = currentUser?.role === 'ADMIN' || currentUser?.role === 'OWNER';
   const t = language === 'TE' ? te : en;
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    type?: 'danger' | 'warning' | 'info';
+    actionText: string;
+    onAction: () => Promise<void> | void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    actionText: '',
+    onAction: () => {},
+  });
 
   // Zero auto-fill: All inputs start empty
   const [name, setName] = useState('');
@@ -161,7 +186,26 @@ export const StockRegistryView: React.FC = () => {
         retailPriceBag: retailRate,
         pricePerInnerBag: innerCount > 1 ? retailRate / innerCount : retailRate,
       };
-      updateProduct(updatedProd);
+      
+      setConfirmDialog({
+        isOpen: true,
+        type: 'warning',
+        title: language === 'TE' ? 'సరుకు వివరాలను అప్‌డేట్ చేయాలా?' : 'Update Commodity Details?',
+        message: language === 'TE'
+          ? `మీరు "${name.trim()}" సరుకు ధరలు మరియు స్టాక్ వివరాలను డేటాబేస్‌లో సేవ్ చేయాలనుకుంటున్నారా?`
+          : `Are you sure you want to save updated stock & pricing for "${name.trim()}" into the database?`,
+        actionText: language === 'TE' ? 'అవును, అప్‌డేట్ చేయి' : 'Yes, Save Changes',
+        onAction: async () => {
+          startActionLoading(
+            `Updating "${name.trim()}" in backend database...`,
+            `డేటాబేస్‌లో "${name.trim()}" సరుకు వివరాలు సేవ్ అవుతున్నాయి...`
+          );
+          await updateProduct(updatedProd);
+          stopActionLoading();
+          closeModal();
+        }
+      });
+      return;
     } else {
       const newProd: Product = {
         id: crypto.randomUUID ? crypto.randomUUID() : `prod-${Date.now()}`,
@@ -181,10 +225,55 @@ export const StockRegistryView: React.FC = () => {
         retailPriceBag: retailRate,
         pricePerInnerBag: innerCount > 1 ? retailRate / innerCount : retailRate,
       };
+      startActionLoading(
+        `Saving "${name.trim()}" to database...`,
+        `డేటాబేస్‌లో "${name.trim()}" సరుకు నమోదు చేయబడుతోంది...`
+      );
       addProduct(newProd);
+      stopActionLoading();
+      closeModal();
     }
+  };
 
-    closeModal();
+  const handleConfirmUnpack = (item: Product) => {
+    setConfirmDialog({
+      isOpen: true,
+      type: 'warning',
+      title: language === 'TE' ? '1 బస్తాను విప్పాలా?' : 'Unpack 1 Bag?',
+      message: language === 'TE'
+        ? `మీరు "${item.name}" యొక్క 1 పూర్తి బస్తాను విప్పి (${item.innerBagsPerOuter}) లూజ్ ప్యాకెట్లుగా విభజించాలనుకుంటున్నారా? ఇది భౌతిక బస్తా నిల్వను తగ్గిస్తుంది.`
+        : `Are you sure you want to unpack 1 outer bag of "${item.name}" into ${item.innerBagsPerOuter} loose packets? This deducts 1 bag from physical inventory.`,
+      actionText: language === 'TE' ? 'అవును, విప్పండి' : 'Yes, Unpack Bag',
+      onAction: async () => {
+        startActionLoading(
+          `Unpacking 1 bag of "${item.name}"...`,
+          `"${item.name}" 1 బస్తాను లూజ్ స్టాక్‌గా మారుస్తోంది...`
+        );
+        await unpackProduct(item.id);
+        stopActionLoading();
+      }
+    });
+  };
+
+  const handleDeleteProduct = (prod: Product) => {
+    setConfirmDialog({
+      isOpen: true,
+      type: 'danger',
+      title: language === 'TE' ? 'సరుకును తొలగించాలా?' : 'Delete Commodity?',
+      message: language === 'TE'
+        ? `మీరు "${prod.name}" సరుకును ఇన్వెంటరీ మరియు డేటాబేస్ నుండి శాశ్వతంగా తొలగించాలనుకుంటున్నారా? ఈ చర్యను రద్దు చేయలేరు.`
+        : `Are you sure you want to permanently delete "${prod.name}" from the inventory database? This action cannot be undone.`,
+      actionText: language === 'TE' ? 'అవును, తొలగించు' : 'Yes, Delete Commodity',
+      onAction: async () => {
+        startActionLoading(
+          `Deleting "${prod.name}" from database...`,
+          `డేటాబేస్ నుండి "${prod.name}" తొలగించబడుతోంది...`
+        );
+        await deleteProduct(prod.id);
+        stopActionLoading();
+        closeModal();
+      }
+    });
   };
 
   const getCategoryLabel = (cat: string) => {
@@ -351,7 +440,7 @@ export const StockRegistryView: React.FC = () => {
                   <div className="flex items-center gap-2 mt-2 pt-2 border-t border-slate-100">
                     {item.innerBagsPerOuter > 1 && (
                       <button
-                        onClick={() => unpackProduct(item.id)}
+                        onClick={() => handleConfirmUnpack(item)}
                         disabled={item.stockPhysicalOuter <= 0}
                         className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-bold py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 disabled:opacity-40 transition-colors"
                       >
@@ -362,13 +451,23 @@ export const StockRegistryView: React.FC = () => {
                       </button>
                     )}
                     {isAdminOrOwner && (
-                      <button
-                        onClick={() => handleOpenEditModal(item)}
-                        className="inline-flex items-center justify-center gap-1 text-xs font-bold py-2 px-3 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 transition-colors"
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                        <span>{language === 'TE' ? 'సవరించండి' : 'Edit'}</span>
-                      </button>
+                      <>
+                        <button
+                          onClick={() => handleOpenEditModal(item)}
+                          className="inline-flex items-center justify-center gap-1 text-xs font-bold py-2 px-3 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 transition-colors"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                          <span>{language === 'TE' ? 'సవరించండి' : 'Edit'}</span>
+                        </button>
+                        <button
+                          onClick={() => handleDeleteProduct(item)}
+                          className="inline-flex items-center justify-center gap-1 text-xs font-bold py-2 px-3 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-colors"
+                          title={language === 'TE' ? 'సరుకు తొలగించండి' : 'Delete Commodity'}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>{language === 'TE' ? 'తొలగించు' : 'Delete'}</span>
+                        </button>
+                      </>
                     )}
                   </div>
                 </div>
@@ -437,7 +536,7 @@ export const StockRegistryView: React.FC = () => {
                         <div className="inline-flex items-center gap-1.5 justify-end">
                           {item.innerBagsPerOuter > 1 && (
                             <button
-                              onClick={() => unpackProduct(item.id)}
+                              onClick={() => handleConfirmUnpack(item)}
                               disabled={item.stockPhysicalOuter <= 0}
                               className="inline-flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 disabled:opacity-40 transition-colors"
                             >
@@ -446,14 +545,24 @@ export const StockRegistryView: React.FC = () => {
                             </button>
                           )}
                           {isAdminOrOwner && (
-                            <button
-                              onClick={() => handleOpenEditModal(item)}
-                              className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 transition-colors"
-                              title={language === 'TE' ? 'సవరించండి' : 'Edit Stock'}
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                              <span>{language === 'TE' ? 'సవరించండి' : 'Edit'}</span>
-                            </button>
+                            <>
+                              <button
+                                onClick={() => handleOpenEditModal(item)}
+                                className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 transition-colors"
+                                title={language === 'TE' ? 'సవరించండి' : 'Edit Stock'}
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                                <span>{language === 'TE' ? 'సవరించండి' : 'Edit'}</span>
+                              </button>
+                              <button
+                                onClick={() => handleDeleteProduct(item)}
+                                className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-colors"
+                                title={language === 'TE' ? 'సరుకు తొలగించండి' : 'Delete Commodity'}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                <span>{language === 'TE' ? 'తొలగించు' : 'Delete'}</span>
+                              </button>
+                            </>
                           )}
                         </div>
                       </td>
@@ -816,27 +925,52 @@ export const StockRegistryView: React.FC = () => {
               </div>
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200 shrink-0">
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  className="px-4 py-2.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl"
-                >
-                  {language === 'TE' ? 'రద్దు చేయండి' : 'Cancel'}
-                </button>
-                <button
-                  type="submit"
-                  className="px-6 py-2.5 text-xs font-bold bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white rounded-xl shadow-lg shadow-orange-500/25 transition-all"
-                >
-                  {editingProduct
-                    ? (language === 'TE' ? 'సరుకును నవీకరించండి' : 'Update Commodity')
-                    : (language === 'TE' ? 'సరుకును భద్రపరచండి' : 'Save Commodity')}
-                </button>
+              <div className="flex items-center justify-between gap-3 pt-3 border-t border-slate-200 shrink-0">
+                {editingProduct && isAdminOrOwner ? (
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteProduct(editingProduct)}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                    <span>{language === 'TE' ? 'సరుకు తొలగించు' : 'Delete Commodity'}</span>
+                  </button>
+                ) : <div />}
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={closeModal}
+                    className="px-4 py-2.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl"
+                  >
+                    {language === 'TE' ? 'రద్దు చేయండి' : 'Cancel'}
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-6 py-2.5 text-xs font-bold bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white rounded-xl shadow-lg shadow-orange-500/25 transition-all"
+                  >
+                    {editingProduct
+                      ? (language === 'TE' ? 'సరుకును నవీకరించండి' : 'Update Commodity')
+                      : (language === 'TE' ? 'సరుకును భద్రపరచండి' : 'Save Commodity')}
+                  </button>
+                </div>
               </div>
             </form>
           </div>
         </div>
       )}
+
+      {/* Confirmation Dialog for Edit, Delete, Unpack */}
+      <AlertDialog
+        isOpen={confirmDialog.isOpen}
+        onClose={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
+        type={confirmDialog.type || 'warning'}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        actionText={confirmDialog.actionText}
+        cancelText={language === 'TE' ? 'రద్దు చేయి' : 'Cancel'}
+        onAction={confirmDialog.onAction}
+      />
     </div>
   );
 };

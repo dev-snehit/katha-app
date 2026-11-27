@@ -21,7 +21,7 @@ import {
 export default function App() {
   const { route, navigate, goBack } = useRouter();
   const [lastActiveTab, setLastActiveTab] = useState<string>('orders');
-  const { language, isAuthenticated, currentUser, connectAndHydrateServer, isConnectingServer } = useAppStore();
+  const { language, isAuthenticated, currentUser, connectAndHydrateServer, isConnectingServer, actionLoading } = useAppStore();
 
   // Establish persistent server connection & hydrate latest database records on initial load
   useEffect(() => {
@@ -120,6 +120,36 @@ export default function App() {
           {activeTab === 'exports' && <ExportCenterView />}
           {activeTab === 'admin' && currentUser.role === 'ADMIN' && <UserRequestsView />}
         </div>
+
+        {/* Action Loading Spinner with Simple Message */}
+        {actionLoading?.isLoading && (
+          <div 
+            className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
+            role="status"
+            aria-live="polite"
+            aria-busy="true"
+          >
+            <div className="max-w-sm w-full bg-white p-6 sm:p-7 rounded-3xl shadow-2xl border border-slate-100 flex flex-col items-center text-center animate-in zoom-in-95 duration-200">
+              <div className="relative w-14 h-14 mb-3.5">
+                <div className="absolute inset-0 rounded-full border-4 border-orange-100" />
+                <div className="absolute inset-0 rounded-full border-4 border-[#FF5A36] border-t-transparent animate-spin" />
+                <div className="absolute inset-2 rounded-full border-2 border-orange-200 border-b-transparent animate-spin [animation-direction:reverse] [animation-duration:1.5s]" />
+                <div className="absolute inset-0 flex items-center justify-center text-[#FF5A36]">
+                  <RefreshCw className="w-5 h-5 animate-spin [animation-duration:3s]" />
+                </div>
+              </div>
+
+              <h3 className="text-base font-black text-slate-900 mb-1">
+                {language === 'TE' 
+                  ? (actionLoading.messageTe || actionLoading.message) 
+                  : actionLoading.message}
+              </h3>
+              <p className="text-xs text-slate-400 font-medium">
+                {language === 'TE' ? 'దయచేసి వేచి ఉండండి...' : 'Please wait a moment...'}
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Server Connection & Live Sync Overlay */}
         {isConnectingServer && (

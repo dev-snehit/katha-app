@@ -2,7 +2,7 @@ import React from 'react';
 import { AlertCircle, AlertTriangle, CheckCircle2, Info, X } from 'lucide-react';
 import { useModalDismiss } from '../../hooks/useModalDismiss';
 
-export type DialogType = 'warning' | 'info' | 'error' | 'success';
+export type DialogType = 'warning' | 'info' | 'error' | 'success' | 'danger';
 
 interface AlertDialogProps {
   isOpen: boolean;
@@ -11,6 +11,7 @@ interface AlertDialogProps {
   message: string;
   type?: DialogType;
   actionText?: string;
+  cancelText?: string;
   onAction?: () => void;
 }
 
@@ -21,6 +22,7 @@ export const AlertDialog: React.FC<AlertDialogProps> = ({
   message,
   type = 'warning',
   actionText = 'Understood',
+  cancelText = 'Cancel',
   onAction,
 }) => {
   useModalDismiss(isOpen, onClose);
@@ -35,6 +37,12 @@ export const AlertDialog: React.FC<AlertDialogProps> = ({
       btnColor: 'bg-amber-600 hover:bg-amber-700',
     },
     error: {
+      icon: AlertCircle,
+      bgColor: 'bg-rose-100',
+      iconColor: 'text-rose-600',
+      btnColor: 'bg-rose-600 hover:bg-rose-700',
+    },
+    danger: {
       icon: AlertCircle,
       bgColor: 'bg-rose-100',
       iconColor: 'text-rose-600',
@@ -102,7 +110,7 @@ export const AlertDialog: React.FC<AlertDialogProps> = ({
             onClick={onClose}
             className="flex-1 py-2.5 px-4 rounded-full text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors border border-slate-200"
           >
-            Cancel
+            {cancelText}
           </button>
           <button
             onClick={handleAction}

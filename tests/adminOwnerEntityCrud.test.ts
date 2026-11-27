@@ -1,9 +1,14 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { useAppStore } from '../src/store/useAppStore';
 import { Order, Product, Customer, Supplier, INITIAL_ADMIN_USER } from '../src/contracts';
 
 describe('Admin & Owner Add / Update / Edit Capabilities', () => {
   beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ status: 'success' }),
+    }));
+
     useAppStore.setState({
       currentUser: INITIAL_ADMIN_USER,
       isAuthenticated: true,
@@ -12,6 +17,10 @@ describe('Admin & Owner Add / Update / Edit Capabilities', () => {
       customers: [],
       suppliers: [],
     });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   describe('Stock (Products) Add and Update/Edit', () => {
@@ -55,6 +64,31 @@ describe('Admin & Owner Add / Update / Edit Capabilities', () => {
       expect(items[0].wholesalePriceBag).toBe(1350);
       expect(items[0].retailPriceBag).toBe(1450);
     });
+
+    it('allows admin/owner to delete a product and update inventory', async () => {
+      const prod: Product = {
+        id: 'prod-to-delete',
+        name: 'Delete Me Rice',
+        category: 'RICE',
+        brandOrMill: 'Swarna',
+        innerBagWeightKg: 25,
+        innerBagsPerOuter: 1,
+        outerBagTotalKg: 25,
+        stockPhysicalOuter: 20,
+        stockReservedOuter: 0,
+        stockLooseInner: 0,
+        stockLooseKg: 0,
+        costPricePerBag: 1000,
+        wholesalePriceBag: 1100,
+        retailPriceBag: 1200,
+        pricePerInnerBag: 1200,
+      };
+      useAppStore.getState().addProduct(prod);
+      expect(useAppStore.getState().inventory).toHaveLength(1);
+
+      await useAppStore.getState().deleteProduct(prod.id);
+      expect(useAppStore.getState().inventory).toHaveLength(0);
+    });
   });
 
   describe('Customer Add and Update/Edit', () => {
@@ -91,9 +125,26 @@ describe('Admin & Owner Add / Update / Edit Capabilities', () => {
       expect(customers[0].phone).toBe('9848099887');
       expect(customers[0].businessName).toBe('Venkateswara Wholesale & Retail');
     });
+
+    it('allows admin/owner to delete a customer', async () => {
+      const cust: Customer = {
+        id: 'cust-del-1',
+        name: 'Delete Customer',
+        phone: '9848077665',
+        businessName: 'Delete Business',
+        address: 'Vijayawada',
+        currentDue: 0,
+        createdAt: new Date().toISOString(),
+      };
+      useAppStore.getState().addCustomer(cust);
+      expect(useAppStore.getState().customers.some((c) => c.id === 'cust-del-1')).toBe(true);
+
+      await useAppStore.getState().deleteCustomer('cust-del-1');
+      expect(useAppStore.getState().customers.some((c) => c.id === 'cust-del-1')).toBe(false);
+    });
   });
 
-  describe('Supplier Add and Update/Edit', () => {
+  describe('Supplier Add, Update/Edit and Delete', () => {
     it('allows admin/owner to add and update a supplier', () => {
       const supp: Supplier = {
         id: 'supp-test-1',
@@ -235,6 +286,110 @@ describe('Admin & Owner Add / Update / Edit Capabilities', () => {
       const state = useAppStore.getState();
       const isAdminOrOwner = state.currentUser?.role === 'ADMIN' || state.currentUser?.role === 'OWNER';
       expect(isAdminOrOwner).toBe(true);
+    });
+  });
+
+  describe('User Modification and Deduplication for Admins', () => {
+    it('allows admin to modify an active user (name, role, status)', async () => {
+      useAppStore.setState({
+        users: [
+          INITIAL_ADMIN_USER,
+          {
+            id: 'staff-user-1',
+            name: 'Original Staff',
+            email: 'staff@example.com',
+            phone: '9848012345',
+            role: 'STAFF',
+            status: 'APPROVED',
+            passwordHash: 'hash',
+            createdAt: new Date().toISOString(),
+          },
+        ],
+      });
+
+      await useAppStore.getState().updateUser('staff-user-1', {
+        name: 'Senior Staff Lead',
+        role: 'OWNER',
+        status: 'APPROVED',
+      });
+
+      const updated = useAppStore.getState().users.find((u) => u.id === 'staff-user-1');
+      expect(updated).toBeDefined();
+      expect(updated?.name).toBe('Senior Staff Lead');
+      expect(updated?.role).toBe('OWNER');
+    });
+
+    it('allows admin to delete an active user', async () => {
+      useAppStore.setState({
+        users: [
+          INITIAL_ADMIN_USER,
+          {
+            id: 'user-to-del',
+            name: 'Delete User',
+            email: 'delete@example.com',
+            phone: '9848099999',
+            role: 'CUSTOMER',
+            status: 'APPROVED',
+            passwordHash: 'hash',
+            createdAt: new Date().toISOString(),
+          },
+        ],
+      });
+
+      expect(useAppStore.getState().users).toHaveLength(2);
+      await useAppStore.getState().deleteUser('user-to-del');
+      expect(useAppStore.getState().users).toHaveLength(1);
+      expect(useAppStore.getState().users[0].id).toBe(INITIAL_ADMIN_USER.id);
+    });
+
+    it('deduplicates users by unique email and phone combination', async () => {
+      useAppStore.setState({
+        users: [
+          INITIAL_ADMIN_USER,
+          {
+            id: 'dup-1',
+            name: 'Duplicate John',
+            email: 'john@example.com',
+            phone: '9848011111',
+            role: 'STAFF',
+            status: 'APPROVED',
+            passwordHash: 'hash',
+            createdAt: '2026-01-01T00:00:00Z',
+          },
+          {
+            id: 'dup-2',
+            name: 'Duplicate John Second Entry',
+            email: 'JOHN@example.com',
+            phone: '9848011111',
+            role: 'STAFF',
+            status: 'APPROVED',
+            passwordHash: 'hash',
+            createdAt: '2026-01-02T00:00:00Z',
+          },
+        ],
+      });
+
+      expect(useAppStore.getState().users).toHaveLength(3);
+      await useAppStore.getState().cleanDuplicateUsers();
+      // Should now be deduplicated to 2 (Admin + unique John)
+      expect(useAppStore.getState().users).toHaveLength(2);
+    });
+  });
+
+  describe('Action Loading State Tracking', () => {
+    it('tracks start and stop action loading with messages', () => {
+      const store = useAppStore.getState();
+      expect(store.actionLoading).toBeNull();
+
+      store.startActionLoading('Saving order...', 'ఆర్డర్ సేవ్ అవుతోంది...');
+      expect(useAppStore.getState().actionLoading).toEqual({
+        isLoading: true,
+        message: 'Saving order...',
+        messageTe: 'ఆర్డర్ సేవ్ అవుతోంది...',
+      });
+
+      store.stopActionLoading();
+      expect(useAppStore.getState().actionLoading).toBeNull();
     });
   });
 });
