@@ -25,7 +25,7 @@ export const SupplierDirectoryView: React.FC = () => {
   const [nickname, setNickname] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  // Synchronize modal state with URL route (e.g. #/suppliers/new, #/suppliers/edit/:id)
+  // Synchronize modal state with URL route (e.g. /suppliers/new, /suppliers/:id)
   useEffect(() => {
     if (route.view !== 'suppliers') {
       setIsModalOpen(false);
@@ -83,7 +83,7 @@ export const SupplierDirectoryView: React.FC = () => {
   useModalDismiss(isModalOpen, closeModal);
 
   const handleOpenEditModal = (s: Supplier) => {
-    navigate(`/suppliers/edit/${encodeURIComponent(s.id)}`);
+    navigate(`/suppliers/${encodeURIComponent(s.id)}`);
   };
 
   const handleOpenAddModal = () => {

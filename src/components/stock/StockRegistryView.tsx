@@ -33,7 +33,7 @@ export const StockRegistryView: React.FC = () => {
   const [formError, setFormError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
-  // Synchronize modal state with URL route (e.g. #/stock/new, #/stock/edit/:id, back/forward history)
+  // Synchronize modal state with URL route (e.g. /stock/new, /stock/:id, back/forward history)
   useEffect(() => {
     if (route.view !== 'stock') {
       setIsModalOpen(false);
@@ -94,7 +94,7 @@ export const StockRegistryView: React.FC = () => {
   };
 
   const handleOpenEditModal = (prod: Product) => {
-    navigate(`/stock/edit/${encodeURIComponent(prod.id)}`);
+    navigate(`/stock/${encodeURIComponent(prod.id)}`);
   };
 
   const handleOpenAddModal = () => {

@@ -25,7 +25,7 @@ export const CustomerDirectoryView: React.FC = () => {
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
-  // Synchronize modal state with URL route (e.g. #/customers/new, #/customers/edit/:id)
+  // Synchronize modal state with URL route (e.g. /customers/new, /customers/:id)
   useEffect(() => {
     if (route.view !== 'customers') {
       setIsModalOpen(false);
@@ -83,7 +83,7 @@ export const CustomerDirectoryView: React.FC = () => {
   useModalDismiss(isModalOpen, closeModal);
 
   const handleOpenEditModal = (c: Customer) => {
-    navigate(`/customers/edit/${encodeURIComponent(c.id)}`);
+    navigate(`/customers/${encodeURIComponent(c.id)}`);
   };
 
   const handleOpenAddModal = () => {

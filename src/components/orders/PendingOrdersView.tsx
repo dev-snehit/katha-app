@@ -54,7 +54,7 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
 
-  // Synchronize modal state with URL route (e.g. #/orders/new, #/orders/edit/:id)
+  // Synchronize modal state with URL route (e.g. /orders/new, /orders/:id)
   useEffect(() => {
     if (route.view !== 'orders') {
       setIsModalOpen(false);
@@ -295,7 +295,7 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
   const grandTotal = Math.max(0, subtotal + totalHamali + totalFreight - totalDiscount);
 
   const handleOpenEditOrder = (order: Order) => {
-    navigate(`/orders/edit/${encodeURIComponent(order.id)}`);
+    navigate(`/orders/${encodeURIComponent(order.id)}`);
   };
 
   const handleOpenNewOrder = () => {

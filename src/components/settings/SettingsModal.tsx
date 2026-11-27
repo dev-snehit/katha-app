@@ -67,14 +67,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     if (res.success) {
       setTestResult({
         success: true,
-        message: res.details?.sheetName 
-          ? `Connected to "${res.details.sheetName}" Google Sheet!`
-          : 'Connected successfully to Google Sheet backend!'
+        message: 'Connected successfully to cloud database backend!'
       });
     } else {
       setTestResult({
         success: false,
-        message: res.error || 'Failed to connect. Verify your deployed Web App URL and permissions.'
+        message: res.error || 'Failed to connect. Verify your database API Webhook URL and permissions.'
       });
     }
   };
@@ -87,7 +85,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     const success = await syncAllToGoogleSheets();
     setIsSyncingAll(false);
     if (success) {
-      setSyncAllResult('All local commodities, customers, suppliers, and orders synced to Google Sheets!');
+      setSyncAllResult('All local commodities, customers, suppliers, and orders synced to cloud database!');
     } else {
       setSyncAllResult('Sync failed. Please test your connection above.');
     }
@@ -110,7 +108,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
             <div className="p-2 rounded-xl bg-orange-50 text-[#FF5A36]">
               <Settings className="w-5 h-5" />
             </div>
-            <span>Google Sheets Cloud Sync</span>
+            <span>{language === 'TE' ? 'క్లౌడ్ డేటాబేస్ సింక్' : 'Cloud Database Sync'}</span>
           </div>
           <button 
             onClick={onClose} 
@@ -123,11 +121,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         <form onSubmit={handleSave} className="flex-1 flex flex-col min-h-0">
           <div className="flex-1 overflow-y-auto no-scrollbar pr-1 space-y-4">
             <p className="text-xs text-slate-500 mb-2 leading-relaxed">
-              Connect Katha Wholesale to your private Master Google Sheet via your free Google Apps Script Webhook. All transactions sync automatically.
+              {language === 'TE'
+                ? 'కథా హోల్‌సేల్‌ను మీ సురక్షిత క్లౌడ్ డేటాబేస్ బ్యాకెండ్ APIకి కనెక్ట్ చేయండి. మీ అన్ని లావాదేవీలు, స్టాక్, కస్టమర్ వివరాలు ఆటోమేటిక్‌గా సింక్ అవుతాయి.'
+                : 'Connect Katha Wholesale to your secure cloud database backend API. All inventory, customer records, and orders synchronize automatically.'}
             </p>
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1.5">
-              Google Apps Script Web App URL:
+              {language === 'TE' ? 'బ్యాకెండ్ డేటాబేస్ వెబ్‌హుక్ API URL:' : 'Backend Database Webhook API URL:'}
             </label>
             <div className="relative">
               <input
@@ -154,7 +154,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               className="px-3.5 py-2 text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition-all disabled:opacity-50 inline-flex items-center gap-1.5"
             >
               <Radio className={`w-3.5 h-3.5 ${testing ? 'animate-pulse text-amber-500' : 'text-slate-500'}`} />
-              <span>{testing ? 'Testing Connection...' : 'Test Connection'}</span>
+              <span>{testing ? 'Testing Connection...' : (language === 'TE' ? 'కనెక్షన్‌ని పరీక్షించండి' : 'Test Connection')}</span>
             </button>
 
             <button
@@ -164,7 +164,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               className="px-3.5 py-2 text-xs font-bold bg-orange-50 hover:bg-orange-100 text-[#FF5A36] border border-orange-200 rounded-xl transition-all disabled:opacity-50 inline-flex items-center gap-1.5"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isSyncingAll ? 'animate-spin' : ''}`} />
-              <span>{isSyncingAll ? 'Syncing...' : 'Sync All Records to Sheet'}</span>
+              <span>{isSyncingAll ? 'Syncing...' : (language === 'TE' ? 'అన్ని వివరాలను డేటాబేస్‌కు సింక్ చేయండి' : 'Sync All Records to Database')}</span>
             </button>
 
             <button
@@ -178,7 +178,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               className="px-3.5 py-2 text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl transition-all disabled:opacity-50 inline-flex items-center gap-1.5"
             >
               <RefreshCw className="w-3.5 h-3.5 text-emerald-600" />
-              <span>{language === 'TE' ? 'షీట్స్ నుండి రీ-సింక్ చేయండి' : 'Connect & Sync from Sheet'}</span>
+              <span>{language === 'TE' ? 'డేటాబేస్ నుండి రీ-సింక్ చేయండి' : 'Connect & Sync from Database'}</span>
             </button>
           </div>
 

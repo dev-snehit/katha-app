@@ -23,7 +23,7 @@ export default function App() {
   const [lastActiveTab, setLastActiveTab] = useState<string>('orders');
   const { language, isAuthenticated, currentUser, connectAndHydrateServer, isConnectingServer } = useAppStore();
 
-  // Establish persistent server connection & hydrate latest Google Sheet data on initial load
+  // Establish persistent server connection & hydrate latest database records on initial load
   useEffect(() => {
     connectAndHydrateServer();
   }, [connectAndHydrateServer]);
@@ -69,9 +69,8 @@ export default function App() {
   useEffect(() => {
     if (!isAuthenticated || !currentUser) {
       if (route.view !== 'auth') {
-        const fullCurrentRoute = window.location.hash || `#${route.path}`;
-        if (fullCurrentRoute !== '#/orders' && fullCurrentRoute !== '#/' && fullCurrentRoute !== '#') {
-          setIntendedRoute(fullCurrentRoute);
+        if (route.path !== '/orders' && route.path !== '/' && route.path !== '') {
+          setIntendedRoute(route.path);
         }
       }
     }
@@ -144,15 +143,15 @@ export default function App() {
               {/* Title */}
               <h3 className="text-lg font-black text-slate-900 mb-2">
                 {language === 'TE' 
-                  ? 'గూగుల్ షీట్స్ సర్వర్‌తో అనుసంధానించబడుతోంది...' 
-                  : 'Syncing with Google Sheets Server...'}
+                  ? 'సర్వర్ మరియు డేటాబేస్‌తో అనుసంధానించబడుతోంది...' 
+                  : 'Connecting to Backend Database...'}
               </h3>
 
               {/* Detailed Progress Description */}
               <p className="text-xs text-slate-600 leading-relaxed font-medium mb-4">
                 {language === 'TE'
-                  ? 'మీ ప్రైవేట్ మాస్టర్ గూగుల్ స్ప్రెడ్‌షీట్ నుండి సరుకులు, తాజా హోల్‌సేల్ ధరలు, కస్టమర్ రికార్డులు మరియు బకాయి ఆర్డర్లను లోడ్ చేస్తున్నాము. సమకాలీకరణ పూర్తయ్యే వరకు కంటెంట్ స్క్రీన్ చర్యలు తాత్కాలికంగా నిలిపివేయబడ్డాయి.'
-                  : 'Connecting to your Master Google Sheet Webhook and hydrating the latest inventory, wholesale prices, customer accounts, and pending orders. Main content actions are temporarily disabled until data synchronization completes.'}
+                  ? 'మీ క్లౌడ్ డేటాబేస్ నుండి సరుకులు, తాజా హోల్‌సేల్ ధరలు, కస్టమర్ రికార్డులు మరియు బకాయి ఆర్డర్లను లోడ్ చేస్తున్నాము. సమకాలీకరణ పూర్తయ్యే వరకు కంటెంట్ స్క్రీన్ చర్యలు తాత్కాలికంగా నిలిపివేయబడ్డాయి.'
+                  : 'Connecting to your secure cloud database backend and hydrating the latest inventory, wholesale prices, customer accounts, and pending orders. Main content actions are temporarily disabled until data synchronization completes.'}
               </p>
 
               {/* Sync Progress Pill */}
@@ -160,8 +159,8 @@ export default function App() {
                 <span className="w-2 h-2 rounded-full bg-[#FF5A36] animate-ping" />
                 <span>
                   {language === 'TE' 
-                    ? 'లైవ్ సింక్ పురోగతిలో ఉంది • దయచేసి వేచి ఉండండి' 
-                    : 'Live Sync in Progress • Please wait'}
+                    ? 'లైవ్ డేటాబేస్ సింక్ పురోగతిలో ఉంది • దయచేసి వేచి ఉండండి' 
+                    : 'Live Database Sync in Progress • Please wait'}
                 </span>
               </div>
 

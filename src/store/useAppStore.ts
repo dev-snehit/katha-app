@@ -427,7 +427,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     } else {
       set({
         syncStatus: 'ERROR',
-        syncError: res.error || 'Failed to sync with Google Sheet'
+        syncError: res.error || 'Failed to sync with Backend Database'
       });
     }
   },
@@ -435,7 +435,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   syncAllToGoogleSheets: async () => {
     const { backendUrl, inventory, customers, suppliers, orders, users } = get();
     if (!backendUrl) {
-      set({ syncStatus: 'UNLINKED', syncError: 'Google Sheet Webhook URL not configured.' });
+      set({ syncStatus: 'UNLINKED', syncError: 'Database Webhook URL not configured.' });
       return false;
     }
 

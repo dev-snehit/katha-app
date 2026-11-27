@@ -16,7 +16,7 @@ export const UserRequestsView: React.FC = () => {
   const [role, setRole] = useState<Role>('STAFF');
   const [modalError, setModalError] = useState<string | null>(null);
 
-  // Synchronize modal state with URL route (e.g. #/admin/new-user)
+  // Synchronize modal state with URL route (e.g. /admin/new-user)
   useEffect(() => {
     if (route.view !== 'admin') {
       setIsModalOpen(false);

@@ -92,18 +92,18 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
             </div>
 
             {/* Desktop Pill Navigation */}
-            <nav className="hidden lg:flex items-center p-1 bg-slate-100/90 rounded-full border border-slate-200/70 space-x-0.5 xl:space-x-1 shrink-0">
+            <nav className="hidden lg:flex items-center p-1 bg-slate-100/90 rounded-full border border-slate-200/70 space-x-0.5 xl:space-x-1 shrink min-w-0 overflow-x-auto no-scrollbar">
               <button
                 onClick={() => setActiveTab('orders')}
-                className={`relative inline-flex items-center gap-1.5 px-2.5 xl:px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
+                className={`relative inline-flex items-center gap-1.5 px-2 xl:px-2.5 2xl:px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
                   activeTab === 'orders'
                     ? 'bg-slate-900 text-white shadow-sm'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
                 }`}
               >
                 <Truck className="w-3.5 h-3.5 shrink-0" />
-                <span className="hidden xl:inline">{t.nav.pendingOrders}</span>
-                <span className="xl:hidden">{language === 'TE' ? 'ఆర్డర్లు' : 'Orders'}</span>
+                <span className="hidden 2xl:inline">{t.nav.pendingOrders}</span>
+                <span className="2xl:hidden">{language === 'TE' ? 'ఆర్డర్లు' : 'Orders'}</span>
                 {pendingCount > 0 && (
                   <span className="px-1.5 py-0.2 rounded-full text-[10px] font-extrabold bg-[#FF5A36] text-white">
                     {pendingCount}
@@ -113,19 +113,20 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
 
               <button
                 onClick={() => setActiveTab('stock')}
-                className={`inline-flex items-center gap-1.5 px-2.5 xl:px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
+                className={`inline-flex items-center gap-1.5 px-2 xl:px-2.5 2xl:px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
                   activeTab === 'stock'
                     ? 'bg-slate-900 text-white shadow-sm'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
                 }`}
               >
                 <Package className="w-3.5 h-3.5 shrink-0" />
-                <span>{t.nav.stock}</span>
+                <span className="hidden 2xl:inline">{t.nav.stock}</span>
+                <span className="2xl:hidden">{language === 'TE' ? 'స్టాక్' : 'Stock'}</span>
               </button>
 
               <button
                 onClick={() => setActiveTab('customers')}
-                className={`inline-flex items-center gap-1.5 px-2.5 xl:px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
+                className={`inline-flex items-center gap-1.5 px-2 xl:px-2.5 2xl:px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
                   activeTab === 'customers'
                     ? 'bg-slate-900 text-white shadow-sm'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
@@ -137,7 +138,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
 
               <button
                 onClick={() => setActiveTab('suppliers')}
-                className={`inline-flex items-center gap-1.5 px-2.5 xl:px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
+                className={`inline-flex items-center gap-1.5 px-2 xl:px-2.5 2xl:px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
                   activeTab === 'suppliers'
                     ? 'bg-slate-900 text-white shadow-sm'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
@@ -149,44 +150,47 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
 
               <button
                 onClick={() => setActiveTab('exports')}
-                className={`inline-flex items-center gap-1.5 px-2.5 xl:px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
+                className={`inline-flex items-center gap-1.5 px-2 xl:px-2.5 2xl:px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
                   activeTab === 'exports'
                     ? 'bg-slate-900 text-white shadow-sm'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
                 }`}
               >
                 <FileSpreadsheet className="w-3.5 h-3.5 shrink-0" />
-                <span className="hidden xl:inline">{t.nav.exportCenter}</span>
-                <span className="xl:hidden">{language === 'TE' ? 'రిపోర్టులు' : 'Reports'}</span>
+                <span className="hidden 2xl:inline">{t.nav.exportCenter}</span>
+                <span className="2xl:hidden">{language === 'TE' ? 'రిపోర్టులు' : 'Reports'}</span>
               </button>
 
               {currentUser?.role === 'ADMIN' && (
                 <button
                   onClick={() => setActiveTab('admin')}
-                  className={`inline-flex items-center gap-1.5 px-2.5 xl:px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
+                  className={`inline-flex items-center gap-1.5 px-2 xl:px-2.5 2xl:px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
                     activeTab === 'admin'
                       ? 'bg-[#FF5A36] text-white shadow-sm'
                       : 'text-orange-700 hover:bg-orange-50'
                   }`}
                 >
                   <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
-                  <span className="hidden xl:inline">{t.nav.adminRequests}</span>
-                  <span className="xl:hidden">{language === 'TE' ? 'అడ్మిన్' : 'Admin'}</span>
+                  <span className="hidden 2xl:inline">{t.nav.adminRequests}</span>
+                  <span className="2xl:hidden">{language === 'TE' ? 'అభ్యర్థనలు' : 'Requests'}</span>
                 </button>
               )}
             </nav>
 
-            {/* Right Controls: Sync Pill, Language, User Profile & Settings */}
+            {/* Right Controls: Database Sync Pill, Settings, Language, User Profile & Sign Out */}
             <div className="flex items-center gap-1 sm:gap-1.5 xl:gap-2 shrink-0 ml-auto">
               
-              {/* Google Sheets Sync Indicator Pill */}
+              {/* Backend Database Sync Indicator Pill */}
               <button
                 onClick={handleManualSync}
                 title={
-                  syncStatus === 'SYNCED' ? `Synced with Google Sheet at ${lastSyncTime || 'now'}. Click to refresh.` :
-                  syncStatus === 'SYNCING' ? 'Syncing to Google Sheet...' :
-                  syncStatus === 'ERROR' ? 'Sync failed. Click to test connection in Settings.' :
-                  'Click to connect your Google Sheet'
+                  syncStatus === 'SYNCED' 
+                    ? (language === 'TE' ? `క్లౌడ్ డేటాబేస్‌తో సింక్ అయింది (${lastSyncTime || 'ఇప్పుడే'}). రిఫ్రెష్ చేయడానికి క్లిక్ చేయండి.` : `Synced with Backend Database at ${lastSyncTime || 'now'}. Click to refresh.`) :
+                  syncStatus === 'SYNCING' 
+                    ? (language === 'TE' ? 'డేటాబేస్‌కు సింక్ అవుతోంది...' : 'Syncing to Backend Database...') :
+                  syncStatus === 'ERROR' 
+                    ? (language === 'TE' ? 'డేటాబేస్ సింక్ విఫలమైంది. సెట్టింగ్స్‌లో చెక్ చేయండి.' : 'Database sync failed. Click to test connection in Settings.') :
+                  (language === 'TE' ? 'క్లౌడ్ డేటాబేస్‌ను కనెక్ట్ చేయడానికి క్లిక్ చేయండి' : 'Click to connect to Backend Database')
                 }
                 className={`inline-flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-full text-[11px] font-bold border transition-all shrink-0 ${
                   syncStatus === 'SYNCED'
@@ -208,10 +212,10 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
                   <RefreshCw className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                 )}
                 <span className="hidden 2xl:inline text-[11px] whitespace-nowrap">
-                  {syncStatus === 'SYNCED' ? (language === 'TE' ? 'సర్వర్ కనెక్ట్ అయింది' : 'Server Connected') :
+                  {syncStatus === 'SYNCED' ? (language === 'TE' ? 'డేటాబేస్ కనెక్ట్ అయింది' : 'Database Connected') :
                    syncStatus === 'SYNCING' || isManualSyncing ? (language === 'TE' ? 'సింక్ అవుతోంది...' : 'Syncing...') :
                    syncStatus === 'ERROR' ? (language === 'TE' ? 'రీకనెక్ట్ చేస్తోంది...' : 'Reconnecting...') : 
-                   (language === 'TE' ? 'సర్వర్ కనెక్ట్' : 'Connect Server')}
+                   (language === 'TE' ? 'డేటాబేస్ కనెక్ట్' : 'Connect Database')}
                 </span>
                 <span className="hidden sm:inline 2xl:hidden text-[11px] whitespace-nowrap">
                   {syncStatus === 'SYNCED' ? (language === 'TE' ? 'కనెక్ట్' : 'Connected') :
@@ -219,6 +223,16 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
                    syncStatus === 'ERROR' ? (language === 'TE' ? 'ఎర్రర్' : 'Error') : 
                    (language === 'TE' ? 'కనెక్ట్' : 'Connect')}
                 </span>
+              </button>
+
+              {/* Settings Button - Located reliably with utilities so it never flows out of the view */}
+              <button
+                onClick={onOpenSettings}
+                className="p-1.5 sm:p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-full transition-colors shrink-0"
+                title={language === 'TE' ? 'డేటాబేస్ & సర్వర్ సెట్టింగ్స్' : 'Backend Database Connection Settings'}
+                aria-label="Settings"
+              >
+                <Settings className="w-4 h-4 shrink-0" />
               </button>
 
               {/* Language Selector Dropdown */}
@@ -259,15 +273,6 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
                   </button>
                 </div>
               )}
-
-              {/* Settings Button */}
-              <button
-                onClick={onOpenSettings}
-                className="p-1.5 sm:p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-full transition-colors shrink-0"
-                title={language === 'TE' ? 'గూగుల్ షీట్ సెట్టింగ్స్' : 'Google Sheet Connection Settings'}
-              >
-                <Settings className="w-4 h-4 shrink-0" />
-              </button>
             </div>
           </div>
         </div>

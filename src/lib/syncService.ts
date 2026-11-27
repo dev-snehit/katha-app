@@ -1,7 +1,7 @@
 /**
- * Google Apps Script Live Synchronization Service
+ * Katha Backend Database Live Synchronization Service
  * 
- * Communicates with the user's deployed Google Apps Script Web App
+ * Communicates with the user's deployed backend database webhook API
  * without triggering CORS preflight rejections by using text/plain body format.
  */
 
@@ -21,7 +21,7 @@ export async function pushToGoogleSheet(
   if (!backendUrl || !backendUrl.trim().startsWith('http')) {
     return {
       success: false,
-      error: 'Google Sheet Webhook URL is not configured. Please configure in Settings.'
+      error: 'Database Webhook API URL is not configured. Please configure in Settings.'
     };
   }
 
@@ -52,7 +52,7 @@ export async function pushToGoogleSheet(
     const data = await response.json();
     return {
       success: data.status === 'success' || data.status === 'ok',
-      message: data.message || 'Synchronized with Google Sheet',
+      message: data.message || 'Synchronized with Backend Database',
       error: data.error,
       details: data
     };
@@ -60,7 +60,7 @@ export async function pushToGoogleSheet(
     console.warn(`[Katha Sync] Push failed for action "${action}":`, err);
     return {
       success: false,
-      error: err.message || 'Unable to reach Google Apps Script webhook'
+      error: err.message || 'Unable to reach backend database webhook'
     };
   }
 }
@@ -69,7 +69,7 @@ export async function pingGoogleSheet(backendUrl: string): Promise<SyncResponse>
   if (!backendUrl || !backendUrl.trim().startsWith('http')) {
     return {
       success: false,
-      error: 'Google Sheet Webhook URL is not configured'
+      error: 'Database Webhook API URL is not configured'
     };
   }
 
@@ -90,13 +90,13 @@ export async function pingGoogleSheet(backendUrl: string): Promise<SyncResponse>
     const data = await response.json();
     return {
       success: data.status === 'ok' || data.status === 'success',
-      message: data.message || 'Connected to Google Sheet backend',
+      message: data.message || 'Connected to Backend Database',
       error: data.error
     };
   } catch (err: any) {
     return {
       success: false,
-      error: err.message || 'Connection test failed. Check Web App permissions.'
+      error: err.message || 'Connection test failed. Check webhook permissions.'
     };
   }
 }
@@ -105,7 +105,7 @@ export async function pullFromGoogleSheet(backendUrl: string): Promise<SyncRespo
   if (!backendUrl || !backendUrl.trim().startsWith('http')) {
     return {
       success: false,
-      error: 'Google Sheet Webhook URL is not configured.'
+      error: 'Database Webhook API URL is not configured.'
     };
   }
 
@@ -116,7 +116,7 @@ export async function pullFromGoogleSheet(backendUrl: string): Promise<SyncRespo
       return {
         success: true,
         data: postRes.details.data,
-        message: 'Database loaded from Google Sheet'
+        message: 'Database loaded from Backend Database'
       };
     }
 
@@ -140,13 +140,13 @@ export async function pullFromGoogleSheet(backendUrl: string): Promise<SyncRespo
     return {
       success: json.status === 'success' || json.status === 'ok',
       data: json.data,
-      message: json.message || 'Database loaded from Google Sheet'
+      message: json.message || 'Database loaded from Backend Database'
     };
   } catch (err: any) {
     console.warn('[Katha Sync] pullFromGoogleSheet error:', err);
     return {
       success: false,
-      error: err.message || 'Failed to pull data from Google Sheet'
+      error: err.message || 'Failed to pull data from Backend Database'
     };
   }
 }
@@ -154,3 +154,7 @@ export async function pullFromGoogleSheet(backendUrl: string): Promise<SyncRespo
 export async function lockRemoteSheets(backendUrl: string): Promise<SyncResponse> {
   return pushToGoogleSheet(backendUrl, 'lockSheets');
 }
+
+export const pushToBackendDatabase = pushToGoogleSheet;
+export const pingBackendDatabase = pingGoogleSheet;
+export const pullFromBackendDatabase = pullFromGoogleSheet;

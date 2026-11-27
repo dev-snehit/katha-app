@@ -4,8 +4,8 @@ export type MainView = 'orders' | 'stock' | 'customers' | 'suppliers' | 'exports
 export type SubView = 'new' | 'edit' | 'new-user' | 'login' | 'register' | 'forgot' | 'reset' | null;
 
 export interface RouteInfo {
-  hash: string;
-  path: string;
+  path: string;              // Canonical application path, e.g. '/orders/ORD-101'
+  fullPath: string;          // Includes base path if applicable, e.g. '/katha-app/orders/ORD-101'
   view: MainView;
   subView: SubView;
   paramId: string | null;
@@ -14,6 +14,54 @@ export interface RouteInfo {
 }
 
 const INTENDED_ROUTE_KEY = 'katha_intended_route';
+
+/**
+ * Detects base repository path (e.g. '/katha-app' on GitHub Pages, or '' on localhost / custom domain)
+ */
+export function getBasePath(): string {
+  if (typeof window === 'undefined') return '';
+  const pathname = window.location.pathname;
+  if (pathname === '/katha-app' || pathname.startsWith('/katha-app/')) {
+    return '/katha-app';
+  }
+  return '';
+}
+
+/**
+ * Strips the base path and legacy hashes to produce a clean application path
+ */
+export function stripBasePath(rawPath: string): string {
+  if (!rawPath) return '/orders';
+  let path = rawPath.trim();
+
+  // Strip query string if embedded
+  if (path.includes('?')) {
+    path = path.split('?')[0];
+  }
+
+  // Strip legacy '#' hash symbol if present
+  if (path.startsWith('#')) {
+    path = path.slice(1).trim();
+  }
+
+  const basePath = getBasePath();
+  if (basePath && path.startsWith(basePath)) {
+    path = path.slice(basePath.length);
+  } else if (path.startsWith('/katha-app')) {
+    path = path.slice('/katha-app'.length);
+  }
+
+  if (!path.startsWith('/')) {
+    path = `/${path}`;
+  }
+
+  // Clean trailing slashes except for root
+  if (path.length > 1 && path.endsWith('/')) {
+    path = path.slice(0, -1);
+  }
+
+  return path || '/orders';
+}
 
 /**
  * Parse query string into key-value map
@@ -30,37 +78,43 @@ export function parseQueryParams(queryString: string): Record<string, string> {
 }
 
 /**
- * Parse any raw hash or URL into a strongly-typed RouteInfo structure
+ * Parse any pathname or URL into a strongly-typed RouteInfo structure using pure slash routing
  */
-export function parseRoute(rawHashOrPath?: string): RouteInfo {
-  let raw = rawHashOrPath;
+export function parseRoute(rawPathOrUrl?: string): RouteInfo {
+  let raw = rawPathOrUrl;
+  let queryString = '';
+
   if (typeof raw !== 'string') {
     if (typeof window !== 'undefined') {
-      raw = window.location.hash || window.location.pathname;
+      // Check query string for GitHub Pages redirect fallback (?/orders/123)
+      const search = window.location.search;
+      if (search && search.startsWith('?/')) {
+        raw = search.slice(1); // removes '?'
+        queryString = '';
+      } else {
+        // Read location pathname and search
+        raw = window.location.pathname;
+        queryString = window.location.search;
+        // Fallback for legacy hash if someone used an old bookmark
+        if (window.location.hash) {
+          raw = window.location.hash.slice(1);
+        }
+      }
     } else {
-      raw = '#/orders';
+      raw = '/orders';
     }
+  } else if (raw.includes('?')) {
+    const parts = raw.split('?');
+    raw = parts[0];
+    queryString = parts[1] || '';
   }
 
-  // Handle direct pathnames if hash is empty (e.g., /katha-app/stock or /stock)
-  if (!raw || raw === '#' || raw === '#/' || raw === '/') {
-    raw = '#/orders';
-  } else if (!raw.startsWith('#')) {
-    // If given a pathname like "/stock/new", convert to hash format
-    const cleanPath = raw.replace(/^\/katha-app\/?/, '/');
-    raw = `#${cleanPath.startsWith('/') ? cleanPath : `/${cleanPath}`}`;
-  }
-
-  // Split path and query parameters
-  const [hashPathPart, queryString] = raw.split('?');
-  const queryParams = parseQueryParams(queryString || '');
-
-  // Strip leading '#' and trim slashes
-  const cleanPath = hashPathPart.replace(/^#\/?/, '').trim();
-  const segments = cleanPath ? cleanPath.split('/').filter(Boolean) : ['orders'];
+  const cleanPath = stripBasePath(raw);
+  const queryParams = parseQueryParams(queryString);
+  const segments = cleanPath ? cleanPath.split('/').filter(Boolean) : [];
 
   const firstSeg = segments[0]?.toLowerCase() || 'orders';
-  const secondSeg = segments[1]?.toLowerCase() || null;
+  const secondSeg = segments[1] || null;
   const thirdSeg = segments[2] || null;
 
   let view: MainView = 'orders';
@@ -77,6 +131,10 @@ export function parseRoute(rawHashOrPath?: string): RouteInfo {
       } else if (secondSeg === 'edit' && thirdSeg) {
         subView = 'edit';
         paramId = decodeURIComponent(thirdSeg);
+      } else if (secondSeg) {
+        // Direct route param e.g. /stock/:productid
+        subView = 'edit';
+        paramId = decodeURIComponent(secondSeg);
       }
       break;
 
@@ -88,6 +146,10 @@ export function parseRoute(rawHashOrPath?: string): RouteInfo {
       } else if (secondSeg === 'edit' && thirdSeg) {
         subView = 'edit';
         paramId = decodeURIComponent(thirdSeg);
+      } else if (secondSeg) {
+        // Direct route param e.g. /customers/:customerid
+        subView = 'edit';
+        paramId = decodeURIComponent(secondSeg);
       }
       break;
 
@@ -99,6 +161,10 @@ export function parseRoute(rawHashOrPath?: string): RouteInfo {
       } else if (secondSeg === 'edit' && thirdSeg) {
         subView = 'edit';
         paramId = decodeURIComponent(thirdSeg);
+      } else if (secondSeg) {
+        // Direct route param e.g. /suppliers/:supplierid
+        subView = 'edit';
+        paramId = decodeURIComponent(secondSeg);
       }
       break;
 
@@ -156,24 +222,37 @@ export function parseRoute(rawHashOrPath?: string): RouteInfo {
       } else if (secondSeg === 'edit' && thirdSeg) {
         subView = 'edit';
         paramId = decodeURIComponent(thirdSeg);
+      } else if (secondSeg && secondSeg !== 'orders') {
+        // Direct route param e.g. /orders/:orderid
+        subView = 'edit';
+        paramId = decodeURIComponent(secondSeg);
       }
       break;
   }
 
-  // Construct canonical path
+  // Construct standard canonical slash path
   let canonicalPath = `/${view}`;
-  if (subView) {
-    canonicalPath += `/${subView}`;
-    if (paramId) {
-      canonicalPath += `/${encodeURIComponent(paramId)}`;
-    }
+  if (subView === 'new') {
+    canonicalPath += '/new';
+  } else if (subView === 'edit' && paramId) {
+    // Prefer clean slash parameter: /orders/:orderid, /stock/:productid, etc.
+    canonicalPath += `/${encodeURIComponent(paramId)}`;
+  } else if (subView === 'new-user') {
+    canonicalPath = '/admin/new-user';
+  } else if (view === 'auth') {
+    if (subView === 'register') canonicalPath = '/register';
+    else if (subView === 'forgot') canonicalPath = '/forgot-password';
+    else if (subView === 'reset') canonicalPath = paramId ? `/reset-password/${encodeURIComponent(paramId)}` : '/reset-password';
+    else canonicalPath = '/login';
   }
 
+  const basePath = getBasePath();
+  const fullPath = `${basePath}${canonicalPath}`;
   const isModalOpen = subView === 'new' || subView === 'edit' || subView === 'new-user';
 
   return {
-    hash: raw,
     path: canonicalPath,
+    fullPath,
     view,
     subView,
     paramId,
@@ -183,50 +262,40 @@ export function parseRoute(rawHashOrPath?: string): RouteInfo {
 }
 
 /**
- * Programmatic Navigation with Browser History push / replace
+ * Programmatic Navigation with HTML5 History API (pushState & replaceState)
  */
 export function navigate(targetPath: string, options?: { replace?: boolean }): void {
   if (typeof window === 'undefined') return;
 
-  // Clean target path
-  let path = targetPath.trim();
-  if (path.startsWith('#')) {
-    path = path.slice(1);
-  }
-  if (!path.startsWith('/')) {
-    path = `/${path}`;
-  }
+  const clean = stripBasePath(targetPath);
+  const basePath = getBasePath();
+  const targetFullPath = `${basePath}${clean}`;
 
-  const targetHash = `#${path}`;
+  // Keep query params if not part of targetPath
+  const search = targetPath.includes('?') ? `?${targetPath.split('?')[1]}` : '';
+  const finalUrl = `${targetFullPath}${search}`;
 
-  if (window.location.hash === targetHash) {
-    // If same hash, re-dispatch event to ensure fresh synchronization
-    window.dispatchEvent(new CustomEvent('katha:route-change', { detail: { path } }));
+  if (window.location.pathname === targetFullPath && !options?.replace) {
+    window.dispatchEvent(new CustomEvent('katha:route-change', { detail: { path: clean } }));
     return;
   }
 
   if (options?.replace) {
-    if (typeof window.history.replaceState === 'function') {
-      window.history.replaceState(null, '', targetHash);
-    }
-    if (window.location.hash !== targetHash) {
-      window.location.hash = targetHash;
-    }
-    window.dispatchEvent(new CustomEvent('katha:route-change', { detail: { path } }));
+    window.history.replaceState({ path: clean }, '', finalUrl);
   } else {
-    // Setting window.location.hash automatically adds a history entry and triggers hashchange
-    window.location.hash = targetHash;
-    window.dispatchEvent(new CustomEvent('katha:route-change', { detail: { path } }));
+    window.history.pushState({ path: clean }, '', finalUrl);
   }
+
+  window.dispatchEvent(new CustomEvent('katha:route-change', { detail: { path: clean } }));
 }
 
 /**
- * Navigate to the parent view or step back in browser history
+ * Step back in browser history or navigate to fallback path
  */
 export function goBack(fallbackPath: string = '/orders'): void {
   if (typeof window === 'undefined') return;
 
-  if (window.history.length > 1) {
+  if (window.history && window.history.length > 1) {
     window.history.back();
   } else {
     navigate(fallbackPath, { replace: true });
@@ -234,7 +303,7 @@ export function goBack(fallbackPath: string = '/orders'): void {
 }
 
 /**
- * Retrieve the saved intended route for post-login redirect
+ * Retrieve saved intended route for post-login redirect
  */
 export function getIntendedRoute(): string | null {
   if (typeof window === 'undefined') return null;
@@ -246,13 +315,13 @@ export function getIntendedRoute(): string | null {
 }
 
 /**
- * Persist the user's intended route when unauthenticated
+ * Persist user's intended route when unauthenticated
  */
 export function setIntendedRoute(route: string | null): void {
   if (typeof window === 'undefined') return;
   try {
     if (route) {
-      localStorage.setItem(INTENDED_ROUTE_KEY, route);
+      localStorage.setItem(INTENDED_ROUTE_KEY, stripBasePath(route));
     } else {
       localStorage.removeItem(INTENDED_ROUTE_KEY);
     }
@@ -282,7 +351,7 @@ export function updateDocumentTitle(route: RouteInfo, language: 'EN' | 'TE'): vo
       if (route.subView === 'new') {
         titlePart = isTe ? 'కొత్త ఆర్డర్' : 'Place Order';
       } else if (route.subView === 'edit') {
-        titlePart = isTe ? `ఆర్డర్ సవరణ (${route.paramId || ''})` : `Edit Order ${route.paramId ? `#${route.paramId}` : ''}`;
+        titlePart = isTe ? `ఆర్డర్ (${route.paramId || ''})` : `Order ${route.paramId ? `#${route.paramId}` : ''}`;
       } else {
         titlePart = isTe ? 'పెండింగ్ ఆర్డర్లు' : 'Orders Yet to Deliver';
       }
@@ -356,7 +425,7 @@ export function updateDocumentTitle(route: RouteInfo, language: 'EN' | 'TE'): vo
 }
 
 /**
- * Custom React hook that subscribes to route changes (hashchange, popstate, and programmatic navigate)
+ * Custom React hook that subscribes to route changes (popstate and programmatic navigate)
  */
 export function useRouter() {
   const [route, setRoute] = useState<RouteInfo>(() => parseRoute());
@@ -366,22 +435,19 @@ export function useRouter() {
       setRoute(parseRoute());
     };
 
-    window.addEventListener('hashchange', handleRouteChange);
     window.addEventListener('popstate', handleRouteChange);
     window.addEventListener('katha:route-change', handleRouteChange);
 
-    // Initial check for hash normalization if on direct path
-    if (typeof window !== 'undefined' && !window.location.hash) {
-      const initial = parseRoute();
-      if (initial.path !== '/orders') {
-        navigate(initial.path, { replace: true });
-      } else {
-        navigate('/orders', { replace: true });
+    // Backward-compatibility: if an old bookmark opens with #/path, migrate it seamlessly to clean slash /path
+    if (typeof window !== 'undefined' && window.location.hash) {
+      const hashContent = window.location.hash.replace(/^#\/?/, '').trim();
+      if (hashContent) {
+        window.location.hash = '';
+        navigate(`/${hashContent}`, { replace: true });
       }
     }
 
     return () => {
-      window.removeEventListener('hashchange', handleRouteChange);
       window.removeEventListener('popstate', handleRouteChange);
       window.removeEventListener('katha:route-change', handleRouteChange);
     };
