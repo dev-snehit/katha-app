@@ -1,0 +1,28 @@
+{
+  "roles": [
+    {
+      "key": "OWNER",
+      "labelEn": "Business Owner",
+      "labelTe": "వ్యాపార యజమాని",
+      "configFile": "./owner.json"
+    },
+    {
+      "key": "ADMIN",
+      "labelEn": "Administrator",
+      "labelTe": "అడ్మినిస్ట్రేటర్",
+      "configFile": "./admin.json"
+    },
+    {
+      "key": "STAFF",
+      "labelEn": "Warehouse Staff",
+      "labelTe": "గోడౌన్ సిబ్బంది",
+      "configFile": "./staff.json"
+    },
+    {
+      "key": "CUSTOMER",
+      "labelEn": "Retail Customer",
+      "labelTe": "రిటైలర్ / కస్టమర్",
+      "configFile": "./customer.json"
+    }
+  ]
+}

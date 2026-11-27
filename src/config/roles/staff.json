@@ -1,0 +1,74 @@
+{
+  "dashboard_page": {
+    "enabled": true,
+    "functionalities": {
+      "view_dashboard": true,
+      "view_kpi_metrics": true,
+      "view_order_funnel_chart": true,
+      "view_inventory_health": true,
+      "view_credit_risk_table": false,
+      "view_recent_activity": true,
+      "quick_actions": true
+    }
+  },
+  "orders_page": {
+    "enabled": true,
+    "functionalities": {
+      "view_orders": true,
+      "create_order": true,
+      "edit_order": false,
+      "delete_order": false,
+      "approve_order": false,
+      "dispatch_order": true,
+      "deliver_order": true,
+      "send_whatsapp_bill": true
+    }
+  },
+  "stock_page": {
+    "enabled": true,
+    "functionalities": {
+      "view_stock": true,
+      "add_product": false,
+      "edit_product": false,
+      "delete_product": false,
+      "unpack_bag": true
+    }
+  },
+  "customers_page": {
+    "enabled": true,
+    "functionalities": {
+      "view_customers": true,
+      "add_customer": true,
+      "edit_customer": false,
+      "delete_customer": false
+    }
+  },
+  "suppliers_page": {
+    "enabled": true,
+    "functionalities": {
+      "view_suppliers": true,
+      "add_supplier": false,
+      "edit_supplier": false,
+      "delete_supplier": false
+    }
+  },
+  "reports_page": {
+    "enabled": true,
+    "functionalities": {
+      "view_reports": true,
+      "export_data": false,
+      "generate_statement": true
+    }
+  },
+  "user_management_page": {
+    "enabled": false,
+    "functionalities": {
+      "view_users": false,
+      "approve_user": false,
+      "deny_user": false,
+      "edit_user": false,
+      "delete_user": false,
+      "manage_role_permissions": false
+    }
+  }
+}
