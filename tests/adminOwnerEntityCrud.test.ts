@@ -265,6 +265,67 @@ describe('Admin & Owner Add / Update / Edit Capabilities', () => {
       // Reserved stock should now accurately reflect 15 bags
       expect(useAppStore.getState().inventory[0].stockReservedOuter).toBe(15);
     });
+
+    it('allows admin/owner to delete an order and safely restores reserved inventory', async () => {
+      const prod: Product = {
+        id: 'prod-del-order',
+        name: 'Delete Order Rice 25kg',
+        category: 'RICE',
+        innerBagWeightKg: 25,
+        innerBagsPerOuter: 1,
+        outerBagTotalKg: 25,
+        stockPhysicalOuter: 50,
+        stockReservedOuter: 0,
+        stockLooseInner: 0,
+        stockLooseKg: 0,
+        costPricePerBag: 1000,
+        wholesalePriceBag: 1100,
+        retailPriceBag: 1200,
+        pricePerInnerBag: 1200,
+      };
+      useAppStore.getState().addProduct(prod);
+
+      const order: Order = {
+        id: 'ord-to-delete',
+        orderNumber: 'ORD-9999',
+        customerId: 'cust-1',
+        customerName: 'Test Customer',
+        customerPhone: '9848011223',
+        orderDate: new Date().toISOString(),
+        status: 'PENDING_REVIEW',
+        totalOuterBags: 20,
+        totalInnerBags: 0,
+        totalWeightKg: 500,
+        items: [
+          {
+            productId: 'prod-del-order',
+            productName: 'Delete Order Rice 25kg',
+            unitType: 'OUTER_BAG',
+            quantity: 20,
+            unitPrice: 1100,
+            lineTotal: 22000,
+          },
+        ],
+        subtotal: 22000,
+        hamaliCharges: 0,
+        transportCharges: 0,
+        discount: 0,
+        grandTotal: 22000,
+        paymentMode: 'CREDIT',
+        submittedByRole: 'ADMIN',
+        createdAt: new Date().toISOString(),
+      };
+
+      useAppStore.getState().addOrder(order);
+      expect(useAppStore.getState().orders).toHaveLength(1);
+      expect(useAppStore.getState().inventory.find(p => p.id === 'prod-del-order')?.stockReservedOuter).toBe(20);
+
+      // Admin deletes the order
+      await useAppStore.getState().deleteOrder(order.id);
+      expect(useAppStore.getState().orders).toHaveLength(0);
+      // Reserved stock must be released back
+      expect(useAppStore.getState().inventory.find(p => p.id === 'prod-del-order')?.stockReservedOuter).toBe(0);
+    });
   });
 
   describe('Role-based Access for Owner and Admin', () => {

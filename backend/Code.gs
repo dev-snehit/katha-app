@@ -359,6 +359,31 @@ function doPost(e) {
       return createResponse({ status: 'success', message: 'Order status recorded' });
     }
 
+    if (action === 'deleteOrder') {
+      const { orderId } = body;
+      const pendingSheet = ss.getSheetByName('Pending_Orders');
+      if (pendingSheet) {
+        const pData = pendingSheet.getDataRange().getValues();
+        for (let i = 1; i < pData.length; i++) {
+          if (pData[i][0] === orderId) {
+            pendingSheet.deleteRow(i + 1);
+            return createResponse({ status: 'success', message: 'Order deleted from pending orders' });
+          }
+        }
+      }
+      const salesSheet = ss.getSheetByName('Master_Orders_Sales');
+      if (salesSheet) {
+        const sData = salesSheet.getDataRange().getValues();
+        for (let i = 1; i < sData.length; i++) {
+          if (sData[i][0] === orderId) {
+            salesSheet.deleteRow(i + 1);
+            return createResponse({ status: 'success', message: 'Order deleted from sales orders' });
+          }
+        }
+      }
+      return createResponse({ status: 'error', message: 'Order not found' });
+    }
+
     // --- Customer Operations ---
     if (action === 'saveCustomer') {
       const c = body.customer;

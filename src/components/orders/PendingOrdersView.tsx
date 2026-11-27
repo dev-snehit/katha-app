@@ -15,7 +15,8 @@ import {
   CheckCircle2, 
   Inbox,
   Percent,
-  Pencil
+  Pencil,
+  Layers
 } from 'lucide-react';
 
 interface FormItemRow {
@@ -259,6 +260,62 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
     setItemRows(updated);
   };
 
+  // Check if multiple rows share the same commodity (productId) and unitType
+  const hasDuplicateItemTypes = React.useMemo(() => {
+    const seen = new Set<string>();
+    for (const row of itemRows) {
+      if (row.productId) {
+        const key = `${row.productId}_${row.unitType}`;
+        if (seen.has(key)) return true;
+        seen.add(key);
+      }
+    }
+    return false;
+  }, [itemRows]);
+
+  // Consolidate identical items sharing the same commodity and unit type
+  const handleCombineDuplicateItems = () => {
+    const combinedMap = new Map<string, FormItemRow>();
+    const orderKeys: string[] = [];
+
+    for (const row of itemRows) {
+      if (!row.productId) {
+        orderKeys.push(row.rowId);
+        combinedMap.set(row.rowId, { ...row });
+        continue;
+      }
+
+      const key = `${row.productId}_${row.unitType}`;
+      const existing = combinedMap.get(key);
+
+      if (!existing) {
+        orderKeys.push(key);
+        combinedMap.set(key, { ...row });
+      } else {
+        const prevQty = Number(existing.quantity) || 0;
+        const currQty = Number(row.quantity) || 0;
+        const combinedQty = prevQty + currQty;
+
+        const prevPrice = Number(existing.unitPrice) || 0;
+        const currPrice = Number(row.unitPrice) || 0;
+
+        // Weighted unit price or preserve identical unit price
+        const weightedPrice = combinedQty > 0
+          ? Math.round(((prevQty * prevPrice + currQty * currPrice) / combinedQty) * 100) / 100
+          : (currPrice || prevPrice);
+
+        combinedMap.set(key, {
+          ...existing,
+          quantity: combinedQty > 0 ? combinedQty : '',
+          unitPrice: weightedPrice > 0 ? weightedPrice : (existing.unitPrice || row.unitPrice),
+        });
+      }
+    }
+
+    const mergedRows = orderKeys.map((k) => combinedMap.get(k)!);
+    setItemRows(mergedRows);
+  };
+
   // Multi-item dynamic calculation
   const calculatedItems: OrderItem[] = itemRows.map((row) => {
     const prod = inventory.find((p) => p.id === row.productId);
@@ -347,8 +404,51 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
       return;
     }
 
+    // Automatically consolidate multiple items sharing the same productId and unitType
+    const consolidatedMap = new Map<string, OrderItem>();
+    for (const it of calculatedItems) {
+      if (!it.productId) continue;
+      const key = `${it.productId}_${it.unitType}`;
+      const existing = consolidatedMap.get(key);
+      if (!existing) {
+        consolidatedMap.set(key, { ...it });
+      } else {
+        const combinedQty = existing.quantity + it.quantity;
+        const combinedTotal = existing.lineTotal + it.lineTotal;
+        const combinedPrice = combinedQty > 0
+          ? Math.round((combinedTotal / combinedQty) * 100) / 100
+          : existing.unitPrice;
+        consolidatedMap.set(key, {
+          ...existing,
+          quantity: combinedQty,
+          unitPrice: combinedPrice,
+          lineTotal: combinedTotal,
+        });
+      }
+    }
+    const finalItems = Array.from(consolidatedMap.values());
+
+    const finalSubtotal = finalItems.reduce((sum, it) => sum + it.lineTotal, 0);
+    const finalTotalOuterBags = finalItems
+      .filter((it) => it.unitType === 'OUTER_BAG')
+      .reduce((sum, it) => sum + it.quantity, 0);
+    const finalTotalInnerBags = finalItems
+      .filter((it) => it.unitType === 'INNER_BAG')
+      .reduce((sum, it) => sum + it.quantity, 0);
+
+    const finalTotalWeightKg = finalItems.reduce((sum, it) => {
+      const prod = inventory.find((p) => p.id === it.productId);
+      if (!prod) return sum;
+      if (it.unitType === 'OUTER_BAG') return sum + it.quantity * prod.outerBagTotalKg;
+      if (it.unitType === 'INNER_BAG') return sum + it.quantity * prod.innerBagWeightKg;
+      return sum + it.quantity;
+    }, 0);
+
+    const finalTotalHamali = finalTotalOuterBags * (Number(hamaliPerBag) || 0);
+    const finalGrandTotal = Math.max(0, finalSubtotal + finalTotalHamali + totalFreight - totalDiscount);
+
     // Check stock availability
-    for (const item of calculatedItems) {
+    for (const item of finalItems) {
       const prod = inventory.find((p) => p.id === item.productId);
       if (prod && item.unitType === 'OUTER_BAG') {
         const prevItem = editingOrder ? editingOrder.items.find((it) => it.productId === item.productId && it.unitType === 'OUTER_BAG') : null;
@@ -372,15 +472,15 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
         customerName: customer.name,
         customerNameTe: customer.nameTe,
         customerPhone: customer.phone,
-        totalOuterBags,
-        totalInnerBags,
-        totalWeightKg,
-        items: calculatedItems,
-        subtotal,
-        hamaliCharges: totalHamali,
+        totalOuterBags: finalTotalOuterBags,
+        totalInnerBags: finalTotalInnerBags,
+        totalWeightKg: finalTotalWeightKg,
+        items: finalItems,
+        subtotal: finalSubtotal,
+        hamaliCharges: finalTotalHamali,
         transportCharges: totalFreight,
         discount: totalDiscount,
-        grandTotal,
+        grandTotal: finalGrandTotal,
         vehicleNumber,
         driverPhone,
       };
@@ -414,15 +514,15 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
         customerPhone: customer.phone,
         orderDate: new Date().toISOString(),
         status: 'PENDING_REVIEW',
-        totalOuterBags,
-        totalInnerBags,
-        totalWeightKg,
-        items: calculatedItems,
-        subtotal,
-        hamaliCharges: totalHamali,
+        totalOuterBags: finalTotalOuterBags,
+        totalInnerBags: finalTotalInnerBags,
+        totalWeightKg: finalTotalWeightKg,
+        items: finalItems,
+        subtotal: finalSubtotal,
+        hamaliCharges: finalTotalHamali,
         transportCharges: totalFreight,
         discount: totalDiscount,
-        grandTotal,
+        grandTotal: finalGrandTotal,
         paymentMode: 'CREDIT',
         vehicleNumber,
         driverPhone,
@@ -828,7 +928,7 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
           onClick={closeModal}
         >
           <div 
-            className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl max-w-3xl w-full p-5 sm:p-7 border border-slate-100 h-[88vh] sm:h-[90vh] max-h-[90vh] flex flex-col animate-in slide-in-from-bottom-8 sm:slide-in-from-bottom-4 duration-200"
+            className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl max-w-3xl lg:max-w-4xl w-full p-5 sm:p-7 border border-slate-100 h-[88vh] sm:h-[90vh] max-h-[90vh] flex flex-col animate-in slide-in-from-bottom-8 sm:slide-in-from-bottom-4 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             
@@ -886,19 +986,41 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
               </div>
 
               {/* DYNAMIC COMMODITY ROWS BUILDER WITH EDITABLE SALE VALUE */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
+              <div className="space-y-2.5">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <label className="text-xs font-extrabold uppercase tracking-wider text-slate-700">
                     {isTe ? 'సరుకుల వివరాలు & అమ్మకపు ధరలు' : 'Order Items & Sale Rates'}
                   </label>
-                  <button
-                    type="button"
-                    onClick={handleAddItemRow}
-                    className="inline-flex items-center gap-1.5 text-xs font-bold text-orange-600 hover:text-orange-700 bg-orange-50 hover:bg-orange-100 px-3 py-1.5 rounded-full border border-orange-200 transition-colors"
-                  >
-                    <Plus className="w-3.5 h-3.5 stroke-[3]" />
-                    <span>{isTe ? 'సరుకు చేర్చండి' : 'Add Item'}</span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {hasDuplicateItemTypes && (
+                      <button
+                        type="button"
+                        onClick={handleCombineDuplicateItems}
+                        className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-700 hover:text-amber-800 bg-amber-50 hover:bg-amber-100 px-3 py-1.5 rounded-full border border-amber-300 transition-colors shadow-sm"
+                        title={isTe ? 'ఒకే రకమైన సరుకుల పరిమాణాలను కలపండి' : 'Combine quantities of identical item rows'}
+                      >
+                        <Layers className="w-3.5 h-3.5 text-amber-600" />
+                        <span>{isTe ? 'డూప్లికేట్స్ కలపండి' : 'Combine Duplicates'}</span>
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleAddItemRow}
+                      className="inline-flex items-center gap-1.5 text-xs font-bold text-orange-600 hover:text-orange-700 bg-orange-50 hover:bg-orange-100 px-3 py-1.5 rounded-full border border-orange-200 transition-colors"
+                    >
+                      <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                      <span>{isTe ? 'సరుకు చేర్చండి' : 'Add Item'}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Column Headers for desktop view */}
+                <div className="hidden md:grid grid-cols-12 gap-2.5 px-3.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                  <div className="col-span-4">{isTe ? 'సరుకు ఎంపిక' : 'Commodity'}</div>
+                  <div className="col-span-2">{isTe ? 'యూనిట్ రకం' : 'Unit Type'}</div>
+                  <div className="col-span-2 text-center">{isTe ? 'పరిమాణం (Qty)' : 'Quantity (Qty)'}</div>
+                  <div className="col-span-2 text-center">{isTe ? 'ధర (Rate ₹)' : 'Rate (₹)'}</div>
+                  <div className="col-span-2 text-right pr-6">{isTe ? 'మొత్తం (Total)' : 'Total (₹)'}</div>
                 </div>
 
                 <div className="space-y-2.5">
@@ -908,15 +1030,15 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
                       className="p-3 sm:p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-center"
                     >
                       {/* Commodity Dropdown */}
-                      <div className="sm:col-span-12 md:col-span-5">
-                        <label className="block text-[11px] font-bold text-slate-600 mb-1 sm:hidden">
+                      <div className="sm:col-span-12 md:col-span-4 min-w-0">
+                        <label className="block text-[11px] font-bold text-slate-600 mb-1 md:hidden">
                           {isTe ? 'సరుకు ఎంపిక' : 'Commodity'}
                         </label>
                         <select
                           required
                           value={row.productId}
                           onChange={(e) => handleItemChange(idx, 'productId', e.target.value)}
-                          className="w-full text-xs font-bold border border-slate-300 rounded-xl p-2.5 bg-white outline-none focus:border-orange-500 min-h-[42px]"
+                          className="w-full text-xs font-bold border border-slate-300 rounded-xl p-2.5 bg-white outline-none focus:border-orange-500 min-h-[42px] truncate"
                         >
                           <option value="">{isTe ? 'సరుకును ఎంచుకోండి...' : 'Select Commodity...'}</option>
                           {inventory.map((p) => {
@@ -931,8 +1053,8 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
                       </div>
 
                       {/* Unit Type */}
-                      <div className="sm:col-span-4 md:col-span-2">
-                        <label className="block text-[11px] font-bold text-slate-600 mb-1 sm:hidden">
+                      <div className="sm:col-span-4 md:col-span-2 min-w-0">
+                        <label className="block text-[11px] font-bold text-slate-600 mb-1 md:hidden">
                           {isTe ? 'యూనిట్ రకం' : 'Unit Type'}
                         </label>
                         <select
@@ -947,8 +1069,8 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
                       </div>
 
                       {/* Quantity (Zero auto-fill) */}
-                      <div className="sm:col-span-4 md:col-span-2">
-                        <label className="block text-[11px] font-bold text-slate-600 mb-1 sm:hidden">
+                      <div className="sm:col-span-4 md:col-span-2 min-w-0">
+                        <label className="block text-[11px] font-bold text-slate-600 mb-1 md:hidden">
                           {isTe ? 'పరిమాణం (Qty)' : 'Quantity (Qty)'}
                         </label>
                         <input
@@ -958,13 +1080,13 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
                           placeholder={isTe ? 'పరిమాణం (Qty)' : 'Quantity (Qty)'}
                           value={row.quantity}
                           onChange={(e) => handleItemChange(idx, 'quantity', e.target.value === '' ? '' : Number(e.target.value))}
-                          className="w-full text-xs font-bold border border-slate-300 rounded-xl p-2.5 bg-white outline-none focus:border-orange-500 text-center min-h-[42px]"
+                          className="w-full text-xs font-bold border border-slate-300 rounded-xl p-2.5 bg-white outline-none focus:border-orange-500 text-center min-h-[42px] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         />
                       </div>
 
                       {/* EDITABLE SALE VALUE / UNIT RATE */}
-                      <div className="sm:col-span-4 md:col-span-2">
-                        <label className="block text-[11px] font-bold text-slate-600 mb-1 sm:hidden">
+                      <div className="sm:col-span-4 md:col-span-2 min-w-0">
+                        <label className="block text-[11px] font-bold text-slate-600 mb-1 md:hidden">
                           {isTe ? 'ధర (Rate ₹)' : 'Rate (₹)'}
                         </label>
                         <input
@@ -974,15 +1096,18 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
                           placeholder={isTe ? 'ధర (రూ.)' : 'Rate (₹)'}
                           value={row.unitPrice}
                           onChange={(e) => handleItemChange(idx, 'unitPrice', e.target.value === '' ? '' : Number(e.target.value))}
-                          className="w-full text-xs font-bold border border-slate-300 rounded-xl p-2.5 bg-white outline-none focus:border-orange-500 text-center font-mono min-h-[42px]"
+                          className="w-full text-xs font-bold border border-slate-300 rounded-xl p-2.5 bg-white outline-none focus:border-orange-500 text-center font-mono min-h-[42px] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         />
                       </div>
 
                       {/* Rate / Total Preview & Delete */}
-                      <div className="sm:col-span-12 md:col-span-1 flex items-center justify-between sm:justify-end gap-1.5 pt-1 sm:pt-0">
-                        <div className="text-right">
+                      <div className="sm:col-span-12 md:col-span-2 flex items-center justify-between md:justify-end gap-2 pt-1 md:pt-0 min-w-0">
+                        <div className="text-right min-w-0 flex-1 md:flex-initial">
                           <span className="text-[10px] text-slate-400 block md:hidden">{isTe ? 'మొత్తం:' : 'Total:'}</span>
-                          <span className="text-xs font-mono font-black text-slate-900 block">
+                          <span 
+                            className="text-xs sm:text-sm font-mono font-black text-slate-900 block truncate"
+                            title={`₹${((Number(row.quantity) || 0) * (Number(row.unitPrice) || 0)).toLocaleString()}`}
+                          >
                             ₹{((Number(row.quantity) || 0) * (Number(row.unitPrice) || 0)).toLocaleString()}
                           </span>
                         </div>
