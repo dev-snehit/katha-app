@@ -6,11 +6,15 @@ export const te: Translations = {
   nav: {
     dashboard: "డాష్‌బోర్డ్",
     pendingOrders: "డెలివరీ చేయాల్సిన ఆర్డర్లు",
+    ordersShort: "ఆర్డర్లు",
     stock: "స్టాక్ రిజిస్ట్రీ",
+    stockShort: "స్టాక్",
     customers: "కస్టమర్లు",
     suppliers: "సప్లయర్లు",
     exportCenter: "రిపోర్టులు & ఎగుమతులు",
+    reportsShort: "రిపోర్టులు",
     adminRequests: "యూజర్ అనుమతులు",
+    adminShort: "అడ్మిన్",
     login: "లాగిన్",
     logout: "లాగౌట్",
     register: "ఖాతా తెరవండి"

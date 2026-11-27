@@ -4,11 +4,15 @@ export const en = {
   nav: {
     dashboard: "Dashboard",
     pendingOrders: "Orders Yet to Deliver",
+    ordersShort: "Orders",
     stock: "Stock Registry",
+    stockShort: "Stock",
     customers: "Customers",
     suppliers: "Suppliers",
     exportCenter: "Export & Reports",
+    reportsShort: "Reports",
     adminRequests: "User Requests",
+    adminShort: "Admin",
     login: "Login",
     logout: "Logout",
     register: "Sign Up"

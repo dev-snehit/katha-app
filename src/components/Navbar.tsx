@@ -66,10 +66,65 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
     return name.slice(0, 2).toUpperCase();
   };
 
+  // Canonical navigation tabs with responsive concise labels and full titles for accessibility
+  const navItems = [
+    {
+      id: 'dashboard',
+      pageKey: 'dashboard_page',
+      label: t.nav.dashboard,
+      fullTitle: language === 'TE' ? 'వ్యాపార డాష్‌బోర్డ్ & ముఖ్య సూచికలు' : 'Business Performance Dashboard & KPIs',
+      icon: LayoutDashboard,
+    },
+    {
+      id: 'orders',
+      pageKey: 'orders_page',
+      label: t.nav.ordersShort,
+      fullTitle: t.nav.pendingOrders,
+      icon: Truck,
+      badge: pendingCount,
+    },
+    {
+      id: 'stock',
+      pageKey: 'stock_page',
+      label: t.nav.stockShort,
+      fullTitle: t.nav.stock,
+      icon: Package,
+    },
+    {
+      id: 'customers',
+      pageKey: 'customers_page',
+      label: t.nav.customers,
+      fullTitle: language === 'TE' ? 'కస్టమర్ల ఖాతా & చిరునామాలు' : 'Customers Directory & Khata',
+      icon: Users,
+    },
+    {
+      id: 'suppliers',
+      pageKey: 'suppliers_page',
+      label: t.nav.suppliers,
+      fullTitle: language === 'TE' ? 'సప్లయర్లు & మిల్లు ఖాతాలు' : 'Suppliers Directory & Mill Ledgers',
+      icon: Building2,
+    },
+    {
+      id: 'exports',
+      pageKey: 'reports_page',
+      label: t.nav.reportsShort,
+      fullTitle: t.nav.exportCenter,
+      icon: FileSpreadsheet,
+    },
+    {
+      id: 'admin',
+      pageKey: 'user_management_page',
+      label: t.nav.adminShort,
+      fullTitle: t.nav.adminRequests,
+      icon: ShieldCheck,
+      isAdmin: true,
+    },
+  ].filter((item) => hasPageAccess(item.pageKey));
+
   return (
     <>
-      {/* Top Main Navbar */}
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-sm">
+      {/* Top Main Navbar Header */}
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-xs">
         <div className="w-full max-w-[1600px] mx-auto px-2.5 sm:px-4 lg:px-6 xl:px-8">
           <div className="flex items-center justify-between h-14 sm:h-16 gap-1.5 sm:gap-2 xl:gap-3 min-w-0">
             
@@ -92,126 +147,47 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
                   <span className="text-sm sm:text-base xl:text-lg font-black tracking-tight text-slate-900 whitespace-nowrap group-hover:text-slate-700 transition-colors">
                     {language === 'TE' ? 'కాతా' : 'Kaatha'} <span className="text-[#FF5A36]">CRM</span>
                   </span>
-                  <span className="hidden 2xl:inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full bg-orange-50 text-orange-700 border border-orange-200 whitespace-nowrap">
+                  <span className="hidden xl:inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full bg-orange-50 text-orange-700 border border-orange-200 whitespace-nowrap">
                     <Sparkles className="w-2.5 h-2.5" /> Mandi OS
                   </span>
                 </div>
-                <span className="hidden 2xl:block text-[10px] xl:text-[11px] text-slate-400 font-medium whitespace-nowrap truncate max-w-[260px] leading-tight">
+                <span className="hidden min-[1680px]:block text-[10px] xl:text-[11px] text-slate-400 font-medium whitespace-nowrap truncate max-w-[260px] leading-tight">
                   {t.tagline}
                 </span>
               </div>
             </button>
 
-            {/* Desktop Pill Navigation */}
-            <nav className="hidden lg:flex items-center p-1 bg-slate-100/90 rounded-full border border-slate-200/70 space-x-0.5 xl:space-x-1 shrink min-w-0 overflow-x-auto no-scrollbar">
-              {hasPageAccess('dashboard_page') && (
-                <button
-                  onClick={() => setActiveTab('dashboard')}
-                  className={`relative inline-flex items-center gap-1.5 px-2 xl:px-2.5 2xl:px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
-                    activeTab === 'dashboard'
-                      ? 'bg-slate-900 text-white shadow-sm'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
-                  }`}
-                >
-                  <LayoutDashboard className="w-3.5 h-3.5 shrink-0" />
-                  <span>{language === 'TE' ? 'డాష్‌బోర్డ్' : 'Dashboard'}</span>
-                </button>
-              )}
-
-              {hasPageAccess('orders_page') && (
-                <button
-                  onClick={() => setActiveTab('orders')}
-                  className={`relative inline-flex items-center gap-1.5 px-2 xl:px-2.5 2xl:px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
-                    activeTab === 'orders'
-                      ? 'bg-slate-900 text-white shadow-sm'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
-                  }`}
-                >
-                  <Truck className="w-3.5 h-3.5 shrink-0" />
-                  <span className="hidden 2xl:inline">{t.nav.pendingOrders}</span>
-                  <span className="2xl:hidden">{language === 'TE' ? 'ఆర్డర్లు' : 'Orders'}</span>
-                  {pendingCount > 0 && (
-                    <span className="px-1.5 py-0.2 rounded-full text-[10px] font-extrabold bg-[#FF5A36] text-white">
-                      {pendingCount}
-                    </span>
-                  )}
-                </button>
-              )}
-
-              {hasPageAccess('stock_page') && (
-                <button
-                  onClick={() => setActiveTab('stock')}
-                  className={`inline-flex items-center gap-1.5 px-2 xl:px-2.5 2xl:px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
-                    activeTab === 'stock'
-                      ? 'bg-slate-900 text-white shadow-sm'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
-                  }`}
-                >
-                  <Package className="w-3.5 h-3.5 shrink-0" />
-                  <span className="hidden 2xl:inline">{t.nav.stock}</span>
-                  <span className="2xl:hidden">{language === 'TE' ? 'స్టాక్' : 'Stock'}</span>
-                </button>
-              )}
-
-              {hasPageAccess('customers_page') && (
-                <button
-                  onClick={() => setActiveTab('customers')}
-                  className={`inline-flex items-center gap-1.5 px-2 xl:px-2.5 2xl:px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
-                    activeTab === 'customers'
-                      ? 'bg-slate-900 text-white shadow-sm'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
-                  }`}
-                >
-                  <Users className="w-3.5 h-3.5 shrink-0" />
-                  <span className="hidden 2xl:inline">{t.nav.customers}</span>
-                  <span className="2xl:hidden">{language === 'TE' ? 'కస్టమర్లు' : 'Clients'}</span>
-                </button>
-              )}
-
-              {hasPageAccess('suppliers_page') && (
-                <button
-                  onClick={() => setActiveTab('suppliers')}
-                  className={`inline-flex items-center gap-1.5 px-2 xl:px-2.5 2xl:px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
-                    activeTab === 'suppliers'
-                      ? 'bg-slate-900 text-white shadow-sm'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
-                  }`}
-                >
-                  <Building2 className="w-3.5 h-3.5 shrink-0" />
-                  <span className="hidden 2xl:inline">{t.nav.suppliers}</span>
-                  <span className="2xl:hidden">{language === 'TE' ? 'మిల్లులు' : 'Mills'}</span>
-                </button>
-              )}
-
-              {hasPageAccess('reports_page') && (
-                <button
-                  onClick={() => setActiveTab('exports')}
-                  className={`inline-flex items-center gap-1.5 px-2 xl:px-2.5 2xl:px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
-                    activeTab === 'exports'
-                      ? 'bg-slate-900 text-white shadow-sm'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
-                  }`}
-                >
-                  <FileSpreadsheet className="w-3.5 h-3.5 shrink-0" />
-                  <span className="hidden 2xl:inline">{t.nav.exportCenter}</span>
-                  <span className="2xl:hidden">{language === 'TE' ? 'రిపోర్టులు' : 'Reports'}</span>
-                </button>
-              )}
-
-              {hasPageAccess('user_management_page') && (
-                <button
-                  onClick={() => setActiveTab('admin')}
-                  className={`inline-flex items-center gap-1.5 px-2 xl:px-2.5 2xl:px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
-                    activeTab === 'admin'
-                      ? 'bg-[#FF5A36] text-white shadow-sm'
-                      : 'text-orange-700 hover:bg-orange-50'
-                  }`}
-                >
-                  <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
-                  <span className="hidden 2xl:inline">{t.nav.adminRequests}</span>
-                  <span className="2xl:hidden">{language === 'TE' ? 'అభ్యర్థనలు' : 'Requests'}</span>
-                </button>
-              )}
+            {/* Desktop Pill Navigation (Visible on lg: 1024px+ displays with all available options) */}
+            <nav className="hidden lg:flex items-center p-1 bg-slate-100/90 rounded-full border border-slate-200/80 space-x-0.5 xl:space-x-1 shrink-0">
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = activeTab === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => setActiveTab(item.id)}
+                    title={item.fullTitle}
+                    aria-label={item.fullTitle}
+                    className={`relative inline-flex items-center gap-1.5 px-2.5 xl:px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all shrink-0 ${
+                      isActive
+                        ? item.isAdmin
+                          ? 'bg-[#FF5A36] text-white shadow-sm'
+                          : 'bg-slate-900 text-white shadow-sm'
+                        : item.isAdmin
+                        ? 'text-orange-700 hover:bg-orange-50'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-white/70'
+                    }`}
+                  >
+                    <Icon className="w-3.5 h-3.5 shrink-0" />
+                    <span>{item.label}</span>
+                    {typeof item.badge === 'number' && item.badge > 0 && (
+                      <span className="px-1.5 py-0.2 rounded-full text-[10px] font-extrabold bg-[#FF5A36] text-white">
+                        {item.badge}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </nav>
 
             {/* Right Controls: Database Sync Pill, Settings, Language, User Profile & Sign Out */}
@@ -248,13 +224,13 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
                 ) : (
                   <RefreshCw className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                 )}
-                <span className="hidden 2xl:inline text-[11px] whitespace-nowrap">
+                <span className="hidden min-[1440px]:inline text-[11px] whitespace-nowrap">
                   {syncStatus === 'SYNCED' ? (language === 'TE' ? 'డేటాబేస్ కనెక్ట్ అయింది' : 'Database Connected') :
                    syncStatus === 'SYNCING' || isManualSyncing ? (language === 'TE' ? 'సింక్ అవుతోంది...' : 'Syncing...') :
                    syncStatus === 'ERROR' ? (language === 'TE' ? 'రీకనెక్ట్ చేస్తోంది...' : 'Reconnecting...') : 
                    (language === 'TE' ? 'డేటాబేస్ కనెక్ట్' : 'Connect Database')}
                 </span>
-                <span className="hidden xl:inline 2xl:hidden text-[11px] whitespace-nowrap">
+                <span className="hidden sm:inline min-[1440px]:hidden text-[11px] whitespace-nowrap">
                   {syncStatus === 'SYNCED' ? (language === 'TE' ? 'కనెక్ట్' : 'Connected') :
                    syncStatus === 'SYNCING' || isManualSyncing ? (language === 'TE' ? 'సింక్...' : 'Syncing...') :
                    syncStatus === 'ERROR' ? (language === 'TE' ? 'ఎర్రర్' : 'Error') : 
@@ -262,10 +238,10 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
                 </span>
               </button>
 
-              {/* Settings Button - Located reliably with utilities so it never flows out of the view */}
+              {/* Settings Button */}
               <button
                 onClick={onOpenSettings}
-                className="p-1.5 sm:p-2 text-slate-600 hover:text-slate-900 bg-slate-100/90 hover:bg-slate-200 border border-slate-200/80 rounded-full transition-colors shrink-0 shadow-xs"
+                className="p-1.5 sm:p-2 text-slate-600 hover:text-slate-900 bg-slate-100/90 hover:bg-slate-200 border border-slate-200/80 rounded-full transition-colors shrink-0 shadow-2xs"
                 title={language === 'TE' ? 'డేటాబేస్ & సర్వర్ సెట్టింగ్స్' : 'Backend Database Connection Settings'}
                 aria-label="Settings"
               >
@@ -313,100 +289,70 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
             </div>
           </div>
         </div>
+
+        {/* Responsive Top Navigation Strip for Smaller Screens (< lg: tablets and mobile) */}
+        <div className="lg:hidden border-t border-slate-200/80 bg-slate-50/90 backdrop-blur-md px-2 sm:px-4 py-1.5">
+          <div className="flex items-center justify-start sm:justify-center gap-1 sm:gap-1.5 overflow-x-auto no-scrollbar scroll-smooth">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = activeTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveTab(item.id)}
+                  title={item.fullTitle}
+                  aria-label={item.fullTitle}
+                  className={`relative inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full text-[11px] sm:text-xs font-bold whitespace-nowrap transition-all shrink-0 ${
+                    isActive
+                      ? item.isAdmin
+                        ? 'bg-[#FF5A36] text-white shadow-sm'
+                        : 'bg-slate-900 text-white shadow-sm'
+                      : item.isAdmin
+                      ? 'bg-orange-50 text-orange-700 hover:bg-orange-100 border border-orange-200/70'
+                      : 'bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200/80 shadow-2xs'
+                  }`}
+                >
+                  <Icon className="w-3.5 h-3.5 shrink-0" />
+                  <span>{item.label}</span>
+                  {typeof item.badge === 'number' && item.badge > 0 && (
+                    <span className="px-1.5 py-0.2 rounded-full text-[9px] font-black bg-[#FF5A36] text-white">
+                      {item.badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </header>
 
-      {/* MOBILE BOTTOM NAVIGATION BAR */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-slate-200 px-2 py-1.5 flex items-center justify-around shadow-lg">
-        {hasPageAccess('dashboard_page') && (
-          <button
-            onClick={() => setActiveTab('dashboard')}
-            className={`flex flex-col items-center gap-0.5 py-1 px-2.5 rounded-xl text-[10px] font-bold transition-colors ${
-              activeTab === 'dashboard' ? 'text-[#FF5A36]' : 'text-slate-500'
-            }`}
-          >
-            <LayoutDashboard className="w-5 h-5" />
-            <span>{language === 'TE' ? 'డాష్‌బోర్డ్' : 'Dashboard'}</span>
-          </button>
-        )}
-
-        {hasPageAccess('orders_page') && (
-          <button
-            onClick={() => setActiveTab('orders')}
-            className={`flex flex-col items-center gap-0.5 py-1 px-2.5 rounded-xl text-[10px] font-bold transition-colors ${
-              activeTab === 'orders' ? 'text-[#FF5A36]' : 'text-slate-500'
-            }`}
-          >
-            <div className="relative">
-              <Truck className="w-5 h-5" />
-              {pendingCount > 0 && (
-                <span className="absolute -top-1 -right-2 px-1.5 py-0.2 rounded-full text-[9px] font-extrabold bg-[#FF5A36] text-white">
-                  {pendingCount}
-                </span>
-              )}
-            </div>
-            <span>{language === 'TE' ? 'ఆర్డర్లు' : 'Orders'}</span>
-          </button>
-        )}
-
-        {hasPageAccess('stock_page') && (
-          <button
-            onClick={() => setActiveTab('stock')}
-            className={`flex flex-col items-center gap-0.5 py-1 px-2.5 rounded-xl text-[10px] font-bold transition-colors ${
-              activeTab === 'stock' ? 'text-[#FF5A36]' : 'text-slate-500'
-            }`}
-          >
-            <Package className="w-5 h-5" />
-            <span>{language === 'TE' ? 'స్టాక్' : 'Stock'}</span>
-          </button>
-        )}
-
-        {hasPageAccess('customers_page') && (
-          <button
-            onClick={() => setActiveTab('customers')}
-            className={`flex flex-col items-center gap-0.5 py-1 px-2.5 rounded-xl text-[10px] font-bold transition-colors ${
-              activeTab === 'customers' ? 'text-[#FF5A36]' : 'text-slate-500'
-            }`}
-          >
-            <Users className="w-5 h-5" />
-            <span>{language === 'TE' ? 'కస్టమర్లు' : 'Clients'}</span>
-          </button>
-        )}
-
-        {hasPageAccess('suppliers_page') && (
-          <button
-            onClick={() => setActiveTab('suppliers')}
-            className={`flex flex-col items-center gap-0.5 py-1 px-2.5 rounded-xl text-[10px] font-bold transition-colors ${
-              activeTab === 'suppliers' ? 'text-[#FF5A36]' : 'text-slate-500'
-            }`}
-          >
-            <Building2 className="w-5 h-5" />
-            <span>{language === 'TE' ? 'మిల్లులు' : 'Mills'}</span>
-          </button>
-        )}
-
-        {hasPageAccess('reports_page') && (
-          <button
-            onClick={() => setActiveTab('exports')}
-            className={`flex flex-col items-center gap-0.5 py-1 px-2.5 rounded-xl text-[10px] font-bold transition-colors ${
-              activeTab === 'exports' ? 'text-[#FF5A36]' : 'text-slate-500'
-            }`}
-          >
-            <FileSpreadsheet className="w-5 h-5" />
-            <span>{language === 'TE' ? 'రిపోర్టులు' : 'Reports'}</span>
-          </button>
-        )}
-
-        {hasPageAccess('user_management_page') && (
-          <button
-            onClick={() => setActiveTab('admin')}
-            className={`flex flex-col items-center gap-0.5 py-1 px-2.5 rounded-xl text-[10px] font-bold transition-colors ${
-              activeTab === 'admin' ? 'text-[#FF5A36]' : 'text-slate-500'
-            }`}
-          >
-            <ShieldCheck className="w-5 h-5" />
-            <span>{language === 'TE' ? 'అడ్మిన్' : 'Admin'}</span>
-          </button>
-        )}
+      {/* MOBILE BOTTOM NAVIGATION BAR (Thumb Reach for Handheld Phones) */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-slate-200 px-1 py-1 flex items-center justify-around shadow-lg">
+        {navItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = activeTab === item.id;
+          return (
+            <button
+              key={item.id}
+              onClick={() => setActiveTab(item.id)}
+              className={`flex flex-col items-center gap-0.5 py-1 px-1.5 rounded-xl text-[9px] sm:text-[10px] font-bold transition-colors shrink-0 ${
+                isActive
+                  ? item.isAdmin ? 'text-[#FF5A36]' : 'text-slate-900 font-black'
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              <div className="relative">
+                <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
+                {typeof item.badge === 'number' && item.badge > 0 && (
+                  <span className="absolute -top-1 -right-2 px-1 py-0.1 rounded-full text-[8px] font-black bg-[#FF5A36] text-white">
+                    {item.badge}
+                  </span>
+                )}
+              </div>
+              <span className="truncate max-w-[50px]">{item.label}</span>
+            </button>
+          );
+        })}
       </div>
 
       {/* Sign Out Confirmation Modal */}
