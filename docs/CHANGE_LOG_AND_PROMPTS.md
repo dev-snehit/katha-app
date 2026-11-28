@@ -199,7 +199,7 @@
   - Updated `docs/SETUP_GUIDE.md`, `docs/MODULES_AND_FLOWCHARTS.md`, and `docs/CHANGE_LOG_AND_PROMPTS.md`.
 - **Files Touched:** `src/config/backend.ts`, `backend/Code.gs`, `.github/workflows/deploy.yml`, `tests/backend/gasHarness.ts`, `tests/authAndSync.test.ts`, `docs/SETUP_GUIDE.md`, `docs/MODULES_AND_FLOWCHARTS.md`, `docs/CHANGE_LOG_AND_PROMPTS.md`
 
-### #28 — Reliability Hardening: Server ID/Version Reconciliation, Locked Backend URL, Walk-In Customer Seed & Bilingual Error Mapping (`pending commit`)
+### #28 — Reliability Hardening: Server ID/Version Reconciliation, Locked Backend URL, Walk-In Customer Seed & Bilingual Error Mapping (`bea9e5c`)
 - **Date:** 2026-11-28
 - **User Prompt / Request:** Harden Kaatha Wholesale against ID/version drift, stale `localStorage` backend URLs, counter-cash FK failures, transient lock/network errors, and silent failures, keeping all tests and docs synchronized.
 - **Changes & Enhancements:**
@@ -210,3 +210,9 @@
   - Updated `src/components/admin/UserRequestsView.tsx` copy for the on-screen credentials card while email delivery is on hold, and added 500ms transient retry in `src/lib/syncService.ts`.
   - Added tests in `tests/authAndSync.test.ts`, `tests/backend/codeGs.test.ts`, and `tests/ui/componentsCore.test.tsx`; updated `docs/SETUP_GUIDE.md`, `docs/MODULES_AND_FLOWCHARTS.md`, and `docs/CHANGE_LOG_AND_PROMPTS.md`.
 - **Files Touched:** `src/contracts/index.ts`, `src/lib/syncService.ts`, `src/store/useAppStore.ts`, `src/components/settings/SettingsModal.tsx`, `src/components/orders/PendingOrdersView.tsx`, `src/components/admin/UserRequestsView.tsx`, `backend/Code.gs`, `tests/authAndSync.test.ts`, `tests/backend/codeGs.test.ts`, `tests/ui/componentsCore.test.tsx`, `docs/SETUP_GUIDE.md`, `docs/MODULES_AND_FLOWCHARTS.md`, `docs/CHANGE_LOG_AND_PROMPTS.md`
+
+### #29 — Migration, Replication & Secret Rotation Reference Guide (`docs-only`)
+- **Date:** 2026-11-28
+- **User Prompt / Request:** Add a detailed step-by-step reference guide covering moving to a new Google account/Sheet, replicating to a new GitHub & Google account, and safely rotating all secrets at \$0/month with zero hardcoded credentials.
+- **Changes & Enhancements:** Created `docs/MIGRATION_AND_ROTATION_GUIDE.md` with Playbooks A, B, and C, a Secrets Reference Table, and 1-command rollback steps, and linked it in `docs/README.md`. Zero application code modified.
+- **Files Touched:** `docs/MIGRATION_AND_ROTATION_GUIDE.md`, `docs/README.md`, `docs/CHANGE_LOG_AND_PROMPTS.md`

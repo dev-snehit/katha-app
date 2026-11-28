@@ -16,6 +16,7 @@
 | [Implementation Plan](./IMPLEMENTATION_PLAN.md) | Original master architecture and system design plan |
 | [Requirements Specification](./REQUIREMENTS_SPEC.md) | Core business and functional requirements |
 | [Setup Guide](./SETUP_GUIDE.md) | Deployment and backend webhook setup instructions |
+| [Migration, Replication & Secret Rotation Guide](./MIGRATION_AND_ROTATION_GUIDE.md) | Step-by-step playbooks to move Google accounts, replicate to a new GitHub/Google account, or rotate all secrets safely |
 | [Documentation Sync Rule](../.agents/rules/documentation-sync.md) | Automated workspace rule enforcing documentation & changelog updates on every change |
 
 ---
