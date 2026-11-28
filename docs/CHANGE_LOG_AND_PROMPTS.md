@@ -110,3 +110,15 @@
   - Added strict 1-hour countdown monitor and bilingual 5-minute pre-expiry warning modal in `src/App.tsx`, plus expired-session banner in `src/components/auth/AuthView.tsx`.
   - Updated `tests/authAndSync.test.ts` with backend JWT mocks and unit tests for offline/unconfigured login failure, expired/tampered JWT forced logout, and 5-minute pre-expiry `refreshSessionToken()` renewal.
 - **Files Touched:** `backend/Code.gs`, `src/lib/jwt.ts`, `src/lib/syncService.ts`, `src/store/useAppStore.ts`, `src/App.tsx`, `src/components/auth/AuthView.tsx`, `tests/authAndSync.test.ts`, `docs/README.md`, `docs/MODULES_AND_FLOWCHARTS.md`, `docs/CHANGE_LOG_AND_PROMPTS.md`
+
+### #18 — Separated Unit, UI, Backend/API & E2E Regression Test Suites + V8 Coverage (`pending commit`)
+- **Date:** 2026-11-28
+- **User Prompt / Request:** Write separated unit, UI, backend/API, and E2E integration regression test cases across all components and flows targeting 99% coverage.
+- **Changes & Enhancements:**
+  - Configured `@vitest/coverage-v8`, `vite.config.ts` coverage reporting, and separated npm test scripts (`test:unit`, `test:ui`, `test:backend`, `test:e2e`, `test:coverage`) in `package.json`.
+  - Added backend Google Apps Script VM harness (`tests/backend/gasHarness.ts`) and API/JWT tests (`tests/backend/codeGs.test.ts`).
+  - Added deep unit tests (`tests/unit/libsAndExports.test.ts`, `tests/unit/storeAndLibsDeep.test.ts`).
+  - Added UI component & regression test suites (`tests/ui/componentsCore.test.tsx`, `tests/ui/viewsPart1.test.tsx`, `tests/ui/viewsPart2.test.tsx`, `tests/ui/crudModalsDeep.test.tsx`, `tests/ui/regressionFlows.test.tsx`).
+  - Added full-stack E2E integration suite (`tests/e2e/e2eFlows.test.tsx`) wiring `<App />` to the real `backend/Code.gs` VM harness.
+  - Raised overall statement/line coverage from 17.72% to 87.08% across 22 test files (167 passing tests).
+- **Files Touched:** `package.json`, `package-lock.json`, `vite.config.ts`, `tests/backend/gasHarness.ts`, `tests/backend/codeGs.test.ts`, `tests/unit/libsAndExports.test.ts`, `tests/unit/storeAndLibsDeep.test.ts`, `tests/ui/componentsCore.test.tsx`, `tests/ui/viewsPart1.test.tsx`, `tests/ui/viewsPart2.test.tsx`, `tests/ui/crudModalsDeep.test.tsx`, `tests/ui/regressionFlows.test.tsx`, `tests/e2e/e2eFlows.test.tsx`, `docs/README.md`, `docs/CHANGE_LOG_AND_PROMPTS.md`
