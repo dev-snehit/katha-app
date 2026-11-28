@@ -736,27 +736,32 @@ function setupDatabase() {
 
   getIndexSheet(ss);
 
-  // Pre-seed Master Admin if Users sheet is empty
+  // Pre-seed Master Admin if Users sheet is empty and ScriptProperties are configured
   var userSheet = ss.getSheetByName('Users');
   if (userSheet && userSheet.getLastRow() === 1) {
-    var now = new Date().toISOString();
-    userSheet.appendRow([
-      '00000000-0000-0000-0000-000000000001',
-      'Snehit Tadepalli',
-      'dev.snehit@gmail.com',
-      '9999999999',
-      'ADMIN',
-      'APPROVED',
-      now,
-      '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918',
-      '',
-      '',
-      false,
-      1,
-      now,
-      now,
-      false
-    ]);
+    var props = PropertiesService.getScriptProperties();
+    var initEmail = (props.getProperty('INITIAL_ADMIN_EMAIL') || '').toString().trim().toLowerCase();
+    var initHash = (props.getProperty('INITIAL_ADMIN_PASSWORD_HASH') || '').toString().trim();
+    if (initEmail && initHash) {
+      var now = new Date().toISOString();
+      userSheet.appendRow([
+        '00000000-0000-0000-0000-000000000001',
+        props.getProperty('INITIAL_ADMIN_NAME') || 'Administrator',
+        initEmail,
+        props.getProperty('INITIAL_ADMIN_PHONE') || '9999999999',
+        'ADMIN',
+        'APPROVED',
+        now,
+        initHash,
+        '',
+        '',
+        false,
+        1,
+        now,
+        now,
+        false
+      ]);
+    }
   }
 
   // Ensure JWT signing secret is initialized in ScriptProperties
@@ -1131,10 +1136,10 @@ function doPost(e) {
         });
       }
 
-      var rootAdminHash = '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918';
-      var isRootAdmin = u.email.toLowerCase() === 'dev.snehit@gmail.com' || u.email.toLowerCase() === 'dev.snehit@gmail';
-      var storedHash = u.passwordHash || (isRootAdmin ? rootAdminHash : '');
-      if (!storedHash || storedHash !== passwordHash) {
+      if (!u.passwordHash) {
+        return createResponse({ status: 'error', code: ERROR_CODES.UNAUTHORIZED, message: 'Account password is not initialized in database. Please reset your password.' });
+      }
+      if (u.passwordHash !== passwordHash) {
         return createResponse({ status: 'error', code: 'INVALID_CREDENTIALS', message: 'Invalid password. Please verify and try again.' });
       }
 

@@ -41,7 +41,19 @@ jobs:
             echo "$CHANGED" | grep -qE '^docs/CHANGE_LOG_AND_PROMPTS\.md$' || (echo "Missing docs/CHANGE_LOG_AND_PROMPTS.md update" && exit 1)
           fi
 
+      - name: Verify required build secrets
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GAS_WEB_APP_URL: ${{ secrets.GAS_WEB_APP_URL }}
+        run: |
+          if [ -z "$GAS_WEB_APP_URL" ]; then
+            echo "::error::Missing required repository secret GAS_WEB_APP_URL."
+            exit 1
+          fi
+
       - name: Run full hard validation (typecheck, lint, format, docs, build, tests)
+        env:
+          VITE_GOOGLE_APPS_SCRIPT_URL: ${{ secrets.GAS_WEB_APP_URL }}
         run: npm run validate
 
       - name: Setup Pages
@@ -72,6 +84,7 @@ jobs:
           CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
           GAS_SCRIPT_ID: ${{ secrets.GAS_SCRIPT_ID }}
           GAS_DEPLOYMENT_ID: ${{ secrets.GAS_DEPLOYMENT_ID }}
+          GAS_WEB_APP_URL: ${{ secrets.GAS_WEB_APP_URL }}
         run: |
           CHANGED=$(git diff --name-only HEAD~1 HEAD || true)
           if ! echo "$CHANGED" | grep -qE '^backend/'; then
@@ -79,9 +92,9 @@ jobs:
             exit 0
           fi
 
-          if [ -z "$CLASPRC_JSON" ] || [ -z "$GAS_SCRIPT_ID" ] || [ -z "$GAS_DEPLOYMENT_ID" ]; then
-            echo "::notice::CLASPRC_JSON, GAS_SCRIPT_ID, or GAS_DEPLOYMENT_ID secret not set; skipping automatic Apps Script deployment."
-            exit 0
+          if [ -z "$CLASPRC_JSON" ] || [ -z "$GAS_SCRIPT_ID" ] || [ -z "$GAS_DEPLOYMENT_ID" ] || [ -z "$GAS_WEB_APP_URL" ]; then
+            echo "::error::Missing one or more required secrets: CLASPRC_JSON, GAS_SCRIPT_ID, GAS_DEPLOYMENT_ID, GAS_WEB_APP_URL."
+            exit 1
           fi
 
           printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
@@ -90,12 +103,9 @@ jobs:
           npx --yes @google/clasp push --force
           npx --yes @google/clasp deploy -i "$GAS_DEPLOYMENT_ID" -d "CI ${GITHUB_SHA::7}"
 
-          WEB_APP_URL=$(node -e "const fs=require('fs'); const txt=fs.readFileSync('src/config/backend.ts','utf8'); const m=txt.match(/https:\/\/script\.google\.com\/macros\/s\/[^\"'\s]+/); if(m) console.log(m[0]);")
-          if [ -n "$WEB_APP_URL" ]; then
-            echo "Running post-deploy health check on $WEB_APP_URL?action=ping"
-            curl -fsSL "${WEB_APP_URL}?action=ping" | grep -q '"status":"ok"'
-            echo "Apps Script health check passed!"
-          fi
+          echo "Running post-deploy health check on ${GAS_WEB_APP_URL}?action=ping"
+          curl -fsSL "${GAS_WEB_APP_URL}?action=ping" | grep -q '"status":"ok"'
+          echo "Apps Script health check passed!"
 
   deploy:
     environment:

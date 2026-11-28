@@ -180,7 +180,7 @@
   - Updated `docs/MODULES_AND_FLOWCHARTS.md` and `docs/CHANGE_LOG_AND_PROMPTS.md`.
 - **Files Touched:** `src/config/backend.ts`, `docs/MODULES_AND_FLOWCHARTS.md`, `docs/CHANGE_LOG_AND_PROMPTS.md`
 
-### #26 — Fixed Deployment ID CI/CD Automation (`clasp` + GitHub Pages) (`pending commit`)
+### #26 — Fixed Deployment ID CI/CD Automation (`clasp` + GitHub Pages) (`96560d0`)
 - **Date:** 2026-11-28
 - **User Prompt / Request:** Implement Fixed Deployment ID automation for Google Apps Script (`clasp`) + GitHub Pages CI/CD with `backend/appsscript.json`, `backend/.clasp.json`, `.gitignore` exclusions, `deploy-backend` job with post-deploy `?action=ping` health check, and synchronized documentation.
 - **Changes & Enhancements:**
@@ -188,3 +188,13 @@
   - Added `deploy-backend` job in `.github/workflows/deploy.yml` gated on `build` (`npm run validate`), `backend/` diff, and `CLASPRC_JSON`/`GAS_SCRIPT_ID`/`GAS_DEPLOYMENT_ID` secrets, running `clasp push --force`, `clasp deploy -i "$GAS_DEPLOYMENT_ID"`, and a `curl ?action=ping` health check before GitHub Pages `deploy`.
   - Documented one-time `clasp` + GCP OAuth setup, GitHub Secrets, and 1-command rollback in `docs/SETUP_GUIDE.md`; added Section 10 + Mermaid CI/CD flowchart in `docs/MODULES_AND_FLOWCHARTS.md`; updated `docs/README.md` and `docs/CHANGE_LOG_AND_PROMPTS.md`.
 - **Files Touched:** `backend/appsscript.json`, `backend/.clasp.json`, `.gitignore`, `package.json`, `.github/workflows/deploy.yml`, `docs/SETUP_GUIDE.md`, `docs/MODULES_AND_FLOWCHARTS.md`, `docs/README.md`, `docs/CHANGE_LOG_AND_PROMPTS.md`
+
+### #27 — Remove Hardcoded Backend URL & Password Hash Fallbacks; Inject via Repository Secrets (`pending commit`)
+- **Date:** 2026-11-28
+- **User Prompt / Request:** Move any sensitive configuration or secrets out of the source repository into GitHub Repository Secrets with zero fallbacks and fail-fast error handling.
+- **Changes & Enhancements:**
+  - Removed the hardcoded Web App URL fallback from `src/config/backend.ts` and added `getRequiredServerUrl()` to throw a clear error when `VITE_GOOGLE_APPS_SCRIPT_URL` is unconfigured.
+  - Updated `.github/workflows/deploy.yml` to require `GAS_WEB_APP_URL` (plus `CLASPRC_JSON`, `GAS_SCRIPT_ID`, `GAS_DEPLOYMENT_ID` on backend deploys) and inject `VITE_GOOGLE_APPS_SCRIPT_URL: ${{ secrets.GAS_WEB_APP_URL }}` during `npm run validate` / build.
+  - Removed the hardcoded `rootAdminHash` fallback and hardcoded admin credentials from `backend/Code.gs`, reading `INITIAL_ADMIN_EMAIL` / `INITIAL_ADMIN_PASSWORD_HASH` from `PropertiesService.getScriptProperties()` (and seeding them in `tests/backend/gasHarness.ts`).
+  - Updated `docs/SETUP_GUIDE.md`, `docs/MODULES_AND_FLOWCHARTS.md`, and `docs/CHANGE_LOG_AND_PROMPTS.md`.
+- **Files Touched:** `src/config/backend.ts`, `backend/Code.gs`, `.github/workflows/deploy.yml`, `tests/backend/gasHarness.ts`, `tests/authAndSync.test.ts`, `docs/SETUP_GUIDE.md`, `docs/MODULES_AND_FLOWCHARTS.md`, `docs/CHANGE_LOG_AND_PROMPTS.md`

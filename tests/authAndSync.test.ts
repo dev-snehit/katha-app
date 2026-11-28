@@ -829,4 +829,12 @@ describe('HS256 JWT Session Lifecycle & Pre-Expiry Warning', () => {
     expect(useAppStore.getState().actionLoading).toBeNull();
     expect(useAppStore.getState().toasts.some((t) => t.type === 'error' && t.message.includes('Sheet quota exceeded'))).toBe(true);
   });
+
+  it('throws a clear error from getRequiredServerUrl() when VITE_GOOGLE_APPS_SCRIPT_URL is not configured', async () => {
+    const { getRequiredServerUrl } = await import('../src/config/backend');
+    expect(() => getRequiredServerUrl('')).toThrow(/VITE_GOOGLE_APPS_SCRIPT_URL is not configured/);
+    expect(getRequiredServerUrl('https://script.google.com/macros/s/test/exec')).toBe(
+      'https://script.google.com/macros/s/test/exec'
+    );
+  });
 });

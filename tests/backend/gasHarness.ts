@@ -113,7 +113,12 @@ export class MockSheet {
 
 export function createGasRuntime() {
   const sheets = new Map<string, MockSheet>();
-  const scriptProps = new Map<string, string>();
+  const scriptProps = new Map<string, string>([
+    ['INITIAL_ADMIN_EMAIL', 'dev.snehit@gmail.com'],
+    ['INITIAL_ADMIN_NAME', 'Snehit Tadepalli'],
+    ['INITIAL_ADMIN_PHONE', '9999999999'],
+    ['INITIAL_ADMIN_PASSWORD_HASH', '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918'],
+  ]);
   const scriptCache = new Map<string, string>();
   const sentEmails: SentEmail[] = [];
   const lockStats = { acquisitions: 0, releases: 0, currentlyLocked: false };

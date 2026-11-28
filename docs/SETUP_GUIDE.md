@@ -164,8 +164,10 @@ Once your initial Web App deployment is created, you **never need to manually co
      - `CLASPRC_JSON`: full JSON content of `~/.clasprc.json`
      - `GAS_SCRIPT_ID`: your Apps Script Project Script ID
      - `GAS_DEPLOYMENT_ID`: your fixed Web App Deployment ID (`AKfycb...`)
-6. **Single-Source Frontend URL (`src/config/backend.ts`):**
-   - `DEFAULT_SERVER_URL` in `src/config/backend.ts` remains fixed to your Web App URL. Every CI backend deploy also runs `curl -fsSL "<WEB_APP_URL>?action=ping"` to verify `"status":"ok"` before publishing GitHub Pages.
+     - `GAS_WEB_APP_URL`: your fixed Web App `/exec` URL (injected as `VITE_GOOGLE_APPS_SCRIPT_URL` during GitHub Pages build and used for post-deploy `?action=ping` health checks)
+6. **Zero Hardcoded Secrets or URL Fallbacks (`src/config/backend.ts` & `backend/Code.gs`):**
+   - `DEFAULT_SERVER_URL` in `src/config/backend.ts` has no hardcoded URL fallback; it is injected from `GAS_WEB_APP_URL` in CI (or `.env` locally) and throws a clear error via `getRequiredServerUrl()` if missing.
+   - `backend/Code.gs` has no hardcoded admin password hash fallback; initial admin seeding reads `INITIAL_ADMIN_EMAIL` / `INITIAL_ADMIN_PASSWORD_HASH` from `PropertiesService.getScriptProperties()` when `Users` is empty.
 
 ### 1-Command Version Rollback
 If a backend deployment ever needs to be rolled back to an earlier Apps Script version (`<version>`):
