@@ -11,6 +11,7 @@ export const te: Translations = {
     stockShort: "స్టాక్",
     customers: "కస్టమర్లు",
     suppliers: "సప్లయర్లు",
+    followUps: "ఫాలో-అప్స్",
     exportCenter: "రిపోర్టులు & ఎగుమతులు",
     reportsShort: "రిపోర్టులు",
     adminRequests: "యూజర్ అనుమతులు",

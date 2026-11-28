@@ -51,9 +51,9 @@ flowchart TD
 | **Business Dashboard** | `src/components/dashboard/DashboardView.tsx` |
 | **Orders & Dispatch** | `src/components/orders/PendingOrdersView.tsx`, `src/lib/stockEngine.ts` |
 | **Stock & Packaging** | `src/components/stock/StockRegistryView.tsx`, `src/lib/packagingEngine.ts`, `src/lib/purchaseValidation.ts` |
-| **Directories** | `src/components/customers/CustomerDirectoryView.tsx`, `src/components/suppliers/SupplierDirectoryView.tsx`, `src/lib/customerValidation.ts` |
+| **Directories** | `src/components/customers/CustomerDirectoryView.tsx`, `src/components/suppliers/SupplierDirectoryView.tsx`, `src/components/followups/FollowUpsView.tsx`, `src/lib/customerValidation.ts` |
 | **Reports & Exports** | `src/components/exports/ExportCenterView.tsx`, `src/lib/pdfGenerator.ts`, `src/lib/excelExport.ts`, `src/lib/tallyEngine.ts` |
-| **Settings, UI & Localization** | `src/components/settings/SettingsModal.tsx`, `src/components/ui/AlertDialog.tsx`, `src/components/ui/ToastContainer.tsx`, `src/hooks/useModalDismiss.ts`, `src/locales/en.ts`, `src/locales/te.ts`, `src/lib/bilingualHelper.ts` |
+| **Settings, UI & Localization** | `src/components/settings/SettingsModal.tsx`, `src/components/ui/AlertDialog.tsx`, `src/components/ui/ToastContainer.tsx`, `src/components/ui/FlowchartModal.tsx`, `src/hooks/useModalDismiss.ts`, `src/locales/en.ts`, `src/locales/te.ts`, `src/lib/bilingualHelper.ts` |
 | **Backend & CI/CD** | `backend/Code.gs`, `backend/appsscript.json`, `backend/.clasp.json`, `.github/workflows/deploy.yml`, `.githooks/pre-commit` |
 | **Test Suites & Hard Validation** | `npm run validate` (`typecheck`, `lint`, `format:check`, `build`, `vitest`), `tests/*.test.ts`, `tests/unit/`, `tests/ui/`, `tests/backend/`, `tests/e2e/` |
 

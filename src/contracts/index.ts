@@ -23,7 +23,7 @@ export type OrderStatus = z.infer<typeof OrderStatusEnum>;
 export const UnitTypeEnum = z.enum(['OUTER_BAG', 'INNER_BAG', 'LOOSE_KG']);
 export type UnitType = z.infer<typeof UnitTypeEnum>;
 
-export const PaymentModeEnum = z.enum(['CASH', 'CREDIT', 'UPI', 'CHEQUE', 'BANK_TRANSFER']);
+export const PaymentModeEnum = z.enum(['CASH', 'CREDIT', 'UPI', 'CHEQUE', 'BANK_TRANSFER', 'DD']);
 export type PaymentMode = z.infer<typeof PaymentModeEnum>;
 
 // --- User Contract ---
@@ -91,17 +91,37 @@ export const SupplierSchema = z.object({
   ifscCode: z.string().regex(/^[A-Z]{4}0[A-Z0-9]{6}$/, "Valid IFSC required"),
   nickname: z.string().min(2, "Reference nickname required (e.g. Lalitha SBI)"),
   nicknameTe: z.string().optional(),
+  payableAmount: z.number().nonnegative().default(0).optional(),
   createdAt: z.string(),
   version: z.number().int().positive().optional(),
 });
 export type Supplier = z.infer<typeof SupplierSchema>;
+
+// --- Follow-Up / Walk-In Leads Contract ---
+export const FollowUpStatusEnum = z.enum(['OPEN', 'CONTACTED', 'CONVERTED']);
+export type FollowUpStatus = z.infer<typeof FollowUpStatusEnum>;
+
+export const FollowUpSchema = z.object({
+  id: z.string(),
+  name: z.string().min(2, "Name is required"),
+  phone: z.string().regex(/^\d{10}$/, "10-digit mobile number required"),
+  address: z.string().optional(),
+  purpose: z.string().min(2, "Purpose of purchase/inquiry required"),
+  followUpDate: z.string().optional(),
+  notes: z.string().optional(),
+  status: FollowUpStatusEnum.default('OPEN'),
+  createdAt: z.string(),
+  version: z.number().int().positive().optional(),
+});
+export type FollowUp = z.infer<typeof FollowUpSchema>;
 
 // --- Product Contract ---
 export const ProductSchema = z.object({
   id: z.string(),
   name: z.string().min(2, "Product name required"),
   nameTe: z.string().optional(),
-  category: z.string(), // RICE, WHEAT_RAVVA, SUJI_RAVVA, MAIDA, BROKEN_RICE, OTHER
+  category: z.string(), // RICE, WHEAT_RAVVA, SUJI_RAVVA, MAIDA, BROKEN_RICE, DALS, OTHER
+  categoryTe: z.string().optional(),
   brandOrMill: z.string().optional(),
   brandOrMillTe: z.string().optional(),
   innerBagWeightKg: z.number().positive(),
@@ -124,6 +144,8 @@ export const OrderItemSchema = z.object({
   productId: z.string(),
   productName: z.string(),
   productNameTe: z.string().optional(),
+  category: z.string().optional(),
+  categoryTe: z.string().optional(),
   unitType: UnitTypeEnum,
   quantity: z.number().positive(),
   unitPrice: z.number().positive(),

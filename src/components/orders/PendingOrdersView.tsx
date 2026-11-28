@@ -3,7 +3,7 @@ import { useAppStore } from '../../store/useAppStore';
 import { en } from '../../locales/en';
 import { te } from '../../locales/te';
 import { getLocalizedText } from '../../lib/bilingualHelper';
-import { Order, OrderItem, UnitType, WALK_IN_CUSTOMER_ID, Customer } from '../../contracts';
+import { Order, OrderItem, PaymentMode, UnitType, WALK_IN_CUSTOMER_ID, Customer } from '../../contracts';
 import { AlertDialog, DialogType } from '../ui/AlertDialog';
 import { useModalDismiss } from '../../hooks/useModalDismiss';
 import { useRouter } from '../../lib/router';
@@ -177,8 +177,14 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
   const [driverPhone, setDriverPhone] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
-  // Active Pipeline Filter
+  // Active Pipeline Filter, Search & Sort
   const [activePipeline, setActivePipeline] = useState<string>('ALL');
+  const [orderSearch, setOrderSearch] = useState('');
+  const [orderSort, setOrderSort] = useState<'DATE_DESC' | 'AMOUNT_DESC' | 'AMOUNT_ASC' | 'BAGS_DESC'>('DATE_DESC');
+
+  // Delivery Payment Mode Completion Modal State
+  const [completingOrder, setCompletingOrder] = useState<Order | null>(null);
+  const [completionPaymentMode, setCompletionPaymentMode] = useState<PaymentMode>('CASH');
 
   // Helpers to get 2-letter initials for avatar badge
   const getInitials = (name: string) => {
@@ -203,16 +209,32 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
     return avatarColorPalettes[Math.abs(hash) % avatarColorPalettes.length];
   };
 
-  // Pipeline Metrics
+  // Pipeline Metrics (Simplified 3-Stage Pipeline: Pending -> Approved -> Delivered)
   const pendingOrders = orders.filter((o) => o.status === 'PENDING_REVIEW');
-  const approvedOrders = orders.filter((o) => o.status === 'APPROVED');
-  const dispatchedOrders = orders.filter((o) => o.status === 'DISPATCHED');
+  const approvedOrders = orders.filter((o) => o.status === 'APPROVED' || o.status === 'DISPATCHED');
   const deliveredOrders = orders.filter((o) => o.status === 'DELIVERED');
 
-  const filteredOrders = orders.filter((o) => {
-    if (activePipeline === 'ALL') return true;
-    return o.status === activePipeline;
-  });
+  const filteredOrders = orders
+    .filter((o) => {
+      if (activePipeline === 'PENDING_REVIEW' && o.status !== 'PENDING_REVIEW') return false;
+      if (activePipeline === 'APPROVED' && o.status !== 'APPROVED' && o.status !== 'DISPATCHED') return false;
+      if (activePipeline === 'DELIVERED' && o.status !== 'DELIVERED') return false;
+      if (orderSearch.trim()) {
+        const q = orderSearch.trim().toLowerCase();
+        return (
+          o.orderNumber.toLowerCase().includes(q) ||
+          o.customerName.toLowerCase().includes(q) ||
+          (o.customerPhone || '').includes(q)
+        );
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      if (orderSort === 'AMOUNT_DESC') return b.grandTotal - a.grandTotal;
+      if (orderSort === 'AMOUNT_ASC') return a.grandTotal - b.grandTotal;
+      if (orderSort === 'BAGS_DESC') return b.totalOuterBags - a.totalOuterBags;
+      return new Date(b.createdAt || b.orderDate).getTime() - new Date(a.createdAt || a.orderDate).getTime();
+    });
 
   const totalPipelineValue = orders.reduce((sum, o) => sum + o.grandTotal, 0);
 
@@ -327,6 +349,8 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
       productId: row.productId,
       productName: prod ? prod.name : (isTe ? 'సరుకు' : 'Commodity'),
       productNameTe: prod ? prod.nameTe : '',
+      category: prod?.category || '',
+      categoryTe: prod?.categoryTe || '',
       unitType: row.unitType,
       quantity: qty,
       unitPrice: rate,
@@ -613,23 +637,20 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
   };
 
   const handleDeliverOrder = (order: Order) => {
-    setDialogConfig({
-      isOpen: true,
-      type: 'warning',
-      title: isTe ? 'డెలివరీని నిర్ధారించాలా?' : 'Confirm Order Delivery?',
-      message: isTe
-        ? `మీరు "${order.orderNumber}" ఆర్డర్ విజయవంతంగా డెలివరీ అయినట్లుగా నమోదు చేయాలనుకుంటున్నారా? కస్టమర్ ఖాతాకు బకాయిలు మరియు తుది నిల్వలు అప్‌డేట్ అవుతాయి.`
-        : `Are you sure you want to mark order "${order.orderNumber}" as delivered? This finalizes inventory deductions and updates the customer credit ledger.`,
-      actionText: isTe ? 'అవును, డెలివరీ అయింది' : 'Yes, Confirm Delivery',
-      onAction: async () => {
-        startActionLoading(
-          `Finalizing delivery for "${order.orderNumber}"...`,
-          `"${order.orderNumber}" ఆర్డర్ డెలివరీ పూర్తయినట్లు నమోదు అవుతోంది...`
-        );
-        await markOrderDelivered(order.id);
-        stopActionLoading();
-      }
-    });
+    setCompletionPaymentMode(order.paymentMode || 'CASH');
+    setCompletingOrder(order);
+  };
+
+  const confirmCompleteDelivery = async () => {
+    if (!completingOrder) return;
+    const target = completingOrder;
+    setCompletingOrder(null);
+    startActionLoading(
+      `Finalizing delivery for "${target.orderNumber}"...`,
+      `"${target.orderNumber}" ఆర్డర్ డెలివరీ పూర్తయినట్లు నమోదు అవుతోంది...`
+    );
+    await markOrderDelivered(target.id, completionPaymentMode);
+    stopActionLoading();
   };
 
   const triggerWhatsAppBill = (order: Order) => {
@@ -690,75 +711,85 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
         )}
       </div>
 
-      {/* Multi-Segment Color Pipeline Strip */}
-      <div className="space-y-2.5">
-        <div className="grid grid-cols-4 gap-1.5 h-2 w-full rounded-full overflow-hidden bg-slate-200/60 p-0.5">
-          <div className="bg-blue-500 rounded-full h-full" title={isTe ? 'సమీక్షలో ఉంది' : 'Pending Review'} />
-          <div className="bg-amber-500 rounded-full h-full" title={isTe ? 'ప్యాకింగ్' : 'Approved & Packing'} />
-          <div className="bg-purple-500 rounded-full h-full" title={isTe ? 'రవాణాలో ఉంది' : 'Out for Delivery'} />
-          <div className="bg-emerald-500 rounded-full h-full" title={isTe ? 'డెలివరీ పూర్తయింది' : 'Delivered & Settled'} />
+      {/* Multi-Segment 3-Stage Color Pipeline Strip */}
+      <div className="space-y-3">
+        <div className="grid grid-cols-3 gap-1.5 h-2 w-full rounded-full overflow-hidden bg-slate-200/60 p-0.5">
+          <div className="bg-blue-500 rounded-full h-full" title={isTe ? 'పెండింగ్' : 'Pending'} />
+          <div className="bg-amber-500 rounded-full h-full" title={isTe ? 'ఆమోదించబడింది' : 'Approved'} />
+          <div className="bg-emerald-500 rounded-full h-full" title={isTe ? 'డెలివరీ పూర్తయింది' : 'Delivered'} />
         </div>
 
-        {/* Filter Pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0">
-          <button
-            onClick={() => setActivePipeline('ALL')}
-            className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all min-h-[36px] ${
-              activePipeline === 'ALL'
-                ? 'bg-slate-900 text-white shadow-sm'
-                : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/80'
-            }`}
-          >
-            {isTe ? `అన్ని ఆర్డర్లు (${orders.length})` : `All Orders (${orders.length})`}
-          </button>
+        {/* Filter Pills + Search & Sort */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0">
+            <button
+              onClick={() => setActivePipeline('ALL')}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all min-h-[36px] ${
+                activePipeline === 'ALL'
+                  ? 'bg-slate-900 text-white shadow-sm'
+                  : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/80'
+              }`}
+            >
+              {isTe ? `అన్ని ఆర్డర్లు (${orders.length})` : `All Orders (${orders.length})`}
+            </button>
 
-          <button
-            onClick={() => setActivePipeline('PENDING_REVIEW')}
-            className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all min-h-[36px] ${
-              activePipeline === 'PENDING_REVIEW'
-                ? 'bg-blue-600 text-white shadow-sm'
-                : 'bg-white text-blue-700 hover:bg-blue-50 border border-blue-200'
-            }`}
-          >
-            <span className="w-2 h-2 rounded-full bg-blue-500" />
-            {isTe ? `సమీక్షలో ఉన్నాయి (${pendingOrders.length})` : `Pending (${pendingOrders.length})`}
-          </button>
+            <button
+              onClick={() => setActivePipeline('PENDING_REVIEW')}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all min-h-[36px] ${
+                activePipeline === 'PENDING_REVIEW'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'bg-white text-blue-700 hover:bg-blue-50 border border-blue-200'
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full bg-blue-500" />
+              {isTe ? `పెండింగ్ (${pendingOrders.length})` : `Pending (${pendingOrders.length})`}
+            </button>
 
-          <button
-            onClick={() => setActivePipeline('APPROVED')}
-            className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all min-h-[36px] ${
-              activePipeline === 'APPROVED'
-                ? 'bg-amber-600 text-white shadow-sm'
-                : 'bg-white text-amber-700 hover:bg-amber-50 border border-amber-200'
-            }`}
-          >
-            <span className="w-2 h-2 rounded-full bg-amber-500" />
-            {isTe ? `ప్యాకింగ్ (${approvedOrders.length})` : `Packing (${approvedOrders.length})`}
-          </button>
+            <button
+              onClick={() => setActivePipeline('APPROVED')}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all min-h-[36px] ${
+                activePipeline === 'APPROVED'
+                  ? 'bg-amber-600 text-white shadow-sm'
+                  : 'bg-white text-amber-700 hover:bg-amber-50 border border-amber-200'
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full bg-amber-500" />
+              {isTe ? `ఆమోదించబడినవి (${approvedOrders.length})` : `Approved (${approvedOrders.length})`}
+            </button>
 
-          <button
-            onClick={() => setActivePipeline('DISPATCHED')}
-            className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all min-h-[36px] ${
-              activePipeline === 'DISPATCHED'
-                ? 'bg-purple-600 text-white shadow-sm'
-                : 'bg-white text-purple-700 hover:bg-purple-50 border border-purple-200'
-            }`}
-          >
-            <span className="w-2 h-2 rounded-full bg-purple-500" />
-            {isTe ? `రవాణాలో ఉన్నాయి (${dispatchedOrders.length})` : `Transit (${dispatchedOrders.length})`}
-          </button>
+            <button
+              onClick={() => setActivePipeline('DELIVERED')}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all min-h-[36px] ${
+                activePipeline === 'DELIVERED'
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : 'bg-white text-emerald-700 hover:bg-emerald-50 border border-emerald-200'
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+              {isTe ? `డెలివరీ అయినవి (${deliveredOrders.length})` : `Delivered (${deliveredOrders.length})`}
+            </button>
+          </div>
 
-          <button
-            onClick={() => setActivePipeline('DELIVERED')}
-            className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all min-h-[36px] ${
-              activePipeline === 'DELIVERED'
-                ? 'bg-emerald-600 text-white shadow-sm'
-                : 'bg-white text-emerald-700 hover:bg-emerald-50 border border-emerald-200'
-            }`}
-          >
-            <span className="w-2 h-2 rounded-full bg-emerald-500" />
-            {isTe ? `డెలివరీ అయినవి (${deliveredOrders.length})` : `Settled (${deliveredOrders.length})`}
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <input
+              type="text"
+              value={orderSearch}
+              onChange={(e) => setOrderSearch(e.target.value)}
+              placeholder={isTe ? 'ఆర్డర్ / కస్టమర్ శోధన...' : 'Search order / customer...'}
+              className="text-xs border border-slate-200 rounded-xl px-3 py-2 bg-white outline-none focus:border-orange-500 w-44 sm:w-48"
+            />
+            <select
+              aria-label={isTe ? 'క్రమబద్ధీకరణ' : 'Sort orders'}
+              value={orderSort}
+              onChange={(e) => setOrderSort(e.target.value as any)}
+              className="text-xs font-semibold border border-slate-200 rounded-xl px-2.5 py-2 bg-white outline-none focus:border-orange-500 text-slate-700"
+            >
+              <option value="DATE_DESC">{isTe ? 'కొత్తవి ముందు' : 'Newest First'}</option>
+              <option value="AMOUNT_DESC">{isTe ? 'మొత్తం (ఎక్కువ-తక్కువ)' : 'Amount: High → Low'}</option>
+              <option value="AMOUNT_ASC">{isTe ? 'మొత్తం (తక్కువ-ఎక్కువ)' : 'Amount: Low → High'}</option>
+              <option value="BAGS_DESC">{isTe ? 'బస్తాలు (ఎక్కువ-తక్కువ)' : 'Bags: High → Low'}</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -800,68 +831,106 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
                 className="card-soft p-4 sm:p-5 flex flex-col justify-between hover:border-orange-400 transition-all active:scale-[0.99]"
               >
                 <div>
-                  {/* Card Header: Initials Avatar + Name + Amount */}
+                  {/* Card Header: Initials Avatar + Name + Status + Amount */}
                   <div className="flex items-start justify-between gap-2.5 mb-3">
                     <div className="flex items-center gap-2.5 min-w-0">
                       <div className={`w-10 h-10 rounded-2xl border flex items-center justify-center font-black text-xs shrink-0 ${avatarColor}`}>
                         {initials}
                       </div>
                       <div className="min-w-0">
-                        <h4 className="text-sm font-bold text-slate-900 truncate">
-                          {getLocalizedText(order, 'customerName', language)}
-                        </h4>
-                        <div className="text-[11px] font-mono text-slate-400">
-                          {order.orderNumber} &bull; {order.customerPhone}
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <h4 className="text-sm font-bold text-slate-900 truncate">
+                            {getLocalizedText(order, 'customerName', language)}
+                          </h4>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                            order.status === 'DELIVERED'
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              : order.status === 'APPROVED' || order.status === 'DISPATCHED'
+                              ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                              : 'bg-blue-50 text-blue-700 border border-blue-200'
+                          }`}>
+                            {order.status === 'DELIVERED'
+                              ? (isTe ? 'డెలివరీ' : 'Delivered')
+                              : order.status === 'APPROVED' || order.status === 'DISPATCHED'
+                              ? (isTe ? 'ఆమోదించబడింది' : 'Approved')
+                              : (isTe ? 'పెండింగ్' : 'Pending')}
+                          </span>
+                        </div>
+                        <div className="text-[11px] font-mono text-slate-500 mt-0.5">
+                          {order.orderNumber}
+                          {order.customerPhone ? ` • ${order.customerPhone}` : ''}
+                          {order.orderDate ? ` • ${String(order.orderDate).slice(0, 10)}` : ''}
                         </div>
                       </div>
                     </div>
 
                     <div className="text-right shrink-0">
-                      <div className="text-sm font-black text-slate-900 font-mono">
-                        ₹{order.grandTotal.toLocaleString()}
+                      <div className="text-base font-black text-slate-900 font-mono">
+                        ₹{(order.grandTotal || 0).toLocaleString()}
                       </div>
                       {order.discount && order.discount > 0 ? (
                         <span className="text-[10px] font-extrabold text-emerald-600 block">
                           -₹{order.discount.toLocaleString()} {isTe ? 'తగ్గింపు' : 'off'}
                         </span>
                       ) : null}
-                      <span className="text-[10px] font-bold text-slate-400 uppercase">
-                        {order.paymentMode}
+                      <span className="inline-block mt-0.5 px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-600 uppercase">
+                        {order.paymentMode || 'CREDIT'}
                       </span>
                     </div>
                   </div>
 
-                  {/* Bags & Weight Badge */}
+                  {/* Bags, Weight & Item Count Badges */}
                   <div className="flex items-center gap-2 mb-3 flex-wrap">
                     <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 text-slate-700">
                       {order.totalOuterBags} {isTe ? 'బస్తాలు' : 'Bags'}
                     </span>
-                    <span className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100/70 text-slate-500 font-mono">
-                      {order.totalWeightKg} kg
+                    <span className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100/70 text-slate-600 font-mono">
+                      {order.totalWeightKg || 0} kg
                     </span>
+                    {order.items.length > 0 && (
+                      <span className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-orange-50 text-orange-700 border border-orange-200/70">
+                        {order.items.length} {isTe ? 'రకాలు' : (order.items.length === 1 ? 'Item' : 'Items')}
+                      </span>
+                    )}
                     {order.vehicleNumber && (
-                      <span className="px-2 py-1 rounded-lg text-[10px] font-mono font-bold bg-orange-50 text-orange-700 border border-orange-200">
+                      <span className="px-2 py-1 rounded-lg text-[10px] font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200">
                         {order.vehicleNumber}
                       </span>
                     )}
                   </div>
 
-                  {/* Commodities list with custom modified rates */}
-                  <div className="bg-slate-50/80 rounded-2xl p-2.5 text-xs text-slate-600 mb-4 border border-slate-100 space-y-1">
-                    {order.items.map((it, idx) => (
-                      <div key={idx} className="flex justify-between items-center text-[11px]">
-                        <span className="truncate text-slate-700 font-medium">
-                          {getLocalizedText(it, 'productName', language)}
-                        </span>
-                        <span className="font-bold text-slate-900 font-mono shrink-0 ml-2">
-                          {it.quantity} {it.unitType === 'OUTER_BAG' ? (isTe ? 'బస్తాలు' : 'Bags') : (isTe ? 'ప్యాకెట్లు' : 'Pcs')} @ ₹{it.unitPrice}
+                  {/* Commodities list with Category + Rates (never empty grey box) */}
+                  <div className="bg-slate-50/90 rounded-2xl p-3 text-xs text-slate-600 mb-4 border border-slate-200/60 space-y-1.5">
+                    {order.items.length > 0 ? (
+                      order.items.map((it, idx) => (
+                        <div key={idx} className="flex justify-between items-center text-[11px] gap-2">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="truncate text-slate-800 font-semibold">
+                              {getLocalizedText(it, 'productName', language)}
+                            </span>
+                            {(it.category || it.categoryTe) && (
+                              <span className="px-1.5 py-0.5 rounded bg-white border border-slate-200 text-[9px] font-bold text-slate-500 shrink-0">
+                                {isTe ? (it.categoryTe || it.category) : it.category}
+                              </span>
+                            )}
+                          </div>
+                          <span className="font-bold text-slate-900 font-mono shrink-0">
+                            {it.quantity} {it.unitType === 'OUTER_BAG' ? (isTe ? 'బస్తాలు' : 'Bags') : (isTe ? 'ప్యాకెట్లు' : 'Pcs')} × ₹{it.unitPrice}
+                          </span>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="flex justify-between items-center text-[11px] text-slate-500">
+                        <span>{isTe ? 'మొత్తం సరుకు సారాంశం' : 'Order Summary'}</span>
+                        <span className="font-mono font-bold text-slate-700">
+                          {order.totalOuterBags} {isTe ? 'బస్తాలు' : 'Bags'} • ₹{(order.grandTotal || 0).toLocaleString()}
                         </span>
                       </div>
-                    ))}
+                    )}
                   </div>
                 </div>
 
-                {/* Card Action Footer */}
+                {/* Card Action Footer (3-Stage Progression: Pending -> Approved -> Delivered) */}
                 <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
                   <div className="flex items-center gap-1.5 flex-1">
                     {order.status === 'PENDING_REVIEW' && hasFunctionalityAccess('orders_page', 'approve_order') && (
@@ -873,27 +942,18 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
                       </button>
                     )}
 
-                    {order.status === 'APPROVED' && hasFunctionalityAccess('orders_page', 'dispatch_order') && (
-                      <button
-                        onClick={() => handleDispatchOrder(order)}
-                        className="flex-1 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold py-2.5 px-3 rounded-xl shadow-sm transition-all active:scale-95 text-center min-h-[40px]"
-                      >
-                        {isTe ? 'రవాణా చేయండి' : 'Dispatch'}
-                      </button>
-                    )}
-
-                    {order.status === 'DISPATCHED' && hasFunctionalityAccess('orders_page', 'deliver_order') && (
+                    {(order.status === 'APPROVED' || order.status === 'DISPATCHED') && hasFunctionalityAccess('orders_page', 'deliver_order') && (
                       <button
                         onClick={() => handleDeliverOrder(order)}
                         className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2.5 px-3 rounded-xl shadow-sm transition-all active:scale-95 text-center min-h-[40px]"
                       >
-                        {isTe ? 'డెలివరీ చేయబడింది' : 'Delivered'}
+                        {isTe ? 'డెలివరీ పూర్తి చేయి' : 'Complete & Deliver'}
                       </button>
                     )}
 
                     {order.status === 'DELIVERED' && (
                       <span className="text-xs font-bold text-emerald-700 flex items-center gap-1 py-1 px-2">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600" /> {isTe ? 'పూర్తయింది' : 'Settled'}
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600" /> {isTe ? 'డెలివరీ పూర్తయింది' : 'Delivered'}
                       </span>
                     )}
                   </div>
@@ -1278,6 +1338,56 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
               </div>
             </div>
           </form>
+          </div>
+        </div>
+      )}
+
+      {/* Complete Delivery & Select Payment Mode Modal */}
+      {completingOrder && (
+        <div className="fixed inset-0 z-50 bg-slate-900/55 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-md w-full p-5 sm:p-6 space-y-4">
+            <div>
+              <h3 className="text-base font-black text-slate-900">
+                {isTe ? 'డెలివరీ పూర్తి & చెల్లింపు విధానం' : 'Complete Delivery & Payment Mode'}
+              </h3>
+              <p className="text-xs text-slate-500 mt-1">
+                {isTe
+                  ? `${completingOrder.orderNumber} ఆర్డర్ ఏ చెల్లింపు విధానంలో పూర్తయిందో ఎంచుకోండి:`
+                  : `Select how order ${completingOrder.orderNumber} (₹${(completingOrder.grandTotal || 0).toLocaleString()}) was settled:`}
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {(['CASH', 'CREDIT', 'UPI', 'BANK_TRANSFER', 'CHEQUE', 'DD'] as PaymentMode[]).map((pm) => (
+                <button
+                  key={pm}
+                  type="button"
+                  onClick={() => setCompletionPaymentMode(pm)}
+                  className={`py-2.5 px-3 rounded-xl text-xs font-bold border transition-all ${
+                    completionPaymentMode === pm
+                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                      : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  {pm === 'BANK_TRANSFER' ? (isTe ? 'ఖాతా బదిలీ (A/C)' : 'A/C Transfer') : pm}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setCompletingOrder(null)}
+                className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl"
+              >
+                {isTe ? 'రద్దు' : 'Cancel'}
+              </button>
+              <button
+                type="button"
+                onClick={confirmCompleteDelivery}
+                className="px-5 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-sm"
+              >
+                {isTe ? 'డెలివరీ నిర్ధారించు' : 'Confirm Delivery'}
+              </button>
+            </div>
           </div>
         </div>
       )}

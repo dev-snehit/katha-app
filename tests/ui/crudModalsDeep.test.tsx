@@ -6,6 +6,8 @@ import { UserRequestsView } from '../../src/components/admin/UserRequestsView';
 import { CustomerDirectoryView } from '../../src/components/customers/CustomerDirectoryView';
 import { SupplierDirectoryView } from '../../src/components/suppliers/SupplierDirectoryView';
 import { StockRegistryView } from '../../src/components/stock/StockRegistryView';
+import { FollowUpsView } from '../../src/components/followups/FollowUpsView';
+import { PendingOrdersView } from '../../src/components/orders/PendingOrdersView';
 import { useAppStore } from '../../src/store/useAppStore';
 import { INITIAL_ADMIN_USER } from '../../src/contracts';
 import { DEFAULT_ROLE_PERMISSIONS } from '../../src/lib/permissions';
@@ -113,13 +115,54 @@ describe('Deep UI Flows: Auth Reset Link, Create/Edit/Delete User, Customer/Supp
     render(<SupplierDirectoryView />);
     fireEvent.click(screen.getByText(/Add Supplier/i));
 
-    const inputs = screen.getAllByRole('textbox');
-    inputs.forEach((inp, idx) => {
-      fireEvent.change(inp, { target: { value: idx === 0 ? 'Annapurna Rice Mill' : `Val${idx}` } });
-    });
+    fireEvent.change(screen.getByPlaceholderText('e.g. Sri Lalitha Rice Industries'), { target: { value: 'Annapurna Rice Mill' } });
+    fireEvent.change(screen.getByPlaceholderText('e.g. Lalitha SBI'), { target: { value: 'Annapurna SBI' } });
+    fireEvent.change(screen.getByPlaceholderText('e.g. State Bank of India'), { target: { value: 'SBI' } });
+    fireEvent.change(screen.getByPlaceholderText('e.g. 30291823901'), { target: { value: '1234567890' } });
+    fireEvent.change(screen.getByPlaceholderText('e.g. SBIN0001234'), { target: { value: 'SBIN0001234' } });
+    fireEvent.change(screen.getByPlaceholderText('0'), { target: { value: '25000' } });
     fireEvent.click(screen.getByText(/Save Supplier/i));
 
-    await waitFor(() => expect(useAppStore.getState().suppliers.some((s) => s.businessName === 'Annapurna Rice Mill')).toBe(true));
+    await waitFor(() => {
+      const saved = useAppStore.getState().suppliers.find((s) => s.businessName === 'Annapurna Rice Mill');
+      expect(saved).toBeDefined();
+      expect(saved?.payableAmount).toBe(25000);
+    });
+  });
+
+  it('adds a Walk-In / Follow-Up entry in FollowUpsView', async () => {
+    const { container } = render(<FollowUpsView />);
+    fireEvent.click(screen.getByText(/Add Follow-Up/i));
+
+    const formInputs = container.querySelectorAll('form input');
+    fireEvent.change(formInputs[0], { target: { value: 'Suresh Caterers' } });
+    fireEvent.change(formInputs[1], { target: { value: '9848099887' } });
+    fireEvent.change(screen.getByPlaceholderText('e.g. Monthly 50 bags Sona Masoori for catering'), { target: { value: 'Monthly 50 bags rice' } });
+    fireEvent.click(screen.getByText(/Save Follow-Up/i));
+
+    await waitFor(() => expect(useAppStore.getState().followUps.some((f) => f.name === 'Suresh Caterers')).toBe(true));
+  });
+
+  it('completes an Approved order as Delivered with selected payment mode (DD)', async () => {
+    useAppStore.setState({
+      orders: [{
+        id: 'o-app-1', orderNumber: 'ORD-2026-0001', customerId: 'c1', customerName: 'Lakshmi Stores', customerPhone: '9876543210',
+        orderDate: '2026-11-28', items: [], totalOuterBags: 2, totalInnerBags: 0, totalWeightKg: 52, subtotal: 2400,
+        hamaliCharges: 0, transportCharges: 0, discount: 0, grandTotal: 2400, paymentMode: 'CREDIT', status: 'APPROVED',
+        submittedByRole: 'OWNER', createdAt: '2026-11-28T00:00:00.000Z',
+      }],
+    });
+    render(<PendingOrdersView />);
+    fireEvent.click(screen.getByText(/Approved \(1\)/i));
+    fireEvent.click(screen.getByText(/Complete & Deliver/i));
+    fireEvent.click(screen.getByText('DD'));
+    fireEvent.click(screen.getByText(/Confirm Delivery/i));
+
+    await waitFor(() => {
+      const updated = useAppStore.getState().orders.find((o) => o.id === 'o-app-1');
+      expect(updated?.status).toBe('DELIVERED');
+      expect(updated?.paymentMode).toBe('DD');
+    });
   });
 
   it('opens StockRegistryView in Telugu mode and verifies localization', () => {

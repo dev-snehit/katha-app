@@ -217,8 +217,20 @@
 - **Changes & Enhancements:** Created `docs/MIGRATION_AND_ROTATION_GUIDE.md` with Playbooks A, B, and C, a Secrets Reference Table, and 1-command rollback steps, and linked it in `docs/README.md`. Zero application code modified.
 - **Files Touched:** `docs/MIGRATION_AND_ROTATION_GUIDE.md`, `docs/README.md`, `docs/CHANGE_LOG_AND_PROMPTS.md`
 
-### #30 — Derive Web App URL from `GAS_DEPLOYMENT_ID` in CI When `GAS_WEB_APP_URL` Is Unset (`pending commit`)
+### #30 — Derive Web App URL from `GAS_DEPLOYMENT_ID` in CI When `GAS_WEB_APP_URL` Is Unset (`8dc5bf0`)
 - **Date:** 2026-11-28
 - **User Prompt / Request:** Fix the recent GitHub Actions deployment failure (`Verify required build secrets`) and explain the edge cases in simple terms.
 - **Changes & Enhancements:** Updated `.github/workflows/deploy.yml` to automatically derive `https://script.google.com/macros/s/${GAS_DEPLOYMENT_ID}/exec` when `GAS_WEB_APP_URL` is not separately configured in GitHub Secrets, so CI succeeds immediately with `CLASPRC_JSON`, `GAS_SCRIPT_ID`, and `GAS_DEPLOYMENT_ID` without any hardcoded URLs in source control.
 - **Files Touched:** `.github/workflows/deploy.yml`, `docs/CHANGE_LOG_AND_PROMPTS.md`
+
+### #31 — Full Language Switcher, Auth Spinners, 3-Stage Orders + Payment Completion, Supplier Payables, Follow-Ups Directory, Sorting/Filtering, Bilingual Categories & In-App Flowcharts (`pending commit`)
+- **Date:** 2026-11-28
+- **User Prompt / Request:** Use full language names (`English` / `తెలుగు`), add loading spinners to Sign In & Register, redesign order cards, simplify order pipeline to 3 stages (`Pending`, `Approved`, `Delivered`) with payment mode selection on delivery completion, add supplier payables tracking + Dashboard visibility, add Walk-In/Follow-Ups directory, add table/list sorting & filtering, add bilingual Product/Item Category (`categoryTe`), and add visual in-app flowcharts + updated docs.
+- **Changes & Enhancements:**
+  - Updated `Navbar.tsx` and `AuthView.tsx` to display `English` / `తెలుగు` and added loading spinners + `isSubmitting` state to Sign In and Request Access forms.
+  - Simplified `PendingOrdersView.tsx` to 3 stages (`Pending`, `Approved`, `Delivered`), redesigned order cards with status pills, date, payment mode, and itemized category tags, added search/sort, and added the Delivery Payment Mode completion modal (`CASH`, `CREDIT`, `UPI`, `BANK_TRANSFER`, `CHEQUE`, `DD`).
+  - Added `payableAmount` to `SupplierSchema`, `SupplierDirectoryView.tsx`, `DashboardView.tsx`, and `backend/Code.gs` (`Master_Suppliers.payable_amount`).
+  - Created `src/components/followups/FollowUpsView.tsx`, added `/follow-ups` route, `followups_page` in role JSONs & `permissions.ts`, `Follow_Ups` table + `saveFollowUp`/`deleteFollowUp` in `backend/Code.gs`, and `followUps` slice in `useAppStore.ts`.
+  - Added bilingual `categoryTe` in `StockRegistryView.tsx`, `OrderItemSchema`, and `backend/Code.gs`, plus search/filter/sort controls across `StockRegistryView.tsx`, `CustomerDirectoryView.tsx`, `SupplierDirectoryView.tsx`, `PendingOrdersView.tsx`, and `FollowUpsView.tsx`.
+  - Created `src/components/ui/FlowchartModal.tsx` accessible from `DashboardView.tsx` and updated `docs/README.md`, `docs/MODULES_AND_FLOWCHARTS.md`, and `docs/CHANGE_LOG_AND_PROMPTS.md`.
+- **Files Touched:** `src/contracts/index.ts`, `src/locales/en.ts`, `src/locales/te.ts`, `src/config/roles/*.json`, `src/lib/permissions.ts`, `src/lib/router.ts`, `src/store/useAppStore.ts`, `src/App.tsx`, `src/components/Navbar.tsx`, `src/components/auth/AuthView.tsx`, `src/components/orders/PendingOrdersView.tsx`, `src/components/stock/StockRegistryView.tsx`, `src/components/suppliers/SupplierDirectoryView.tsx`, `src/components/customers/CustomerDirectoryView.tsx`, `src/components/followups/FollowUpsView.tsx`, `src/components/dashboard/DashboardView.tsx`, `src/components/ui/FlowchartModal.tsx`, `backend/Code.gs`, `docs/README.md`, `docs/MODULES_AND_FLOWCHARTS.md`, `docs/CHANGE_LOG_AND_PROMPTS.md`

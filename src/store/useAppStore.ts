@@ -2,8 +2,10 @@ import { create } from 'zustand';
 import { 
   Customer, 
   Supplier, 
+  FollowUp,
   Product, 
   Order, 
+  PaymentMode,
   User, 
   Role, 
   UserStatus,
@@ -96,6 +98,7 @@ export interface AppState {
   inventory: Product[];
   customers: Customer[];
   suppliers: Supplier[];
+  followUps: FollowUp[];
 
   // Google Sheets Backend Sync
   backendUrl: string;
@@ -135,7 +138,11 @@ export interface AppState {
   deleteOrder: (orderId: string) => Promise<boolean>;
   approveOrder: (orderId: string, approvedByRole: Role) => void;
   markOrderDispatched: (orderId: string, vehicleNo?: string) => void;
-  markOrderDelivered: (orderId: string) => void;
+  markOrderDelivered: (orderId: string, paymentMode?: PaymentMode) => void;
+
+  addFollowUp: (followUp: FollowUp) => void;
+  updateFollowUp: (followUp: FollowUp) => void;
+  deleteFollowUp: (followUpId: string) => Promise<boolean>;
 
   addCustomer: (customer: Customer) => void;
   updateCustomer: (customer: Customer) => void;
@@ -584,6 +591,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   inventory: loadFromStorage<Product[]>('inventory', []),
   customers: loadFromStorage<Customer[]>('customers', []),
   suppliers: loadFromStorage<Supplier[]>('suppliers', []),
+  followUps: loadFromStorage<FollowUp[]>('followUps', []),
 
   // Google Sheets live sync connection
   backendUrl: initialBackendUrl,
@@ -634,6 +642,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       deleteUser: { loadingEn: 'Deleting user...', loadingTe: 'యూజర్ తొలగించబడుతున్నారు...', okEn: 'User removed from database.', okTe: 'యూజర్ డేటాబేస్ నుండి తొలగించబడ్డారు.' },
       saveRolePermissions: { loadingEn: 'Saving role permissions...', loadingTe: 'రోల్ అనుమతులు సేవ్ అవుతున్నాయి...', okEn: 'Role permissions saved to database.', okTe: 'రోల్ అనుమతులు డేటాబేస్‌లో సేవ్ చేయబడ్డాయి.' },
       resetPassword: { loadingEn: 'Updating password in database...', loadingTe: 'పాస్‌వర్డ్ అప్‌డేట్ అవుతోంది...', okEn: 'Password updated in database.', okTe: 'పాస్‌వర్డ్ డేటాబేస్‌లో అప్‌డేట్ చేయబడింది.' },
+      saveFollowUp: { loadingEn: 'Saving follow-up lead...', loadingTe: 'ఫాలో-అప్ వివరాలు సేవ్ అవుతున్నాయి...', okEn: 'Follow-up saved to database.', okTe: 'ఫాలో-అప్ వివరాలు డేటాబేస్‌లో సేవ్ చేయబడ్డాయి.' },
+      deleteFollowUp: { loadingEn: 'Deleting follow-up...', loadingTe: 'ఫాలో-అప్ తొలగించబడుతోంది...', okEn: 'Follow-up deleted from database.', okTe: 'ఫాలో-అప్ డేటాబేస్ నుండి తొలగించబడింది.' },
     };
 
     const labels = actionLabels[action];
@@ -710,6 +720,13 @@ export const useAppStore = create<AppState>((set, get) => ({
             );
             saveToStorage('suppliers', updatedSupp);
             set({ suppliers: updatedSupp });
+          } else if (action === 'saveFollowUp' && payload.followUp?.id) {
+            const clientId = payload.followUp.id;
+            const updatedFu = get().followUps.map((f) =>
+              f.id === clientId ? { ...f, ...(srvId ? { id: srvId } : {}), ...(srvVer !== undefined ? { version: srvVer } : {}) } : f
+            );
+            saveToStorage('followUps', updatedFu);
+            set({ followUps: updatedFu });
           } else if ((action === 'createUser' || action === 'registerUser' || action === 'approveUser' || action === 'updateUser')) {
             const clientUserId = payload.user?.id || payload.userId;
             if (clientUserId) {
@@ -889,6 +906,7 @@ export const useAppStore = create<AppState>((set, get) => ({
               name: row.name_en || row.name || 'Rice',
               nameTe: row.name_te || row.nameTe || '',
               category: row.category || 'RICE',
+              categoryTe: row.category_te || row.categoryTe || '',
               brandOrMill: row.brand_en || row.brandOrMill || '',
               brandOrMillTe: row.brand_te || row.brandOrMillTe || '',
               innerBagWeightKg: Number(row.inner_wt_kg || row.innerBagWeightKg || 1),
@@ -939,10 +957,31 @@ export const useAppStore = create<AppState>((set, get) => ({
             ifscCode: row.ifsc_code || row.ifscCode || '',
             nickname: row.nickname_en || row.nickname || '',
             nicknameTe: row.nickname_te || row.nicknameTe || '',
+            payableAmount: Number(row.payable_amount || row.payableAmount || 0),
+            version: row.version ? Number(row.version) : undefined,
             createdAt: row.createdAt || new Date().toISOString(),
           }));
           saveToStorage('suppliers', hydratedSuppliers);
           set({ suppliers: hydratedSuppliers });
+        }
+
+        // Hydrate Follow-Ups if available in sheet
+        const Follow_Ups = (res.data as any).Follow_Ups;
+        if (Array.isArray(Follow_Ups) && Follow_Ups.length > 0) {
+          const hydratedFollowUps: FollowUp[] = Follow_Ups.map((row: any) => ({
+            id: row.id || crypto.randomUUID(),
+            name: row.name || '',
+            phone: String(row.phone || ''),
+            address: row.address || '',
+            purpose: row.purpose || '',
+            followUpDate: row.follow_up_date || row.followUpDate || '',
+            notes: row.notes || '',
+            status: (row.status || 'OPEN') as FollowUp['status'],
+            version: row.version ? Number(row.version) : undefined,
+            createdAt: row.created_at || row.createdAt || new Date().toISOString(),
+          }));
+          saveToStorage('followUps', hydratedFollowUps);
+          set({ followUps: hydratedFollowUps });
         }
 
         // Hydrate Orders if available in sheet
@@ -1591,18 +1630,46 @@ export const useAppStore = create<AppState>((set, get) => ({
     });
   },
 
-  markOrderDelivered: (orderId) => {
+  markOrderDelivered: (orderId, paymentMode) => {
     const targetOrder = get().orders.find((o) => o.id === orderId);
+    const resolvedPaymentMode = paymentMode || targetOrder?.paymentMode || 'CREDIT';
     const updated = get().orders.map((o) => 
-      o.id === orderId ? { ...o, status: 'DELIVERED' as const } : o
+      o.id === orderId ? { ...o, status: 'DELIVERED' as const, paymentMode: resolvedPaymentMode } : o
     );
     saveToStorage('orders', updated);
     set({ orders: updated });
     get().triggerSync('updateOrderStatus', {
       orderId,
       newStatus: 'DELIVERED',
+      paymentMode: resolvedPaymentMode,
       ...(targetOrder?.version !== undefined ? { version: targetOrder.version } : {}),
     });
+  },
+
+  addFollowUp: (followUp) => {
+    const updated = [followUp, ...get().followUps];
+    saveToStorage('followUps', updated);
+    set({ followUps: updated });
+    get().triggerSync('saveFollowUp', { followUp });
+  },
+
+  updateFollowUp: (followUp) => {
+    const updated = get().followUps.map((f) => (f.id === followUp.id ? followUp : f));
+    saveToStorage('followUps', updated);
+    set({ followUps: updated });
+    get().triggerSync('saveFollowUp', { followUp });
+  },
+
+  deleteFollowUp: async (followUpId) => {
+    const target = get().followUps.find((f) => f.id === followUpId);
+    const updated = get().followUps.filter((f) => f.id !== followUpId);
+    saveToStorage('followUps', updated);
+    set({ followUps: updated });
+    await get().triggerSync('deleteFollowUp', {
+      followUpId,
+      ...(target?.version !== undefined ? { version: target.version } : {}),
+    });
+    return true;
   },
 
   addCustomer: (customer) => {

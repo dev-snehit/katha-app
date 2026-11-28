@@ -57,7 +57,7 @@ var DB_SCHEMA = {
   },
   Master_Products: {
     primaryKey: 'id',
-    columns: ['id', 'name_en', 'name_te', 'category', 'brand_en', 'brand_te', 'inner_wt_kg', 'inner_count', 'outer_wt_kg', 'stock_physical', 'stock_reserved', 'price_bag', 'cost_bag', 'retail_price_bag', 'version', 'created_at', 'updated_at', 'is_deleted'],
+    columns: ['id', 'name_en', 'name_te', 'category', 'category_te', 'brand_en', 'brand_te', 'inner_wt_kg', 'inner_count', 'outer_wt_kg', 'stock_physical', 'stock_reserved', 'price_bag', 'cost_bag', 'retail_price_bag', 'version', 'created_at', 'updated_at', 'is_deleted'],
     uniqueKeys: [['name_en', 'brand_en']],
     foreignKeys: [],
     checks: {
@@ -75,8 +75,15 @@ var DB_SCHEMA = {
   },
   Master_Suppliers: {
     primaryKey: 'id',
-    columns: ['id', 'business_en', 'business_te', 'owner_en', 'owner_te', 'bank_name', 'account_no', 'ifsc_code', 'nickname_en', 'nickname_te', 'version', 'created_at', 'updated_at', 'is_deleted'],
+    columns: ['id', 'business_en', 'business_te', 'owner_en', 'owner_te', 'bank_name', 'account_no', 'ifsc_code', 'nickname_en', 'nickname_te', 'payable_amount', 'version', 'created_at', 'updated_at', 'is_deleted'],
     uniqueKeys: [['business_en', 'account_no']],
+    foreignKeys: [],
+    checks: {}
+  },
+  Follow_Ups: {
+    primaryKey: 'id',
+    columns: ['id', 'name', 'phone', 'address', 'purpose', 'follow_up_date', 'notes', 'status', 'version', 'created_at', 'updated_at', 'is_deleted'],
+    uniqueKeys: [],
     foreignKeys: [],
     checks: {}
   },
@@ -100,7 +107,7 @@ var DB_SCHEMA = {
   },
   Order_Items: {
     primaryKey: 'id',
-    columns: ['id', 'order_id', 'product_id', 'unit_type', 'quantity', 'rate_per_unit', 'line_total', 'version', 'created_at', 'updated_at', 'is_deleted'],
+    columns: ['id', 'order_id', 'product_id', 'category', 'category_te', 'unit_type', 'quantity', 'rate_per_unit', 'line_total', 'version', 'created_at', 'updated_at', 'is_deleted'],
     uniqueKeys: [],
     foreignKeys: [
       { field: 'order_id', targetTable: 'Master_Orders_Sales', targetField: 'id', altTargetTable: 'Pending_Orders' },
@@ -1436,7 +1443,7 @@ function doPost(e) {
               subtotal: pendingOrder.grand_total,
               discount: pendingOrder.discount,
               grand_total: pendingOrder.grand_total,
-              payment_mode: 'CREDIT',
+              payment_mode: body.paymentMode || 'CREDIT',
               status: newStatus,
               approved_by: approvedByRole || userRole
             }, { preserveId: true, preserveBusinessNo: true });
@@ -1452,7 +1459,9 @@ function doPost(e) {
 
       var salesOrder = repo.findById('Master_Orders_Sales', orderId);
       if (salesOrder) {
-        var updatedSale = repo.update('Master_Orders_Sales', orderId, { status: newStatus }, body.version);
+        var salePatch = { status: newStatus };
+        if (body.paymentMode) salePatch.payment_mode = body.paymentMode;
+        var updatedSale = repo.update('Master_Orders_Sales', orderId, salePatch, body.version);
         return createResponse({ status: 'success', message: 'Order status updated', id: updatedSale.id, version: updatedSale.version });
       }
 
@@ -1544,7 +1553,8 @@ function doPost(e) {
         account_no: s.accountNumber,
         ifsc_code: s.ifscCode,
         nickname_en: s.nickname,
-        nickname_te: s.nicknameTe || ''
+        nickname_te: s.nicknameTe || '',
+        payable_amount: Number(s.payableAmount || 0)
       };
 
       var savedSupp = existingSupp
@@ -1552,6 +1562,39 @@ function doPost(e) {
         : repo.insert('Master_Suppliers', suppPayload);
 
       return createResponse({ status: 'success', id: savedSupp.id, supplierId: savedSupp.id, version: savedSupp.version, message: 'Supplier saved to sheet' });
+    }
+
+    // --- Follow-Up / Walk-In Lead Operations ---
+    if (action === 'saveFollowUp') {
+      var f = body.followUp;
+      var existingFu = f.id ? repo.findById('Follow_Ups', f.id) : null;
+      if (existingFu && !checkBackendPermission(ss, userRole, 'followups_page', 'edit_followup')) {
+        return createResponse({ status: 'error', code: ERROR_CODES.FORBIDDEN, message: 'Permission denied: edit_followup is disabled for role ' + userRole });
+      }
+      if (!existingFu && !checkBackendPermission(ss, userRole, 'followups_page', 'add_followup')) {
+        return createResponse({ status: 'error', code: ERROR_CODES.FORBIDDEN, message: 'Permission denied: add_followup is disabled for role ' + userRole });
+      }
+      var fuPayload = {
+        name: f.name,
+        phone: normalizePhoneValue(f.phone),
+        address: f.address || '',
+        purpose: f.purpose,
+        follow_up_date: f.followUpDate || '',
+        notes: f.notes || '',
+        status: f.status || 'OPEN'
+      };
+      var savedFu = existingFu
+        ? repo.update('Follow_Ups', f.id, fuPayload, f.version)
+        : repo.insert('Follow_Ups', fuPayload);
+      return createResponse({ status: 'success', id: savedFu.id, version: savedFu.version, message: 'Follow-up saved to sheet' });
+    }
+
+    if (action === 'deleteFollowUp') {
+      if (!checkBackendPermission(ss, userRole, 'followups_page', 'delete_followup')) {
+        return createResponse({ status: 'error', code: ERROR_CODES.FORBIDDEN, message: 'Permission denied: delete_followup is disabled for role ' + userRole });
+      }
+      repo.softDelete('Follow_Ups', body.followUpId, body.version);
+      return createResponse({ status: 'success', message: 'Follow-up deleted' });
     }
 
     // --- Purchase Operations ---
@@ -1595,6 +1638,7 @@ function doPost(e) {
         name_en: p.name,
         name_te: p.nameTe || '',
         category: p.category,
+        category_te: p.categoryTe || '',
         brand_en: p.brandOrMill || '',
         brand_te: p.brandOrMillTe || '',
         inner_wt_kg: p.innerBagWeightKg,

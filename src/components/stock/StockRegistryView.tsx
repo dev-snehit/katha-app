@@ -48,6 +48,10 @@ export const StockRegistryView: React.FC = () => {
   const [name, setName] = useState('');
   const [nameTe, setNameTe] = useState('');
   const [category, setCategory] = useState('');
+  const [categoryTe, setCategoryTe] = useState('');
+  const [stockSearch, setStockSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('ALL');
+  const [stockSort, setStockSort] = useState<'NAME_ASC' | 'STOCK_ASC' | 'PRICE_DESC'>('NAME_ASC');
   const [brandOrMill, setBrandOrMill] = useState('');
   const [innerBagWeightKg, setInnerBagWeightKg] = useState('');
   const [innerBagsPerOuter, setInnerBagsPerOuter] = useState('');
@@ -72,6 +76,7 @@ export const StockRegistryView: React.FC = () => {
       setName('');
       setNameTe('');
       setCategory('');
+      setCategoryTe('');
       setBrandOrMill('');
       setInnerBagWeightKg('');
       setInnerBagsPerOuter('');
@@ -89,6 +94,7 @@ export const StockRegistryView: React.FC = () => {
         setName(prod.name || '');
         setNameTe(prod.nameTe || '');
         setCategory(prod.category || '');
+        setCategoryTe(prod.categoryTe || '');
         setBrandOrMill(prod.brandOrMill || '');
         setInnerBagWeightKg(String(prod.innerBagWeightKg || ''));
         setInnerBagsPerOuter(String(prod.innerBagsPerOuter || ''));
@@ -213,6 +219,7 @@ export const StockRegistryView: React.FC = () => {
         name: name.trim(),
         nameTe: nameTe.trim(),
         category,
+        categoryTe: categoryTe.trim(),
         brandOrMill: brandOrMill.trim(),
         innerBagWeightKg: innerWt,
         innerBagsPerOuter: innerCount,
@@ -362,11 +369,67 @@ export const StockRegistryView: React.FC = () => {
           </button>
         </div>
       ) : (
-        /* Mobile Cards + Desktop Table */
+        /* Search, Category Filter & Sort + Mobile Cards + Desktop Table */
+        (() => {
+          const filteredInventory = inventory
+            .filter((item) => {
+              if (categoryFilter !== 'ALL' && item.category !== categoryFilter) return false;
+              if (stockSearch.trim()) {
+                const q = stockSearch.trim().toLowerCase();
+                return (
+                  item.name.toLowerCase().includes(q) ||
+                  (item.nameTe || '').toLowerCase().includes(q) ||
+                  (item.brandOrMill || '').toLowerCase().includes(q) ||
+                  (item.category || '').toLowerCase().includes(q)
+                );
+              }
+              return true;
+            })
+            .sort((a, b) => {
+              if (stockSort === 'STOCK_ASC') {
+                return (a.stockPhysicalOuter - a.stockReservedOuter) - (b.stockPhysicalOuter - b.stockReservedOuter);
+              }
+              if (stockSort === 'PRICE_DESC') return (b.wholesalePriceBag || 0) - (a.wholesalePriceBag || 0);
+              return a.name.localeCompare(b.name);
+            });
+          const uniqueCategories = Array.from(new Set(inventory.map((i) => i.category).filter(Boolean)));
+          return (
         <div className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2.5 bg-white p-3 rounded-2xl border border-slate-200/80">
+            <input
+              type="text"
+              value={stockSearch}
+              onChange={(e) => setStockSearch(e.target.value)}
+              placeholder={language === 'TE' ? 'సరుకు / బ్రాండ్ / వర్గం శోధించండి...' : 'Search item, brand, or category...'}
+              className="text-xs border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-orange-500 w-full sm:w-64"
+            />
+            <div className="flex items-center gap-2 flex-wrap">
+              <select
+                aria-label={language === 'TE' ? 'వర్గం వడపోత' : 'Filter by category'}
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+                className="text-xs font-semibold border border-slate-200 rounded-xl px-2.5 py-2 bg-slate-50 outline-none focus:border-orange-500"
+              >
+                <option value="ALL">{language === 'TE' ? 'అన్ని వర్గాలు' : 'All Categories'}</option>
+                {uniqueCategories.map((cat) => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
+              <select
+                aria-label={language === 'TE' ? 'స్టాక్ క్రమబద్ధీకరణ' : 'Sort stock'}
+                value={stockSort}
+                onChange={(e) => setStockSort(e.target.value as any)}
+                className="text-xs font-semibold border border-slate-200 rounded-xl px-2.5 py-2 bg-slate-50 outline-none focus:border-orange-500"
+              >
+                <option value="NAME_ASC">{language === 'TE' ? 'పేరు (A-Z)' : 'Name (A → Z)'}</option>
+                <option value="STOCK_ASC">{language === 'TE' ? 'తక్కువ స్టాక్ ముందు' : 'Low Stock First'}</option>
+                <option value="PRICE_DESC">{language === 'TE' ? 'ధర (ఎక్కువ-తక్కువ)' : 'Price: High → Low'}</option>
+              </select>
+            </div>
+          </div>
           {/* Mobile Card List */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:hidden gap-3">
-            {inventory.map((item) => {
+            {filteredInventory.map((item) => {
               const available = Math.max(0, item.stockPhysicalOuter - item.stockReservedOuter);
               return (
                 <div key={item.id} className="card-soft p-4 flex flex-col justify-between">
@@ -497,7 +560,7 @@ export const StockRegistryView: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {inventory.map((item) => {
+                {filteredInventory.map((item) => {
                   const available = Math.max(0, item.stockPhysicalOuter - item.stockReservedOuter);
                   return (
                     <tr key={item.id} className="hover:bg-slate-50/70 transition-colors">
@@ -576,6 +639,8 @@ export const StockRegistryView: React.FC = () => {
             </table>
           </div>
         </div>
+          );
+        })()
       )}
 
       {/* Add Commodity Modal (Zero auto-fill) */}
@@ -663,7 +728,19 @@ export const StockRegistryView: React.FC = () => {
                     required
                     value={category}
                     onChange={(e) => {
-                      setCategory(e.target.value);
+                      const val = e.target.value;
+                      setCategory(val);
+                      const catTeMap: Record<string, string> = {
+                        RICE: 'బియ్యం',
+                        BROKEN_RICE: 'నూకలు',
+                        SUJI_RAVVA: 'సూజీ రవ్వ',
+                        WHEAT_RAVVA: 'గోధుమ రవ్వ',
+                        DALS: 'పప్పులు',
+                        MAIDA: 'మైదా',
+                        ATTA: 'గోధుమ పిండి',
+                        OTHER: 'ఇతర ధాన్యాలు',
+                      };
+                      if (catTeMap[val]) setCategoryTe(catTeMap[val]);
                       if (fieldErrors.category) {
                         setFieldErrors((prev) => { const n = { ...prev }; delete n.category; return n; });
                       }
@@ -679,6 +756,7 @@ export const StockRegistryView: React.FC = () => {
                     <option value="BROKEN_RICE">{language === 'TE' ? 'నూకలు' : 'Broken Rice'}</option>
                     <option value="SUJI_RAVVA">{language === 'TE' ? 'సూజీ రవ్వ' : 'Suji Ravva'}</option>
                     <option value="WHEAT_RAVVA">{language === 'TE' ? 'గోధుమ రవ్వ' : 'Wheat Ravva'}</option>
+                    <option value="DALS">{language === 'TE' ? 'పప్పులు' : 'Dals / Pulses'}</option>
                     <option value="MAIDA">{language === 'TE' ? 'మైదా' : 'Maida'}</option>
                     <option value="ATTA">{language === 'TE' ? 'గోధుమ పిండి' : 'Atta'}</option>
                     <option value="OTHER">{language === 'TE' ? 'ఇతర ధాన్యాలు' : 'Other Grains'}</option>
@@ -686,6 +764,13 @@ export const StockRegistryView: React.FC = () => {
                   {fieldErrors.category && (
                     <p className="text-[11px] font-semibold text-rose-600 mt-1">{fieldErrors.category}</p>
                   )}
+                  <input
+                    type="text"
+                    placeholder={language === 'TE' ? 'వర్గం (తెలుగులో - ఐచ్ఛికం)' : 'Category in Telugu (Optional, e.g. బియ్యం)'}
+                    value={categoryTe}
+                    onChange={(e) => setCategoryTe(e.target.value)}
+                    className="w-full text-xs font-medium border border-slate-200 rounded-xl p-2.5 mt-2 outline-none focus:border-orange-500"
+                  />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">

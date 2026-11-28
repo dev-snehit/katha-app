@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-export type MainView = 'dashboard' | 'orders' | 'stock' | 'customers' | 'suppliers' | 'exports' | 'admin' | 'settings' | 'auth';
+export type MainView = 'dashboard' | 'orders' | 'stock' | 'customers' | 'suppliers' | 'followups' | 'exports' | 'admin' | 'settings' | 'auth';
 export type SubView = 'new' | 'edit' | 'new-user' | 'login' | 'register' | 'forgot' | 'reset' | null;
 
 export interface RouteInfo {
@@ -169,6 +169,18 @@ export function parseRoute(rawPathOrUrl?: string): RouteInfo {
         paramId = decodeURIComponent(thirdSeg);
       } else if (secondSeg) {
         // Direct route param e.g. /suppliers/:supplierid
+        subView = 'edit';
+        paramId = decodeURIComponent(secondSeg);
+      }
+      break;
+
+    case 'follow-ups':
+    case 'followups':
+    case 'leads':
+      view = 'followups';
+      if (secondSeg === 'new' || secondSeg === 'add') {
+        subView = 'new';
+      } else if (secondSeg) {
         subView = 'edit';
         paramId = decodeURIComponent(secondSeg);
       }

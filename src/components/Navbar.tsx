@@ -20,7 +20,8 @@ import {
   RefreshCw,
   CheckCircle2,
   AlertCircle,
-  LayoutDashboard
+  LayoutDashboard,
+  ClipboardList
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -103,6 +104,13 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
       label: t.nav.suppliers,
       fullTitle: language === 'TE' ? 'సప్లయర్లు & మిల్లు ఖాతాలు' : 'Suppliers Directory & Mill Ledgers',
       icon: Building2,
+    },
+    {
+      id: 'followups',
+      pageKey: 'followups_page',
+      label: t.nav.followUps,
+      fullTitle: language === 'TE' ? 'వాక్-ఇన్ & ఫాలో-అప్ డైరెక్టరీ' : 'Walk-In Leads & Follow-Ups Directory',
+      icon: ClipboardList,
     },
     {
       id: 'exports',
@@ -257,8 +265,8 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
                   onChange={(e) => setLanguage(e.target.value as 'EN' | 'TE')}
                   className="bg-transparent text-[10px] sm:text-xs font-bold text-slate-800 outline-none cursor-pointer"
                 >
-                  <option value="EN">EN</option>
-                  <option value="TE">తె</option>
+                  <option value="EN">English</option>
+                  <option value="TE">తెలుగు</option>
                 </select>
               </div>
 

@@ -49,6 +49,9 @@ export const CustomerDirectoryView: React.FC = () => {
   const [address, setAddress] = useState('');
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [custSearch, setCustSearch] = useState('');
+  const [custDueFilter, setCustDueFilter] = useState<'ALL' | 'WITH_DUE'>('ALL');
+  const [custSort, setCustSort] = useState<'NAME_ASC' | 'DUE_DESC'>('NAME_ASC');
 
   // Synchronize modal state with URL route (e.g. /customers/new, /customers/:id)
   useEffect(() => {
@@ -273,9 +276,52 @@ export const CustomerDirectoryView: React.FC = () => {
           </button>
         </div>
       ) : (
-        /* Customers Mobile Cards Grid */
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {customers.map((c) => {
+        /* Search, Filter, Sort & Customers Mobile Cards Grid */
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2.5 bg-white p-3 rounded-2xl border border-slate-200/80">
+            <input
+              type="text"
+              value={custSearch}
+              onChange={(e) => setCustSearch(e.target.value)}
+              placeholder={language === 'TE' ? 'కస్టమర్ / మొబైల్ శోధించండి...' : 'Search customer name or phone...'}
+              className="text-xs border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-orange-500 w-full sm:w-64"
+            />
+            <div className="flex items-center gap-2">
+              <select
+                aria-label={language === 'TE' ? 'బకాయి వడపోత' : 'Filter by due'}
+                value={custDueFilter}
+                onChange={(e) => setCustDueFilter(e.target.value as any)}
+                className="text-xs font-semibold border border-slate-200 rounded-xl px-2.5 py-2 bg-slate-50 outline-none focus:border-orange-500"
+              >
+                <option value="ALL">{language === 'TE' ? 'అందరూ' : 'All Customers'}</option>
+                <option value="WITH_DUE">{language === 'TE' ? 'బకాయి ఉన్నవారు' : 'Has Due (> ₹0)'}</option>
+              </select>
+              <select
+                aria-label={language === 'TE' ? 'కస్టమర్ క్రమబద్ధీకరణ' : 'Sort customers'}
+                value={custSort}
+                onChange={(e) => setCustSort(e.target.value as any)}
+                className="text-xs font-semibold border border-slate-200 rounded-xl px-2.5 py-2 bg-slate-50 outline-none focus:border-orange-500"
+              >
+                <option value="NAME_ASC">{language === 'TE' ? 'పేరు (A-Z)' : 'Name (A → Z)'}</option>
+                <option value="DUE_DESC">{language === 'TE' ? 'బకాయి (ఎక్కువ-తక్కువ)' : 'Due: High → Low'}</option>
+              </select>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {customers
+            .filter((c) => {
+              if (custDueFilter === 'WITH_DUE' && (c.currentDue || 0) <= 0) return false;
+              if (custSearch.trim()) {
+                const q = custSearch.trim().toLowerCase();
+                return c.name.toLowerCase().includes(q) || (c.phone || '').includes(q) || (c.businessName || '').toLowerCase().includes(q);
+              }
+              return true;
+            })
+            .sort((a, b) => {
+              if (custSort === 'DUE_DESC') return (b.currentDue || 0) - (a.currentDue || 0);
+              return a.name.localeCompare(b.name);
+            })
+            .map((c) => {
             const initials = getInitials(c.name);
 
             return (
@@ -365,6 +411,7 @@ export const CustomerDirectoryView: React.FC = () => {
               </div>
             );
           })}
+          </div>
         </div>
       )}
 

@@ -6,6 +6,7 @@ import { PendingOrdersView } from './components/orders/PendingOrdersView';
 import { StockRegistryView } from './components/stock/StockRegistryView';
 import { CustomerDirectoryView } from './components/customers/CustomerDirectoryView';
 import { SupplierDirectoryView } from './components/suppliers/SupplierDirectoryView';
+import { FollowUpsView } from './components/followups/FollowUpsView';
 import { ExportCenterView } from './components/exports/ExportCenterView';
 import { UserRequestsView } from './components/admin/UserRequestsView';
 import { SettingsModal } from './components/settings/SettingsModal';
@@ -70,12 +71,13 @@ export default function App() {
         stock: 'stock_page',
         customers: 'customers_page',
         suppliers: 'suppliers_page',
+        followups: 'followups_page',
         exports: 'reports_page',
         admin: 'user_management_page',
       };
       const pageKey = pageKeyMap[route.view];
       if (pageKey && !hasPageAccess(pageKey)) {
-        const pages = ['dashboard', 'orders', 'stock', 'customers', 'suppliers', 'exports'];
+        const pages = ['dashboard', 'orders', 'stock', 'customers', 'suppliers', 'followups', 'exports'];
         const firstAvailable = pages.find((p) => hasPageAccess(pageKeyMap[p])) || 'orders';
         navigate(`/${firstAvailable}`, { replace: true });
       }
@@ -206,6 +208,7 @@ export default function App() {
           {activeTab === 'stock' && hasPageAccess('stock_page') && <StockRegistryView />}
           {activeTab === 'customers' && hasPageAccess('customers_page') && <CustomerDirectoryView />}
           {activeTab === 'suppliers' && hasPageAccess('suppliers_page') && <SupplierDirectoryView />}
+          {activeTab === 'followups' && hasPageAccess('followups_page') && <FollowUpsView />}
           {activeTab === 'exports' && hasPageAccess('reports_page') && <ExportCenterView />}
           {activeTab === 'admin' && hasPageAccess('user_management_page') && <UserRequestsView />}
         </div>

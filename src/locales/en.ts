@@ -9,6 +9,7 @@ export const en = {
     stockShort: "Stock",
     customers: "Customers",
     suppliers: "Suppliers",
+    followUps: "Follow-Ups",
     exportCenter: "Export & Reports",
     reportsShort: "Reports",
     adminRequests: "User Requests",

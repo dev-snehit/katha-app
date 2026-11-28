@@ -48,6 +48,9 @@ export const SupplierDirectoryView: React.FC = () => {
   const [accountNumber, setAccountNumber] = useState('');
   const [ifscCode, setIfscCode] = useState('');
   const [nickname, setNickname] = useState('');
+  const [payableAmount, setPayableAmount] = useState('');
+  const [supplierSearch, setSupplierSearch] = useState('');
+  const [supplierSort, setSupplierSort] = useState<'NAME_ASC' | 'PAYABLE_DESC'>('NAME_ASC');
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   // Synchronize modal state with URL route (e.g. /suppliers/new, /suppliers/:id)
@@ -67,6 +70,7 @@ export const SupplierDirectoryView: React.FC = () => {
       setAccountNumber('');
       setIfscCode('');
       setNickname('');
+      setPayableAmount('');
       setIsModalOpen(true);
     } else if (route.subView === 'edit' && route.paramId) {
       const s = suppliers.find((item) => item.id === route.paramId);
@@ -79,6 +83,7 @@ export const SupplierDirectoryView: React.FC = () => {
         setAccountNumber(s.accountNumber || '');
         setIfscCode(s.ifscCode || '');
         setNickname(s.nickname || '');
+        setPayableAmount(s.payableAmount !== undefined ? String(s.payableAmount) : '');
         setIsModalOpen(true);
       } else {
         setIsModalOpen(false);
@@ -128,6 +133,7 @@ export const SupplierDirectoryView: React.FC = () => {
         accountNumber: accountNumber.trim(),
         ifscCode: ifscCode.toUpperCase().trim(),
         nickname: nickname.trim(),
+        payableAmount: Math.max(0, Number(payableAmount) || 0),
       };
       
       setConfirmDialog({
@@ -159,6 +165,7 @@ export const SupplierDirectoryView: React.FC = () => {
         accountNumber: accountNumber.trim(),
         ifscCode: ifscCode.toUpperCase().trim(),
         nickname: nickname.trim(),
+        payableAmount: Math.max(0, Number(payableAmount) || 0),
         createdAt: new Date().toISOString(),
       };
       startActionLoading(
@@ -255,9 +262,42 @@ export const SupplierDirectoryView: React.FC = () => {
           </button>
         </div>
       ) : (
-        /* Suppliers Grid */
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {suppliers.map((s) => (
+        /* Search, Sort & Suppliers Grid */
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2.5 bg-white p-3 rounded-2xl border border-slate-200/80">
+            <input
+              type="text"
+              value={supplierSearch}
+              onChange={(e) => setSupplierSearch(e.target.value)}
+              placeholder={language === 'TE' ? 'సప్లయర్ / బ్యాంక్ శోధించండి...' : 'Search supplier, nickname, or bank...'}
+              className="text-xs border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-orange-500 w-full sm:w-64"
+            />
+            <select
+              aria-label={language === 'TE' ? 'సప్లయర్ క్రమబద్ధీకరణ' : 'Sort suppliers'}
+              value={supplierSort}
+              onChange={(e) => setSupplierSort(e.target.value as any)}
+              className="text-xs font-semibold border border-slate-200 rounded-xl px-2.5 py-2 bg-slate-50 outline-none focus:border-orange-500"
+            >
+              <option value="NAME_ASC">{language === 'TE' ? 'పేరు (A-Z)' : 'Name (A → Z)'}</option>
+              <option value="PAYABLE_DESC">{language === 'TE' ? 'చెల్లించాల్సిన మొత్తం (ఎక్కువ-తక్కువ)' : 'Payable: High → Low'}</option>
+            </select>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {suppliers
+            .filter((s) => {
+              if (!supplierSearch.trim()) return true;
+              const q = supplierSearch.trim().toLowerCase();
+              return (
+                s.businessName.toLowerCase().includes(q) ||
+                s.nickname.toLowerCase().includes(q) ||
+                s.bankName.toLowerCase().includes(q)
+              );
+            })
+            .sort((a, b) => {
+              if (supplierSort === 'PAYABLE_DESC') return (b.payableAmount || 0) - (a.payableAmount || 0);
+              return a.businessName.localeCompare(b.businessName);
+            })
+            .map((s) => (
             <div
               key={s.id}
               className="card-soft p-5 flex flex-col justify-between hover:border-orange-400 transition-all"
@@ -267,7 +307,13 @@ export const SupplierDirectoryView: React.FC = () => {
                   <span className="px-3 py-1 rounded-full text-xs font-bold bg-orange-50 text-orange-700 border border-orange-200">
                     {s.nickname}
                   </span>
-                  <CreditCard className="w-4 h-4 text-slate-400" />
+                  <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-black font-mono ${
+                    (s.payableAmount || 0) > 0
+                      ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                      : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                  }`}>
+                    {language === 'TE' ? 'బకాయి:' : 'Payable:'} ₹{(s.payableAmount || 0).toLocaleString()}
+                  </span>
                 </div>
 
                 <h3 className="text-base font-black text-slate-900">
@@ -336,6 +382,7 @@ export const SupplierDirectoryView: React.FC = () => {
               </div>
             </div>
           ))}
+          </div>
         </div>
       )}
 
@@ -467,6 +514,21 @@ export const SupplierDirectoryView: React.FC = () => {
                       className="w-full text-xs font-bold border border-slate-300 rounded-xl p-3 outline-none focus:border-orange-500 font-mono uppercase"
                     />
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    {language === 'TE' ? 'సప్లయర్‌కు చెల్లించాల్సిన బకాయి (₹ Payable)' : 'Amount Payable to Supplier (₹)'}
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    placeholder="0"
+                    value={payableAmount}
+                    onChange={(e) => setPayableAmount(e.target.value)}
+                    className="w-full text-xs font-bold border border-slate-300 rounded-xl p-3 outline-none focus:border-orange-500 font-mono"
+                  />
                 </div>
               </div>
 

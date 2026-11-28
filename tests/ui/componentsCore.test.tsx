@@ -100,8 +100,11 @@ describe('UI Components: AlertDialog, Navbar, SettingsModal & AuthView', () => {
     fireEvent.click(screen.getByLabelText('Settings'));
     expect(onOpenSettings).toHaveBeenCalled();
 
-    // Switch language to Telugu
-    fireEvent.change(screen.getByLabelText('Language'), { target: { value: 'TE' } });
+    // Switch language to Telugu (verifies full language words English / తెలుగు)
+    const langSelect = screen.getByLabelText('Language');
+    expect(langSelect).toHaveTextContent('English');
+    expect(langSelect).toHaveTextContent('తెలుగు');
+    fireEvent.change(langSelect, { target: { value: 'TE' } });
     expect(useAppStore.getState().language).toBe('TE');
 
     // Open sign out dialog and confirm

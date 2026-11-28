@@ -273,6 +273,20 @@ export const PERMISSION_PAGES_META: PageMeta[] = [
     ],
   },
   {
+    key: 'followups_page',
+    labelEn: 'Walk-In & Follow-Up Leads',
+    labelTe: 'వాక్-ఇన్ & ఫాలో-అప్ డైరెక్టరీ',
+    navKey: 'followups',
+    descriptionEn: 'Track walk-in customers, purchase inquiries, and future follow-up reminders',
+    descriptionTe: 'వాక్-ఇన్ కస్టమర్లు, కొనుగోలు ఉద్దేశ్యం మరియు భవిష్యత్ ఫాలో-అప్ వివరాలు',
+    functionalities: [
+      { key: 'view_followups', labelEn: 'View Follow-Up Directory', labelTe: 'ఫాలో-అప్ వివరాలు చూడటం', descriptionEn: 'Allow viewing walk-in leads and follow-up notes', descriptionTe: 'వాక్-ఇన్ కస్టమర్ల ఫాలో-అప్ జాబితాను చూడటం' },
+      { key: 'add_followup', labelEn: 'Add Follow-Up Lead', labelTe: 'కొత్త ఫాలో-అప్ చేర్చడం', descriptionEn: 'Allow adding new walk-in / customer follow-up records', descriptionTe: 'కొత్త ఫాలో-అప్ ఎంట్రీని నమోదు చేయడం' },
+      { key: 'edit_followup', labelEn: 'Update Follow-Up Status', labelTe: 'ఫాలో-అప్ స్థితి మార్చడం', descriptionEn: 'Allow updating follow-up status and notes', descriptionTe: 'ఫాలో-అప్ స్థితి మరియు నోట్స్ సవరించడం' },
+      { key: 'delete_followup', labelEn: 'Delete Follow-Up Lead', labelTe: 'ఫాలో-అప్ తొలగించడం', descriptionEn: 'Allow deleting follow-up entries', descriptionTe: 'ఫాలో-అప్ ఎంట్రీని తొలగించడం' },
+    ],
+  },
+  {
     key: 'reports_page',
     labelEn: 'Export & Financial Reports',
     labelTe: 'ఎగుమతి & ఆర్థిక నివేదికలు',

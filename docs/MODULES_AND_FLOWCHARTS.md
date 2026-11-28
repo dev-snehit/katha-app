@@ -151,11 +151,14 @@ All dashboard sections are individually gated by `dashboard_page` functionalitie
 
 ---
 
-## 5. Orders Pipeline, Multi-Item Builder & Two-Stage Stock Reservation
+## 5. Orders Pipeline (3 Stages), Payment Completion & Two-Stage Stock Reservation
 
 **Files:** `src/components/orders/PendingOrdersView.tsx`, `src/lib/stockEngine.ts`, `src/store/useAppStore.ts`, `backend/Code.gs`
 
 ### Capabilities
+- **Simplified 3-Stage Pipeline:** `Pending` (`PENDING_REVIEW`) → `Approved` (`APPROVED`) → `Delivered` (`DELIVERED`), with rich order cards showing status badge, date, payment mode, bags/weight, item count, and itemized category tags (zero empty bars).
+- **Payment Mode Selection on Delivery Completion:** Clicking **Complete & Deliver** opens a payment-mode selector (`CASH`, `CREDIT`, `UPI`, `BANK_TRANSFER` / `A/C Transfer`, `CHEQUE`, `DD`) and persists the settlement mode to `Master_Orders_Sales`.
+- **Search & Sorting:** Filter by pipeline stage or search text and sort by Date, Amount, or Bags.
 - **Dynamic Multi-Item Order Builder:** Add multiple commodities (`OUTER_BAG`, `INNER_BAG`, `LOOSE_KG`), editable sale rates, hamali, freight, and custom bill discounts (`₹`).
 - **Auto-Combining Duplicate Line Items:** Adding or saving items with the same `productId`, `unitType`, and `ratePerUnit` automatically combines their quantities into a single consolidated line item.
 - **Two-Stage Stock Allocation (`stockEngine.ts`):**
@@ -197,16 +200,16 @@ flowchart TD
 
 ---
 
-## 7. Customer & Supplier Directories
+## 7. Customer, Supplier Payables & Walk-In Follow-Up Directories
 
-**Files:** `src/components/customers/CustomerDirectoryView.tsx`, `src/components/suppliers/SupplierDirectoryView.tsx`, `src/lib/customerValidation.ts`
+**Files:** `src/components/customers/CustomerDirectoryView.tsx`, `src/components/suppliers/SupplierDirectoryView.tsx`, `src/components/followups/FollowUpsView.tsx`, `src/components/ui/FlowchartModal.tsx`, `src/lib/customerValidation.ts`
 
 ### Capabilities
-- **Customer Directory (`/customers`, `/customers/new`, `/customers/:customerid`):**
-  - Validates alphabetic customer names and unique 10-digit mobile numbers (`validateCustomerForm`).
-  - Tracks `currentDue` (credit ledger), bilingual names/addresses, and 1-click WhatsApp contact.
-- **Supplier Directory (`/suppliers`, `/suppliers/new`, `/suppliers/:supplierid`):**
-  - Tracks mill/supplier business details, owner names, bank account (`bankName`, `accountNo`, `ifscCode`), and reference nicknames.
+- **Customer Directory (`/customers`):** Validates alphabetic names and unique 10-digit mobile numbers (`validateCustomerForm`), tracks `currentDue`, supports search, due-filtering, and sorting, and provides 1-click WhatsApp contact.
+- **Supplier Directory & Payables (`/suppliers`):** Tracks mill/supplier bank details, `payableAmount` (amount owed to each supplier, also surfaced on `DashboardView.tsx`), and search/sorting.
+- **Walk-In & Follow-Up Directory (`/follow-ups`):** Stores walk-in visitor `name`, `phone`, `address`, `purpose` of purchase, `followUpDate`, and `status` (`OPEN`, `CONTACTED`, `CONVERTED`) in `Follow_Ups` with search, filter, sort, and 1-click WhatsApp follow-up.
+- **In-App Visual Action Flowcharts (`FlowchartModal.tsx`):** Accessible from the Dashboard (`Flowcharts` button), displaying interactive bilingual flowcharts for Auth, 3-Stage Orders + Payment, Suppliers & Follow-Ups, and DB Sync.
+- **Bilingual Language Switcher & Auth Spinners:** Uses full language names (`English` / `తెలుగు`) in `Navbar.tsx` and `AuthView.tsx`, with loading spinners on Sign In and Request Access forms.
 
 ---
 

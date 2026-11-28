@@ -17,7 +17,8 @@ import {
   KeyRound,
   RotateCcw,
   Copy,
-  ExternalLink
+  ExternalLink,
+  Loader2
 } from 'lucide-react';
 
 export const AuthView: React.FC = () => {
@@ -32,12 +33,15 @@ export const AuthView: React.FC = () => {
     language, 
     setLanguage,
     sessionExpiredMessage,
-    clearSessionExpiredMessage
+    clearSessionExpiredMessage,
+    startActionLoading,
+    stopActionLoading
   } = useAppStore();
 
   const { route, navigate } = useRouter();
 
   const [mode, setMode] = useState<'LOGIN' | 'REGISTER' | 'FORGOT' | 'RESET_REQUIRED' | 'RESET_LINK'>('LOGIN');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Login Form
   const [loginEmail, setLoginEmail] = useState('');
@@ -122,16 +126,26 @@ export const AuthView: React.FC = () => {
     setLoginError(null);
     setLoginSuccess(null);
     clearSessionExpiredMessage();
-    const result = await login(loginEmail, loginPassword);
-    
-    if (result.mustResetPassword && result.user) {
-      setResetUserId(result.user.id);
-      setMode('RESET_REQUIRED');
-      return;
-    }
+    setIsSubmitting(true);
+    startActionLoading(
+      'Signing in to workspace...',
+      'వర్క్‌స్పేస్‌లోకి సైన్ ఇన్ అవుతోంది...'
+    );
+    try {
+      const result = await login(loginEmail, loginPassword);
 
-    if (!result.success) {
-      setLoginError(result.message);
+      if (result.mustResetPassword && result.user) {
+        setResetUserId(result.user.id);
+        setMode('RESET_REQUIRED');
+        return;
+      }
+
+      if (!result.success) {
+        setLoginError(result.message);
+      }
+    } finally {
+      setIsSubmitting(false);
+      stopActionLoading();
     }
   };
 
@@ -156,61 +170,71 @@ export const AuthView: React.FC = () => {
       return;
     }
 
-    // Generate secure temporary password, hash, and unique setup link (used for brand-new registrations)
-    const tempPassword = generateTemporaryPassword();
-    const tempHash = await hashPassword(tempPassword);
-    const resetToken = `rst-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-    const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const basePath = typeof window !== 'undefined' && window.location.pathname.startsWith('/katha-app') ? '/katha-app' : '';
-    const resetLink = `${origin}${basePath}/reset-password/${resetToken}`;
+    setIsSubmitting(true);
+    startActionLoading(
+      'Submitting access request...',
+      'యాక్సెస్ అభ్యర్థన సమర్పించబడుతోంది...'
+    );
+    try {
+      // Generate secure temporary password, hash, and unique setup link (used for brand-new registrations)
+      const tempPassword = generateTemporaryPassword();
+      const tempHash = await hashPassword(tempPassword);
+      const resetToken = `rst-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      const basePath = typeof window !== 'undefined' && window.location.pathname.startsWith('/katha-app') ? '/katha-app' : '';
+      const resetLink = `${origin}${basePath}/reset-password/${resetToken}`;
 
-    const newUser = {
-      id: crypto.randomUUID(),
-      name: regName.trim(),
-      email: cleanRegEmail,
-      phone: cleanRegPhone,
-      role: regRole,
-      status: 'PENDING_APPROVAL' as const,
-      password: tempPassword,
-      passwordHash: tempHash,
-      mustResetPassword: true,
-      resetPasswordToken: resetToken,
-      resetPasswordExpires: expiresAt,
-      createdAt: new Date().toISOString(),
-    };
+      const newUser = {
+        id: crypto.randomUUID(),
+        name: regName.trim(),
+        email: cleanRegEmail,
+        phone: cleanRegPhone,
+        role: regRole,
+        status: 'PENDING_APPROVAL' as const,
+        password: tempPassword,
+        passwordHash: tempHash,
+        mustResetPassword: true,
+        resetPasswordToken: resetToken,
+        resetPasswordExpires: expiresAt,
+        createdAt: new Date().toISOString(),
+      };
 
-    const regResult = registerUser(newUser, tempPassword, resetLink);
-    if (!regResult.success) {
-      setRegError(regResult.message);
-      return;
+      const regResult = registerUser(newUser, tempPassword, resetLink);
+      if (!regResult.success) {
+        setRegError(regResult.message);
+        return;
+      }
+
+      if (regResult.isRoleChangeRequest) {
+        setRegResetLink(null);
+        setRegSuccess(
+          language === 'TE'
+            ? `కొత్త పాత్ర (${regRole}) కోసం అభ్యర్థన సమర్పించబడింది! మీ పాస్‌వర్డ్ మారదు మరియు అడ్మిన్ ఆమోదించే వరకు మీరు మీ ప్రస్తుత పాత్రతో లాగిన్ అవ్వవచ్చు.`
+            : `Role change request (${regRole}) submitted! Your password remains unchanged, and you can continue signing in with your existing role until an administrator approves.`
+        );
+      } else if (regResult.isReRequest) {
+        setRegResetLink(null);
+        setRegSuccess(
+          language === 'TE'
+            ? `మీ యాక్సెస్ అభ్యర్థన (${regRole}) నవీకరించబడింది! మీ ప్రస్తుత పాస్‌వర్డ్ మారదు. దయచేసి అడ్మిన్ ఆమోదం కోసం వేచి ఉండండి.`
+            : `Access request updated to ${regRole}! Your existing password remains unchanged. Please wait for administrator approval.`
+        );
+      } else {
+        setRegResetLink(resetLink);
+        setRegSuccess(
+          language === 'TE'
+            ? `నమోదు పూర్తయింది! ఈమెయిల్ పంపడం తాత్కాలికంగా నిలిపివేయబడింది — దయచేసి దిగువ ఉన్న పాస్‌వర్డ్ సెటప్ లింక్‌ను ఉపయోగించండి. అడ్మిన్ ఆమోదించిన తర్వాత మీరు లాగిన్ అవ్వగలరు.`
+            : `Registration submitted! Email delivery is temporarily on hold — please use the password setup link below. You can sign in once an administrator approves your request.`
+        );
+      }
+      setRegName('');
+      setRegEmail('');
+      setRegPhone('');
+    } finally {
+      setIsSubmitting(false);
+      stopActionLoading();
     }
-
-    if (regResult.isRoleChangeRequest) {
-      setRegResetLink(null);
-      setRegSuccess(
-        language === 'TE'
-          ? `కొత్త పాత్ర (${regRole}) కోసం అభ్యర్థన సమర్పించబడింది! మీ పాస్‌వర్డ్ మారదు మరియు అడ్మిన్ ఆమోదించే వరకు మీరు మీ ప్రస్తుత పాత్రతో లాగిన్ అవ్వవచ్చు.`
-          : `Role change request (${regRole}) submitted! Your password remains unchanged, and you can continue signing in with your existing role until an administrator approves.`
-      );
-    } else if (regResult.isReRequest) {
-      setRegResetLink(null);
-      setRegSuccess(
-        language === 'TE'
-          ? `మీ యాక్సెస్ అభ్యర్థన (${regRole}) నవీకరించబడింది! మీ ప్రస్తుత పాస్‌వర్డ్ మారదు. దయచేసి అడ్మిన్ ఆమోదం కోసం వేచి ఉండండి.`
-          : `Access request updated to ${regRole}! Your existing password remains unchanged. Please wait for administrator approval.`
-      );
-    } else {
-      setRegResetLink(resetLink);
-      setRegSuccess(
-        language === 'TE'
-          ? `నమోదు పూర్తయింది! ఈమెయిల్ పంపడం తాత్కాలికంగా నిలిపివేయబడింది — దయచేసి దిగువ ఉన్న పాస్‌వర్డ్ సెటప్ లింక్‌ను ఉపయోగించండి. అడ్మిన్ ఆమోదించిన తర్వాత మీరు లాగిన్ అవ్వగలరు.`
-          : `Registration submitted! Email delivery is temporarily on hold — please use the password setup link below. You can sign in once an administrator approves your request.`
-      );
-    }
-    setRegName('');
-    setRegEmail('');
-    setRegPhone('');
   };
 
   const handleResetSubmit = async (e: React.FormEvent) => {
@@ -321,7 +345,7 @@ export const AuthView: React.FC = () => {
               : 'text-slate-500 hover:text-slate-800'
           }`}
         >
-          EN
+          English
         </button>
         <button
           onClick={() => setLanguage('TE')}
@@ -480,10 +504,20 @@ export const AuthView: React.FC = () => {
 
               <button
                 type="submit"
-                className="w-full py-3.5 px-4 bg-gradient-to-r from-[#FF5A36] to-[#FF6B4A] hover:from-[#f04f2c] hover:to-[#f05a38] text-white font-bold text-sm rounded-xl shadow-lg shadow-orange-500/25 transition-all flex items-center justify-center gap-2 mt-2"
+                disabled={isSubmitting}
+                className="w-full py-3.5 px-4 bg-gradient-to-r from-[#FF5A36] to-[#FF6B4A] hover:from-[#f04f2c] hover:to-[#f05a38] disabled:opacity-60 text-white font-bold text-sm rounded-xl shadow-lg shadow-orange-500/25 transition-all flex items-center justify-center gap-2 mt-2"
               >
-                <span>{language === 'TE' ? 'లాగిన్ అవ్వండి' : 'Sign In to Workspace'}</span>
-                <ArrowRight className="w-4 h-4" />
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>{language === 'TE' ? 'సైన్ ఇన్ అవుతోంది...' : 'Signing In...'}</span>
+                  </>
+                ) : (
+                  <>
+                    <span>{language === 'TE' ? 'లాగిన్ అవ్వండి' : 'Sign In to Workspace'}</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
               </button>
             </form>
           )}
@@ -620,10 +654,20 @@ export const AuthView: React.FC = () => {
 
               <button
                 type="submit"
-                className="w-full py-3.5 px-4 bg-gradient-to-r from-[#FF5A36] to-[#FF6B4A] hover:from-[#f04f2c] hover:to-[#f05a38] text-white font-bold text-sm rounded-xl shadow-lg shadow-orange-500/25 transition-all flex items-center justify-center gap-2 mt-2"
+                disabled={isSubmitting}
+                className="w-full py-3.5 px-4 bg-gradient-to-r from-[#FF5A36] to-[#FF6B4A] hover:from-[#f04f2c] hover:to-[#f05a38] disabled:opacity-60 text-white font-bold text-sm rounded-xl shadow-lg shadow-orange-500/25 transition-all flex items-center justify-center gap-2 mt-2"
               >
-                <Sparkles className="w-4 h-4" />
-                <span>{language === 'TE' ? 'యాక్సెస్ అభ్యర్థించండి' : 'Submit Access Request'}</span>
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>{language === 'TE' ? 'సమర్పించబడుతోంది...' : 'Submitting Request...'}</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4" />
+                    <span>{language === 'TE' ? 'యాక్సెస్ అభ్యర్థించండి' : 'Submit Access Request'}</span>
+                  </>
+                )}
               </button>
             </form>
           )}

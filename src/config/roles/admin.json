@@ -52,6 +52,15 @@
       "delete_supplier": true
     }
   },
+  "followups_page": {
+    "enabled": true,
+    "functionalities": {
+      "view_followups": true,
+      "add_followup": true,
+      "edit_followup": true,
+      "delete_followup": true
+    }
+  },
   "reports_page": {
     "enabled": true,
     "functionalities": {
