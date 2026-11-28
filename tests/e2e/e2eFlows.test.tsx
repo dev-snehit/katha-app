@@ -50,7 +50,7 @@ describe('E2E Integration Flows: Full App -> Store -> Sync -> Backend Code.gs VM
     fireEvent.change(screen.getByPlaceholderText('••••••••'), {
       target: { value: 'admin' },
     });
-    fireEvent.click(screen.getByText('Sign In to Workspace'));
+    fireEvent.submit(screen.getByText('Sign In to Workspace').closest('form')!);
 
     // 2. Dashboard renders after JWT login
     await waitFor(() => expect(useAppStore.getState().isAuthenticated).toBe(true));

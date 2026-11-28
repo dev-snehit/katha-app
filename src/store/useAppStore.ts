@@ -25,6 +25,18 @@ import {
 
 export type SyncStatus = 'IDLE' | 'SYNCING' | 'SYNCED' | 'ERROR' | 'UNLINKED';
 
+export type ToastType = 'success' | 'error' | 'warning' | 'info';
+
+export interface ToastMessage {
+  id: string;
+  type: ToastType;
+  title: string;
+  titleTe?: string;
+  message: string;
+  messageTe?: string;
+  durationMs?: number;
+}
+
 export interface AppState {
   // Current user & authentication session
   currentUser: User | null;
@@ -73,6 +85,11 @@ export interface AppState {
   setActionLoading: (loading: ActionLoadingState | null) => void;
   startActionLoading: (message: string, messageTe?: string) => void;
   stopActionLoading: () => void;
+
+  // Top-right Toast Notifications for backend save confirmations & errors
+  toasts: ToastMessage[];
+  addToast: (toast: Omit<ToastMessage, 'id'>) => void;
+  dismissToast: (id: string) => void;
   
   // Domain entities (CLEAN SLATE: Zero dummy data)
   orders: Order[];
@@ -247,12 +264,16 @@ export const useAppStore = create<AppState>((set, get) => ({
     });
 
     if (!res.success) {
+      const rawErr =
+        res.details?.message ||
+        res.error ||
+        'Unable to reach authentication server. Please check your connection and try again.';
+      const friendlyErr = rawErr.includes('Unknown action: login')
+        ? 'Backend authentication endpoint is outdated. Please re-deploy the latest backend/Code.gs as a New Version in Google Apps Script.'
+        : rawErr;
       return {
         success: false,
-        message:
-          res.details?.message ||
-          res.error ||
-          'Unable to reach authentication server. Please check your connection and try again.',
+        message: friendlyErr,
       };
     }
 
@@ -541,6 +562,19 @@ export const useAppStore = create<AppState>((set, get) => ({
   setActionLoading: (loading) => set({ actionLoading: loading }),
   startActionLoading: (message, messageTe) => set({ actionLoading: { isLoading: true, message, messageTe } }),
   stopActionLoading: () => set({ actionLoading: null }),
+
+  toasts: [],
+  addToast: (toast) => {
+    const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    set((state) => ({ toasts: [...state.toasts.slice(-4), { ...toast, id }] }));
+    const duration = toast.durationMs ?? 4500;
+    if (duration > 0 && typeof setTimeout !== 'undefined') {
+      setTimeout(() => {
+        get().dismissToast(id);
+      }, duration);
+    }
+  },
+  dismissToast: (id) => set((state) => ({ toasts: state.toasts.filter((t) => t.id !== id) })),
   
   // Clean empty state: zero mock/sample data
   orders: loadFromStorage<Order[]>('orders', []),
@@ -571,6 +605,31 @@ export const useAppStore = create<AppState>((set, get) => ({
       return;
     }
 
+    const actionLabels: Record<string, { loadingEn: string; loadingTe: string; okEn: string; okTe: string }> = {
+      saveOrder: { loadingEn: 'Saving order to database...', loadingTe: 'ఆర్డర్ డేటాబేస్‌లో సేవ్ అవుతోంది...', okEn: 'Order saved to database.', okTe: 'ఆర్డర్ డేటాబేస్‌లో సేవ్ చేయబడింది.' },
+      updateOrderStatus: { loadingEn: 'Updating order status...', loadingTe: 'ఆర్డర్ స్థితి అప్‌డేట్ అవుతోంది...', okEn: 'Order status updated in database.', okTe: 'ఆర్డర్ స్థితి డేటాబేస్‌లో అప్‌డేట్ చేయబడింది.' },
+      deleteOrder: { loadingEn: 'Deleting order from database...', loadingTe: 'ఆర్డర్ తొలగించబడుతోంది...', okEn: 'Order deleted from database.', okTe: 'ఆర్డర్ డేటాబేస్ నుండి తొలగించబడింది.' },
+      saveProduct: { loadingEn: 'Saving stock item to database...', loadingTe: 'స్టాక్ వివరాలు సేవ్ అవుతున్నాయి...', okEn: 'Stock item saved to database.', okTe: 'స్టాక్ వివరాలు డేటాబేస్‌లో సేవ్ చేయబడ్డాయి.' },
+      deleteProduct: { loadingEn: 'Deleting stock item...', loadingTe: 'స్టాక్ తొలగించబడుతోంది...', okEn: 'Stock item deleted from database.', okTe: 'స్టాక్ డేటాబేస్ నుండి తొలగించబడింది.' },
+      saveCustomer: { loadingEn: 'Saving customer to database...', loadingTe: 'కస్టమర్ వివరాలు సేవ్ అవుతున్నాయి...', okEn: 'Customer saved to database.', okTe: 'కస్టమర్ వివరాలు సేవ్ చేయబడ్డాయి.' },
+      deleteCustomer: { loadingEn: 'Deleting customer...', loadingTe: 'కస్టమర్ తొలగించబడుతున్నారు...', okEn: 'Customer deleted from database.', okTe: 'కస్టమర్ డేటాబేస్ నుండి తొలగించబడ్డారు.' },
+      saveSupplier: { loadingEn: 'Saving supplier to database...', loadingTe: 'సప్లయర్ వివరాలు సేవ్ అవుతున్నాయి...', okEn: 'Supplier saved to database.', okTe: 'సప్లయర్ వివరాలు సేవ్ చేయబడ్డాయి.' },
+      deleteSupplier: { loadingEn: 'Deleting supplier...', loadingTe: 'సప్లయర్ తొలగించబడుతున్నారు...', okEn: 'Supplier deleted from database.', okTe: 'సప్లయర్ డేటాబేస్ నుండి తొలగించబడ్డారు.' },
+      createUser: { loadingEn: 'Creating user in database...', loadingTe: 'యూజర్ ఖాతా సృష్టించబడుతోంది...', okEn: 'User created in database.', okTe: 'యూజర్ ఖాతా డేటాబేస్‌లో సృష్టించబడింది.' },
+      registerUser: { loadingEn: 'Submitting request to database...', loadingTe: 'అభ్యర్థన డేటాబేస్‌కు పంపబడుతోంది...', okEn: 'Access request saved to database.', okTe: 'యాక్సెస్ అభ్యర్థన డేటాబేస్‌లో సేవ్ చేయబడింది.' },
+      approveUser: { loadingEn: 'Updating user approval...', loadingTe: 'యూజర్ ఆమోదం అప్‌డేట్ అవుతోంది...', okEn: 'User approval updated in database.', okTe: 'యూజర్ ఆమోదం డేటాబేస్‌లో అప్‌డేట్ చేయబడింది.' },
+      updateUser: { loadingEn: 'Updating user details...', loadingTe: 'యూజర్ వివరాలు అప్‌డేట్ అవుతున్నాయి...', okEn: 'User details updated in database.', okTe: 'యూజర్ వివరాలు అప్‌డేట్ చేయబడ్డాయి.' },
+      deleteUser: { loadingEn: 'Deleting user...', loadingTe: 'యూజర్ తొలగించబడుతున్నారు...', okEn: 'User removed from database.', okTe: 'యూజర్ డేటాబేస్ నుండి తొలగించబడ్డారు.' },
+      saveRolePermissions: { loadingEn: 'Saving role permissions...', loadingTe: 'రోల్ అనుమతులు సేవ్ అవుతున్నాయి...', okEn: 'Role permissions saved to database.', okTe: 'రోల్ అనుమతులు డేటాబేస్‌లో సేవ్ చేయబడ్డాయి.' },
+      resetPassword: { loadingEn: 'Updating password in database...', loadingTe: 'పాస్‌వర్డ్ అప్‌డేట్ అవుతోంది...', okEn: 'Password updated in database.', okTe: 'పాస్‌వర్డ్ డేటాబేస్‌లో అప్‌డేట్ చేయబడింది.' },
+    };
+
+    const labels = actionLabels[action];
+    const startedSpinnerHere = Boolean(labels && !get().actionLoading?.isLoading);
+    if (startedSpinnerHere && labels) {
+      set({ actionLoading: { isLoading: true, message: labels.loadingEn, messageTe: labels.loadingTe } });
+    }
+
     const user = get().currentUser;
     const enrichedPayload = {
       ...payload,
@@ -580,26 +639,56 @@ export const useAppStore = create<AppState>((set, get) => ({
     };
 
     set({ syncStatus: 'SYNCING', syncError: null });
-    const res = await pushToGoogleSheet(backendUrl, action, enrichedPayload);
-    if (res.code === 'TOKEN_EXPIRED' || res.code === 'UNAUTHORIZED') {
-      get().logout('Your session has expired. Please sign in again.');
-      set({
-        syncStatus: 'ERROR',
-        syncError: res.error || 'Session expired',
-      });
-      return;
-    }
-    if (res.success) {
-      set({
-        syncStatus: 'SYNCED',
-        lastSyncTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-        syncError: null
-      });
-    } else {
-      set({
-        syncStatus: 'ERROR',
-        syncError: res.error || 'Failed to sync with Backend Database'
-      });
+    try {
+      const res = await pushToGoogleSheet(backendUrl, action, enrichedPayload);
+      if (res.code === 'TOKEN_EXPIRED' || res.code === 'UNAUTHORIZED') {
+        get().logout('Your session has expired. Please sign in again.');
+        set({
+          syncStatus: 'ERROR',
+          syncError: res.error || 'Session expired',
+        });
+        get().addToast({
+          type: 'error',
+          title: 'Session Expired',
+          titleTe: 'సెషన్ గడువు ముగిసింది',
+          message: 'Your session has expired. Please sign in again.',
+          messageTe: 'మీ సెషన్ గడువు ముగిసింది. దయచేసి మళ్లీ లాగిన్ అవ్వండి.',
+        });
+        return;
+      }
+      if (res.success) {
+        set({
+          syncStatus: 'SYNCED',
+          lastSyncTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+          syncError: null
+        });
+        if (labels) {
+          get().addToast({
+            type: 'success',
+            title: 'Saved to Database',
+            titleTe: 'డేటాబేస్‌లో సేవ్ అయింది',
+            message: labels.okEn,
+            messageTe: labels.okTe,
+          });
+        }
+      } else {
+        const errMsg = res.details?.message || res.error || 'Failed to sync changes with Backend Database.';
+        set({
+          syncStatus: 'ERROR',
+          syncError: errMsg
+        });
+        get().addToast({
+          type: 'error',
+          title: 'Database Save Failed',
+          titleTe: 'డేటాబేస్ సేవ్ విఫలమైంది',
+          message: errMsg,
+          messageTe: `డేటాబేస్‌లో సేవ్ చేయడం విఫలమైంది: ${errMsg}`,
+        });
+      }
+    } finally {
+      if (startedSpinnerHere) {
+        set({ actionLoading: null });
+      }
     }
   },
 
@@ -636,11 +725,26 @@ export const useAppStore = create<AppState>((set, get) => ({
           lastSyncTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
           syncError: null
         });
+        get().addToast({
+          type: 'success',
+          title: 'Database Synced',
+          titleTe: 'డేటాబేస్ సింక్ అయింది',
+          message: 'All records have been saved to Google Sheets.',
+          messageTe: 'అన్ని రికార్డులు Google Sheetsలో సేవ్ చేయబడ్డాయి.',
+        });
         return true;
       } else {
+        const errMsg = res.error || 'Batch sync failed';
         set({
           syncStatus: 'ERROR',
-          syncError: res.error || 'Batch sync failed'
+          syncError: errMsg
+        });
+        get().addToast({
+          type: 'error',
+          title: 'Database Sync Failed',
+          titleTe: 'డేటాబేస్ సింక్ విఫలమైంది',
+          message: errMsg,
+          messageTe: `డేటాబేస్ సింక్ విఫలమైంది: ${errMsg}`,
         });
         return false;
       }
@@ -883,9 +987,13 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   lockManagedSheets: async () => {
-    const backendUrl = get().backendUrl;
+    const { backendUrl, authToken } = get();
     if (!backendUrl) return false;
-    const res = await lockRemoteSheets(backendUrl);
+    const res = await lockRemoteSheets(backendUrl, authToken);
+    if (res.code === 'TOKEN_EXPIRED' || res.code === 'UNAUTHORIZED') {
+      get().logout('Your session has expired. Please sign in again.');
+      return false;
+    }
     return res.success;
   },
 

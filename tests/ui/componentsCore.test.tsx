@@ -5,6 +5,7 @@ import { AlertDialog } from '../../src/components/ui/AlertDialog';
 import { Navbar } from '../../src/components/Navbar';
 import { SettingsModal } from '../../src/components/settings/SettingsModal';
 import { AuthView } from '../../src/components/auth/AuthView';
+import { ToastContainer } from '../../src/components/ui/ToastContainer';
 import { useAppStore } from '../../src/store/useAppStore';
 import { INITIAL_ADMIN_USER } from '../../src/contracts';
 
@@ -151,19 +152,43 @@ describe('UI Components: AlertDialog, Navbar, SettingsModal & AuthView', () => {
     render(<AuthView />);
     expect(screen.getByText(/Your session has expired/i)).toBeInTheDocument();
 
-    // Switch to Request Access & submit new user
+    // Switch to Request Access & submit new user (updates URL to /register and shows on-screen setup link)
     fireEvent.click(screen.getByText('Request Access'));
+    expect(window.location.pathname).toBe('/register');
+    expect(screen.queryByText(/A secure temporary sign-in password/i)).not.toBeInTheDocument();
     fireEvent.change(screen.getByPlaceholderText(/Ramesh Kumar/i), { target: { value: 'New Merchant' } });
     fireEvent.change(screen.getByPlaceholderText('ramesh@example.com'), { target: { value: 'merchant@kaatha.com' } });
     fireEvent.change(screen.getByPlaceholderText('9876543210'), { target: { value: '9876502222' } });
-    fireEvent.click(screen.getByText(/Submit Access Request/i));
+    fireEvent.submit(screen.getByText(/Submit Access Request/i).closest('form')!);
     await waitFor(() => expect(screen.getByText(/Registration submitted/i)).toBeInTheDocument());
+    expect(screen.getByText(/A secure temporary sign-in password/i)).toBeInTheDocument();
+    expect(screen.getByText(/Copy Link/i)).toBeInTheDocument();
 
-    // Switch to Forgot Password
+    // Switch to Sign In (updates URL to /login) and Forgot Password
     fireEvent.click(screen.getByText('Sign In'));
+    expect(window.location.pathname).toBe('/login');
     fireEvent.click(screen.getByText('Forgot Password?'));
     fireEvent.change(screen.getByPlaceholderText('name@example.com'), { target: { value: 'pending.ui@kaatha.com' } });
     fireEvent.click(screen.getByText('Send Reset Link'));
     await waitFor(() => expect(screen.getByText(/unique password reset link/i)).toBeInTheDocument());
+  });
+
+  it('renders and dismisses top-right ToastContainer notifications', () => {
+    useAppStore.setState({ toasts: [] });
+    useAppStore.getState().addToast({
+      type: 'success',
+      title: 'Saved to Database',
+      titleTe: 'డేటాబేస్‌లో సేవ్ అయింది',
+      message: 'Changes persisted.',
+      messageTe: 'మార్పులు సేవ్ చేయబడ్డాయి.',
+      durationMs: 0,
+    });
+    render(<ToastContainer />);
+
+    expect(screen.getByText('Saved to Database')).toBeInTheDocument();
+    expect(screen.getByText('Changes persisted.')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText('Dismiss notification'));
+    expect(screen.queryByText('Saved to Database')).not.toBeInTheDocument();
   });
 });

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { 
   DEFAULT_ROLE_PERMISSIONS, 
   PERMISSION_PAGES_META, 
@@ -9,15 +9,26 @@ import {
 import { useAppStore } from '../src/store/useAppStore';
 import { Role, RolePermissionsConfig } from '../src/contracts';
 
+const originalFetch = global.fetch;
+
 describe('Role Specific Permissions & Access Governance', () => {
   beforeEach(() => {
     localStorage.clear();
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ status: 'success' }),
+    } as Response);
     // Reset store state
     useAppStore.setState({
       rolePermissions: DEFAULT_ROLE_PERMISSIONS,
       currentUser: null,
       isAuthenticated: false,
+      toasts: [],
     });
+  });
+
+  afterEach(() => {
+    global.fetch = originalFetch;
   });
 
   describe('PERMISSION_PAGES_META and DEFAULT_ROLE_PERMISSIONS matrix', () => {

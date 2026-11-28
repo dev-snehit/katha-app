@@ -128,3 +128,20 @@
 - **User Prompt / Request:** Move the "Forgot Password?" option below the password input field in the Sign In form so keyboard navigation (`Tab`) flows uninterrupted from Email to Password.
 - **Changes & Enhancements:** Relocated the "Forgot Password?" button below the password input (right-aligned) in `src/components/auth/AuthView.tsx` and added `aria-label` on the password visibility toggle.
 - **Files Touched:** `src/components/auth/AuthView.tsx`, `docs/CHANGE_LOG_AND_PROMPTS.md`
+
+### #20 — Single-Command Hard Validation, Email Delivery Hold, DB Save Spinners, Top-Right Toasts & `/login` + `/register` Routing (`pending commit`)
+- **Date:** 2026-11-28
+- **User Prompt / Request:** Add a single `npm` script for instant full validation (`typecheck`, `lint`, `format:check`, `build`, `tests`), temporarily disable sending emails while preserving reset-link functionality until SMTP is configured, show loading spinners and clear error messages on DB saves, add top-right toast notifications for backend save confirmations/errors, and redirect unauthenticated/logged-out sessions to `/login` while syncing Sign In / Request Access tabs with `/login` and `/register` URLs.
+- **Changes & Enhancements:**
+  - Added `typecheck`, `lint`, `format:check`, and `validate` scripts in `package.json`, and mocked `global.fetch` in `tests/rolePermissions.test.ts` so the full suite runs fast.
+  - Added `ENABLE_EMAIL_DELIVERY = false` in `backend/Code.gs` to hold outbound `MailApp.sendEmail` calls while keeping reset tokens/links active, and displayed the generated setup link directly on screen in `src/components/auth/AuthView.tsx` after registration.
+  - Created `src/components/ui/ToastContainer.tsx` (top-right fixed bilingual EN/TE toasts) and wired `toasts`, `addToast`, `dismissToast`, `actionLoading` spinner lifecycle, and user-friendly error/success notifications into `triggerSync` and `syncAllToGoogleSheets` in `src/store/useAppStore.ts`.
+  - Mounted `<ToastContainer />` in `src/App.tsx` and enforced `navigate('/login', { replace: true })` whenever unauthenticated or forced out.
+  - Added unit, backend, and UI tests in `tests/authAndSync.test.ts`, `tests/backend/codeGs.test.ts`, and `tests/ui/componentsCore.test.tsx`.
+- **Files Touched:** `package.json`, `backend/Code.gs`, `src/components/ui/ToastContainer.tsx`, `src/store/useAppStore.ts`, `src/App.tsx`, `src/components/auth/AuthView.tsx`, `tests/rolePermissions.test.ts`, `tests/authAndSync.test.ts`, `tests/backend/codeGs.test.ts`, `tests/ui/componentsCore.test.tsx`, `docs/README.md`, `docs/MODULES_AND_FLOWCHARTS.md`, `docs/CHANGE_LOG_AND_PROMPTS.md`
+
+### #21 — Show Temporary Password Notice Only After Valid Form Submission (`pending commit`)
+- **Date:** 2026-11-28
+- **User Prompt / Request:** Show the temporary sign-in password notification only after the user submits the Request Access form with valid form data, rather than displaying it all the time.
+- **Changes & Enhancements:** Gated the amber temporary-password notice in `src/components/auth/AuthView.tsx` on `regSuccess` and added assertions in `tests/ui/componentsCore.test.tsx` verifying it is hidden before valid submission and visible afterward.
+- **Files Touched:** `src/components/auth/AuthView.tsx`, `tests/ui/componentsCore.test.tsx`, `docs/CHANGE_LOG_AND_PROMPTS.md`

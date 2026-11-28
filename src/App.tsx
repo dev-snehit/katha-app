@@ -10,6 +10,7 @@ import { ExportCenterView } from './components/exports/ExportCenterView';
 import { UserRequestsView } from './components/admin/UserRequestsView';
 import { SettingsModal } from './components/settings/SettingsModal';
 import { AuthView } from './components/auth/AuthView';
+import { ToastContainer } from './components/ui/ToastContainer';
 import { useAppStore } from './store/useAppStore';
 import { getJwtRemainingSeconds } from './lib/jwt';
 import { 
@@ -95,16 +96,17 @@ export default function App() {
     }
   }, [isAuthenticated, currentUser, route.view, hasPageAccess, navigate]);
 
-  // Remember intended protected route when unauthenticated
+  // Remember intended protected route and redirect unauthenticated / logged-out users to /login
   useEffect(() => {
     if (!isAuthenticated || !currentUser) {
       if (route.view !== 'auth') {
         if (route.path !== '/orders' && route.path !== '/' && route.path !== '') {
           setIntendedRoute(route.path);
         }
+        navigate('/login', { replace: true });
       }
     }
-  }, [isAuthenticated, currentUser, route]);
+  }, [isAuthenticated, currentUser, route, navigate]);
 
   // Strict 1-hour JWT expiration monitor & 5-minute pre-expiry warning (no passive activity extension)
   useEffect(() => {
@@ -159,7 +161,12 @@ export default function App() {
 
   // Authentication Gate: Require sign in if no active persistent authenticated session exists
   if (!isAuthenticated || !currentUser) {
-    return <AuthView />;
+    return (
+      <>
+        <AuthView />
+        <ToastContainer />
+      </>
+    );
   }
 
   const isSettingsOpen = route.view === 'settings' || Boolean(route.queryParams.settings);
@@ -300,6 +307,9 @@ export default function App() {
         isOpen={isSettingsOpen}
         onClose={handleCloseSettings}
       />
+
+      {/* Global Top-Right Toast Notifications */}
+      <ToastContainer />
 
       {/* 5-Minute Pre-Expiry Session Warning Modal */}
       {sessionWarningSeconds !== null && sessionWarningSeconds > 0 && (

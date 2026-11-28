@@ -18,7 +18,9 @@
 - **New User Registration (`Request Access`):**
   - Validates Full Name (min 2 chars), Email, and 10-digit Indian mobile number (`^[6-9]\d{9}$`).
   - Generates a temporary password (`generateTemporaryPassword()`), SHA-256 hash, and a unique 24-hour password setup token/link (`resetToken`).
-  - Stores user with `status: 'PENDING_APPROVAL'` and dispatches email via `backend/Code.gs`.
+  - Stores user with `status: 'PENDING_APPROVAL'`.
+  - **Temporary Email Delivery Hold (`ENABLE_EMAIL_DELIVERY = false` in `backend/Code.gs`):** Outbound `MailApp.sendEmail` calls are temporarily disabled until an SMTP server is configured; the generated password-setup link (`resetLink`) is still created and displayed directly on screen with Copy / Open actions.
+  - **Dedicated `/login` & `/register` Routes:** Switching between Sign In and Request Access updates the browser URL (`/login` vs `/register`), and any unauthenticated visit or forced logout automatically redirects to `/login`.
   - **Approval Gate:** Pending users cannot sign in until an administrator approves their request.
 - **Password Reset via Link (`?resetToken=...` or `/reset-password/:token`):**
   - `validateResetToken()` checks token existence and expiry (`resetPasswordExpires`).
@@ -224,14 +226,15 @@ flowchart TD
 
 ## 9. Backend Sync, Settings, Bilingual Engine & UI Standards
 
-**Files:** `src/lib/syncService.ts`, `backend/Code.gs`, `src/components/settings/SettingsModal.tsx`, `src/locales/en.ts`, `src/locales/te.ts`, `src/lib/bilingualHelper.ts`, `src/components/ui/AlertDialog.tsx`, `src/hooks/useModalDismiss.ts`
+**Files:** `src/lib/syncService.ts`, `backend/Code.gs`, `src/components/settings/SettingsModal.tsx`, `src/locales/en.ts`, `src/locales/te.ts`, `src/lib/bilingualHelper.ts`, `src/components/ui/AlertDialog.tsx`, `src/components/ui/ToastContainer.tsx`, `src/hooks/useModalDismiss.ts`
 
 ### Capabilities
 - **CORS-Safe Transport (`syncService.ts`):** Sends `POST` requests with `Content-Type: text/plain;charset=utf-8` and `redirect: 'follow'` to Google Apps Script Web App URL to avoid CORS preflight failures.
 - **JWT-Authenticated Mutations:** Every protected `doPost` action attaches `authToken`; `backend/Code.gs` verifies the HS256 signature and `exp` via `verifyJwt()`, derives `userRole` from the verified JWT payload (never trusting raw client role strings), and returns `TOKEN_EXPIRED` / `UNAUTHORIZED` if invalid/expired—triggering immediate forced `logout()` on the client.
+- **Loading Spinner & Top-Right Toast Notifications:** Every `triggerSync` and `syncAllToGoogleSheets` database write activates `actionLoading` (full-screen loading spinner) while in flight and displays a bilingual (`EN`/`TE`) top-right toast (`ToastContainer.tsx`) confirming success or surfacing user-friendly error details on failure.
 - **Hydration & Deduplication:** `connectAndHydrateServer()` fetches all sheets (`getData`), normalizes emails/phones, deduplicates user records, and synchronizes active user status/role.
 - **Settings & Font Scaling (`SettingsModal.tsx`):** Configure backend webhook URL, test connection (`pingGoogleSheet`), trigger manual 1-click Sync All, and adjust persistent `baseFontSize` (`12px`–`20px`).
-- **UI Standards:** Zero native `alert()`/`confirm()` calls (`AlertDialog.tsx`), `Esc` & overlay-click modal dismissal (`useModalDismiss.ts`), full-screen action spinners (`actionLoading`), and strict EN/TE isolation.
+- **UI Standards:** Zero native `alert()`/`confirm()` calls (`AlertDialog.tsx`), `Esc` & overlay-click modal dismissal (`useModalDismiss.ts`), full-screen action spinners (`actionLoading`), top-right save/error toasts (`ToastContainer.tsx`), and strict EN/TE isolation.
 
 ### Sync & Hydration Flowchart
 

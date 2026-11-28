@@ -79,7 +79,7 @@ describe('Deep UI Flows: Auth Reset Link, Create/Edit/Delete User, Customer/Supp
     const passInputs = screen.getAllByPlaceholderText('••••••••');
     fireEvent.change(passInputs[0], { target: { value: 'SecurePass99' } });
     fireEvent.change(passInputs[1], { target: { value: 'SecurePass99' } });
-    fireEvent.click(screen.getByText(/Reset Password & Go to Sign In/i));
+    fireEvent.submit(screen.getByText(/Reset Password & Go to Sign In/i).closest('form')!);
 
     await waitFor(() => expect(screen.getByText(/pending administrator approval/i)).toBeInTheDocument());
     expect(useAppStore.getState().isAuthenticated).toBe(false);

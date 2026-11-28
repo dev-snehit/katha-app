@@ -85,8 +85,8 @@ describe('Backend Code.gs API & HS256 JWT Integration', () => {
       resetLink: 'https://kaatha.app/reset-password/tok-1',
     });
     expect(regRes.status).toBe('success');
-    expect(gas.sentEmails.length).toBe(1);
-    expect(gas.sentEmails[0].body).toContain('https://kaatha.app/reset-password/tok-1');
+    // Email delivery is temporarily on hold (ENABLE_EMAIL_DELIVERY = false)
+    expect(gas.sentEmails.length).toBe(0);
 
     // Pending user blocked from login
     const pendingLogin = gas.callPost({ action: 'login', email: 'suresh@kaatha.com', passwordHash: staffHash });
@@ -208,5 +208,43 @@ describe('Backend Code.gs API & HS256 JWT Integration', () => {
       role: 'STAFF',
       config: { orders_page: { enabled: true, functionalities: { view_orders: true } } },
     }).status).toBe('success');
+  });
+
+  it('holds outbound email delivery when ENABLE_EMAIL_DELIVERY is false while still generating reset links', () => {
+    const adminToken = gas.callPost({ action: 'login', email: 'dev.snehit@gmail.com', passwordHash: adminHash }).token;
+    const beforeCount = gas.sentEmails.length;
+
+    const reg = gas.callPost({
+      action: 'registerUser',
+      user: {
+        id: 'u-hold-1',
+        name: 'Hold User',
+        email: 'hold@kaatha.com',
+        phone: '9988776611',
+        role: 'STAFF',
+        status: 'PENDING_APPROVAL',
+        resetPasswordToken: 'rst-hold-1',
+      },
+      resetLink: 'https://kaatha.app/reset-password/rst-hold-1',
+    });
+    expect(reg.status).toBe('success');
+
+    const forgot = gas.callPost({
+      action: 'forgotPassword',
+      email: 'hold@kaatha.com',
+      resetToken: 'rst-hold-2',
+      resetLink: 'https://kaatha.app/reset-password/rst-hold-2',
+    });
+    expect(forgot.status).toBe('success');
+
+    const created = gas.callPost({
+      action: 'createUser',
+      authToken: adminToken,
+      user: { id: 'u-hold-2', name: 'Hold Admin Created', email: 'hold2@kaatha.com', phone: '9988776622', role: 'CUSTOMER' },
+      tempPasswordHash: 'hash-123',
+      tempPasswordPlain: 'TempPass123',
+    });
+    expect(created.status).toBe('success');
+    expect(gas.sentEmails.length).toBe(beforeCount);
   });
 });

@@ -10,6 +10,9 @@
  * 5. Copy the deployed Web App URL into Kaatha Wholesale settings.
  */
 
+// Temporary hold on outbound emails until a dedicated SMTP server is configured
+const ENABLE_EMAIL_DELIVERY = false;
+
 function setupDatabase() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   
@@ -959,8 +962,8 @@ function doPost(e) {
         deduplicateUsersTable(ss);
       }
 
-      // Send automated email with credentials and direct password setup link
-      if (user.email) {
+      // Send automated email with credentials and direct password setup link (disabled while SMTP is on hold)
+      if (ENABLE_EMAIL_DELIVERY && user.email) {
         try {
           var emailBody = 'Hello ' + user.name + ',\n\n' +
             'Your account for Kaatha Wholesale has been created by the administrator.\n\n' +
@@ -1070,8 +1073,8 @@ function doPost(e) {
         deduplicateUsersTable(ss);
       }
 
-      // 3. Send automated confirmation email with temporary password and reset link (only for new registrations)
-      if (!isRoleChangeRequest && !isReRequest && (tempPass || resetLink) && user.email) {
+      // 3. Send automated confirmation email with temporary password and reset link (disabled while SMTP is on hold)
+      if (ENABLE_EMAIL_DELIVERY && !isRoleChangeRequest && !isReRequest && (tempPass || resetLink) && user.email) {
         try {
           MailApp.sendEmail({
             to: user.email,
@@ -1114,7 +1117,7 @@ function doPost(e) {
         }
       }
 
-      if (email) {
+      if (ENABLE_EMAIL_DELIVERY && email) {
         try {
           if (resetLink) {
             MailApp.sendEmail({

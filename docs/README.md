@@ -52,6 +52,23 @@ flowchart TD
 | **Stock & Packaging** | `src/components/stock/StockRegistryView.tsx`, `src/lib/packagingEngine.ts`, `src/lib/purchaseValidation.ts` |
 | **Directories** | `src/components/customers/CustomerDirectoryView.tsx`, `src/components/suppliers/SupplierDirectoryView.tsx`, `src/lib/customerValidation.ts` |
 | **Reports & Exports** | `src/components/exports/ExportCenterView.tsx`, `src/lib/pdfGenerator.ts`, `src/lib/excelExport.ts`, `src/lib/tallyEngine.ts` |
-| **Settings, UI & Localization** | `src/components/settings/SettingsModal.tsx`, `src/components/ui/AlertDialog.tsx`, `src/hooks/useModalDismiss.ts`, `src/locales/en.ts`, `src/locales/te.ts`, `src/lib/bilingualHelper.ts` |
+| **Settings, UI & Localization** | `src/components/settings/SettingsModal.tsx`, `src/components/ui/AlertDialog.tsx`, `src/components/ui/ToastContainer.tsx`, `src/hooks/useModalDismiss.ts`, `src/locales/en.ts`, `src/locales/te.ts`, `src/lib/bilingualHelper.ts` |
 | **Backend & CI/CD** | `backend/Code.gs`, `.github/workflows/deploy.yml` |
-| **Test Suites (Unit / UI / Backend / E2E)** | `tests/*.test.ts`, `tests/unit/`, `tests/ui/`, `tests/backend/`, `tests/e2e/` |
+| **Test Suites & Hard Validation** | `npm run validate` (`typecheck`, `lint`, `format:check`, `build`, `vitest`), `tests/*.test.ts`, `tests/unit/`, `tests/ui/`, `tests/backend/`, `tests/e2e/` |
+
+---
+
+## Single-Command Hard Validation
+
+Run the full validation pipeline locally at any time with:
+
+```bash
+npm run validate
+```
+
+This executes in sequence:
+1. `npm run typecheck` (`tsc --noEmit`)
+2. `npm run lint` (`tsc -b`)
+3. `npm run format:check` (validates all JSON configs in `src/config/roles/` and `package.json`)
+4. `npm run build` (`vite build`)
+5. `npm test -- --run` (full Vitest suite using `happy-dom` for fast execution across Unit, Backend/API, UI, and E2E tests)

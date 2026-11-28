@@ -53,6 +53,8 @@ export const AuthView: React.FC = () => {
   const [regRole, setRegRole] = useState<Role>('STAFF');
   const [regSuccess, setRegSuccess] = useState<string | null>(null);
   const [regError, setRegError] = useState<string | null>(null);
+  const [regResetLink, setRegResetLink] = useState<string | null>(null);
+  const [copiedRegLink, setCopiedRegLink] = useState(false);
 
   // Reset Password Form (First login or forgot password)
   const [resetUserId, setResetUserId] = useState<string | null>(null);
@@ -185,22 +187,25 @@ export const AuthView: React.FC = () => {
     }
 
     if (regResult.isRoleChangeRequest) {
+      setRegResetLink(null);
       setRegSuccess(
         language === 'TE'
           ? `కొత్త పాత్ర (${regRole}) కోసం అభ్యర్థన సమర్పించబడింది! మీ పాస్‌వర్డ్ మారదు మరియు అడ్మిన్ ఆమోదించే వరకు మీరు మీ ప్రస్తుత పాత్రతో లాగిన్ అవ్వవచ్చు.`
           : `Role change request (${regRole}) submitted! Your password remains unchanged, and you can continue signing in with your existing role until an administrator approves.`
       );
     } else if (regResult.isReRequest) {
+      setRegResetLink(null);
       setRegSuccess(
         language === 'TE'
           ? `మీ యాక్సెస్ అభ్యర్థన (${regRole}) నవీకరించబడింది! మీ ప్రస్తుత పాస్‌వర్డ్ మారదు. దయచేసి అడ్మిన్ ఆమోదం కోసం వేచి ఉండండి.`
           : `Access request updated to ${regRole}! Your existing password remains unchanged. Please wait for administrator approval.`
       );
     } else {
+      setRegResetLink(resetLink);
       setRegSuccess(
         language === 'TE'
-          ? `నమోదు పూర్తయింది! తాత్కాలిక పాస్‌వర్డ్ మరియు సెటప్ లింక్ మీ ఇమెయిల్‌కు పంపబడ్డాయి. అడ్మిన్ ఆమోదించిన తర్వాత మాత్రమే మీరు లాగిన్ అవ్వగలరు.`
-          : `Registration submitted! A temporary password and password setup link have been sent to ${cleanRegEmail}. You will be able to sign in once an administrator approves your request.`
+          ? `నమోదు పూర్తయింది! ఈమెయిల్ పంపడం తాత్కాలికంగా నిలిపివేయబడింది — దయచేసి దిగువ ఉన్న పాస్‌వర్డ్ సెటప్ లింక్‌ను ఉపయోగించండి. అడ్మిన్ ఆమోదించిన తర్వాత మీరు లాగిన్ అవ్వగలరు.`
+          : `Registration submitted! Email delivery is temporarily on hold — please use the password setup link below. You can sign in once an administrator approves your request.`
       );
     }
     setRegName('');
@@ -487,9 +492,42 @@ export const AuthView: React.FC = () => {
           {mode === 'REGISTER' && (
             <form onSubmit={handleRegisterSubmit} className="space-y-3.5">
               {regSuccess && (
-                <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-start gap-2.5">
-                  <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-600" />
-                  <span>{regSuccess}</span>
+                <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs space-y-2.5">
+                  <div className="flex items-start gap-2.5">
+                    <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-600" />
+                    <span>{regSuccess}</span>
+                  </div>
+                  {regResetLink && (
+                    <div className="bg-amber-50 border border-amber-200/80 rounded-xl p-2.5 space-y-2">
+                      <p className="font-bold text-amber-900 text-[11px]">
+                        {language === 'TE' ? 'పాస్‌వర్డ్ సెటప్ లింక్:' : 'Password Setup Link:'}
+                      </p>
+                      <div className="p-2 bg-white border border-amber-200 rounded-lg font-mono text-[10px] text-slate-700 break-all select-all">
+                        {regResetLink}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard?.writeText(regResetLink);
+                            setCopiedRegLink(true);
+                            setTimeout(() => setCopiedRegLink(false), 2000);
+                          }}
+                          className="px-2.5 py-1 text-[11px] font-bold bg-amber-600 hover:bg-amber-500 text-white rounded-lg inline-flex items-center gap-1"
+                        >
+                          <Copy className="w-3 h-3" />
+                          <span>{copiedRegLink ? (language === 'TE' ? 'కాపీ అయింది!' : 'Copied!') : (language === 'TE' ? 'లింక్ కాపీ' : 'Copy Link')}</span>
+                        </button>
+                        <a
+                          href={regResetLink}
+                          className="px-2.5 py-1 text-[11px] font-bold bg-white text-amber-900 border border-amber-300 hover:bg-amber-100/70 rounded-lg inline-flex items-center gap-1"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                          <span>{language === 'TE' ? 'లింక్ తెరవండి' : 'Open Setup Link'}</span>
+                        </a>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -568,15 +606,17 @@ export const AuthView: React.FC = () => {
                 </select>
               </div>
 
-              {/* Security & Temporary Password Notice */}
-              <div className="p-3 bg-amber-50/80 rounded-2xl border border-amber-200/60 text-[11px] text-amber-800 flex items-start gap-2">
-                <KeyRound className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                <span>
-                  {language === 'TE'
-                    ? 'సురక్షిత తాత్కాలిక పాస్‌వర్డ్ మీ ఇమెయిల్‌కు పంపబడుతుంది. మొదటి లాగిన్‌లో పాస్‌వర్డ్ సెట్ చేసుకోవాలి.'
-                    : 'A secure temporary sign-in password will be emailed to your address. You will set a permanent password upon first login.'}
-                </span>
-              </div>
+              {/* Security & Temporary Password Notice — shown only after valid form submission */}
+              {regSuccess && (
+                <div className="p-3 bg-amber-50/80 rounded-2xl border border-amber-200/60 text-[11px] text-amber-800 flex items-start gap-2">
+                  <KeyRound className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  <span>
+                    {language === 'TE'
+                      ? 'సురక్షిత తాత్కాలిక పాస్‌వర్డ్ మీ ఇమెయిల్‌కు పంపబడుతుంది. మొదటి లాగిన్‌లో పాస్‌వర్డ్ సెట్ చేసుకోవాలి.'
+                      : 'A secure temporary sign-in password will be emailed to your address. You will set a permanent password upon first login.'}
+                  </span>
+                </div>
+              )}
 
               <button
                 type="submit"

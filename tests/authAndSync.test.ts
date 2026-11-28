@@ -807,4 +807,26 @@ describe('HS256 JWT Session Lifecycle & Pre-Expiry Warning', () => {
     expect(getJwtRemainingSeconds(renewedToken)).toBeGreaterThan(3500);
     expect(useAppStore.getState().isAuthenticated).toBe(true);
   });
+
+  it('triggers actionLoading spinner and top-right toast notifications on triggerSync success and failure', async () => {
+    await useAppStore.getState().login('dev.snehit@gmail.com', 'admin');
+    useAppStore.setState({ toasts: [] });
+
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ status: 'success' }),
+    });
+    await useAppStore.getState().triggerSync('saveProduct', { product: { id: 'p-toast-1' } });
+    expect(useAppStore.getState().actionLoading).toBeNull();
+    expect(useAppStore.getState().toasts.some((t) => t.type === 'success' && t.title === 'Saved to Database')).toBe(true);
+
+    useAppStore.setState({ toasts: [] });
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ status: 'error', message: 'Sheet quota exceeded' }),
+    });
+    await useAppStore.getState().triggerSync('saveProduct', { product: { id: 'p-toast-2' } });
+    expect(useAppStore.getState().actionLoading).toBeNull();
+    expect(useAppStore.getState().toasts.some((t) => t.type === 'error' && t.message.includes('Sheet quota exceeded'))).toBe(true);
+  });
 });

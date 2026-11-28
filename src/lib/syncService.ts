@@ -167,8 +167,8 @@ export async function pullFromGoogleSheet(
   }
 }
 
-export async function lockRemoteSheets(backendUrl: string): Promise<SyncResponse> {
-  return pushToGoogleSheet(backendUrl, 'lockSheets');
+export async function lockRemoteSheets(backendUrl: string, authToken?: string | null): Promise<SyncResponse> {
+  return pushToGoogleSheet(backendUrl, 'lockSheets', authToken ? { authToken } : {});
 }
 
 export const pushToBackendDatabase = pushToGoogleSheet;
