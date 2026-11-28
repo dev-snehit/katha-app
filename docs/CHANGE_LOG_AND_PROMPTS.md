@@ -161,7 +161,7 @@
   - Updated `.github/workflows/deploy.yml` to verify documentation/flowchart sync on `push` and run `npm run validate` before deploying.
 - **Files Touched:** `.githooks/pre-commit`, `package.json`, `.github/workflows/deploy.yml`, `docs/CHANGE_LOG_AND_PROMPTS.md`
 
-### #24 — Database-Agnostic Repository + Constraint Engine Refactor (`pending commit`)
+### #24 — Database-Agnostic Repository + Constraint Engine Refactor (`ee65a40`)
 - **Date:** 2026-11-28
 - **User Prompt / Request:** Refactor the Google Sheets backend (`backend/Code.gs`) using a Database-Agnostic Repository + Constraint Engine pattern with `DB_SCHEMA`, server-controlled UUIDs & sequential numbers (`ORD-YYYY-0001`, `PUR-YYYY-0001`), PK/UK/FK/CHECK/state-transition enforcement, `version` optimistic locking, soft deletes (`is_deleted`), `LockService` + `CacheService`/`_Indexes` O(1) lookups, structured error codes, comprehensive tests, and synchronized documentation.
 - **Changes & Enhancements:**
@@ -170,3 +170,12 @@
   - Added `LockService`, `CacheService`, and `MockRange.clearContent()` to `tests/backend/gasHarness.ts` and added full constraint/locking/pagination tests in `tests/backend/codeGs.test.ts`.
   - Updated `docs/MODULES_AND_FLOWCHARTS.md` and `docs/CHANGE_LOG_AND_PROMPTS.md`.
 - **Files Touched:** `backend/Code.gs`, `tests/backend/gasHarness.ts`, `tests/backend/codeGs.test.ts`, `docs/MODULES_AND_FLOWCHARTS.md`, `docs/CHANGE_LOG_AND_PROMPTS.md`
+
+### #25 — Update Live Backend Deployment URL & Centralize Single Source of Truth (`pending commit`)
+- **Date:** 2026-11-28
+- **User Prompt / Request:** Update the new Google Apps Script deployment URL everywhere required and ensure it only needs to be updated in one place.
+- **Changes & Enhancements:**
+  - Updated `DEFAULT_SERVER_URL` in `src/config/backend.ts` to `https://script.google.com/macros/s/AKfycbxc7DP7XQHm4-Ro0MtMl61zuErdqhMMhseg6TysR4iPyGKJq4rgr_2LTmCcVQ-cXQ8E/exec`.
+  - Commented out the stale `VITE_GOOGLE_APPS_SCRIPT_URL` override in local `.env` so `src/config/backend.ts` acts as the single source of truth across local dev and production builds.
+  - Updated `docs/MODULES_AND_FLOWCHARTS.md` and `docs/CHANGE_LOG_AND_PROMPTS.md`.
+- **Files Touched:** `src/config/backend.ts`, `docs/MODULES_AND_FLOWCHARTS.md`, `docs/CHANGE_LOG_AND_PROMPTS.md`

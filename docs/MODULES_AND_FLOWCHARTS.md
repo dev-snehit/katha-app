@@ -226,9 +226,10 @@ flowchart TD
 
 ## 9. Backend Sync, Settings, Bilingual Engine & UI Standards
 
-**Files:** `src/lib/syncService.ts`, `backend/Code.gs`, `src/components/settings/SettingsModal.tsx`, `src/locales/en.ts`, `src/locales/te.ts`, `src/lib/bilingualHelper.ts`, `src/components/ui/AlertDialog.tsx`, `src/components/ui/ToastContainer.tsx`, `src/hooks/useModalDismiss.ts`
+**Files:** `src/config/backend.ts`, `src/lib/syncService.ts`, `backend/Code.gs`, `src/components/settings/SettingsModal.tsx`, `src/locales/en.ts`, `src/locales/te.ts`, `src/lib/bilingualHelper.ts`, `src/components/ui/AlertDialog.tsx`, `src/components/ui/ToastContainer.tsx`, `src/hooks/useModalDismiss.ts`
 
 ### Capabilities
+- **Single-Source Backend URL (`src/config/backend.ts`):** `DEFAULT_SERVER_URL` in `src/config/backend.ts` is the single source of truth for the deployed Google Apps Script Web App URL across the entire frontend (unless explicitly overridden in `.env` or Settings `localStorage`).
 - **CORS-Safe Transport (`syncService.ts`):** Sends `POST` requests with `Content-Type: text/plain;charset=utf-8` and `redirect: 'follow'` to Google Apps Script Web App URL to avoid CORS preflight failures.
 - **JWT-Authenticated Mutations:** Every protected `doPost` action attaches `authToken`; `backend/Code.gs` verifies the HS256 signature and `exp` via `verifyJwt()`, derives `userRole` from the verified JWT payload (never trusting raw client role strings), and returns `TOKEN_EXPIRED` / `UNAUTHORIZED` / `FORBIDDEN` if invalid/expired/unauthorized—triggering immediate forced `logout()` on expired tokens.
 - **Database-Agnostic Repository & Constraint Engine (`backend/Code.gs`):**

@@ -6,4 +6,4 @@
  */
 export const DEFAULT_SERVER_URL =
   (import.meta as any).env?.VITE_GOOGLE_APPS_SCRIPT_URL ||
-  "https://script.google.com/macros/s/AKfycbxIlyLjXX5Z-0YTrep3Ax4wOr0W4Drqv2Ib3lnWE9bmo2X3E5Oznz1TtLX6cYwPTxKV/exec";
+  "https://script.google.com/macros/s/AKfycbxc7DP7XQHm4-Ro0MtMl61zuErdqhMMhseg6TysR4iPyGKJq4rgr_2LTmCcVQ-cXQ8E/exec";
