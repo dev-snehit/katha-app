@@ -42,18 +42,25 @@ jobs:
           fi
 
       - name: Verify required build secrets
+        id: resolve_url
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           GAS_WEB_APP_URL: ${{ secrets.GAS_WEB_APP_URL }}
+          GAS_DEPLOYMENT_ID: ${{ secrets.GAS_DEPLOYMENT_ID }}
         run: |
-          if [ -z "$GAS_WEB_APP_URL" ]; then
-            echo "::error::Missing required repository secret GAS_WEB_APP_URL."
+          RESOLVED_URL="$GAS_WEB_APP_URL"
+          if [ -z "$RESOLVED_URL" ] && [ -n "$GAS_DEPLOYMENT_ID" ]; then
+            RESOLVED_URL="https://script.google.com/macros/s/${GAS_DEPLOYMENT_ID}/exec"
+          fi
+          if [ -z "$RESOLVED_URL" ]; then
+            echo "::error::Missing required repository secret GAS_WEB_APP_URL (or GAS_DEPLOYMENT_ID)."
             exit 1
           fi
+          echo "web_app_url=$RESOLVED_URL" >> "$GITHUB_OUTPUT"
 
       - name: Run full hard validation (typecheck, lint, format, docs, build, tests)
         env:
-          VITE_GOOGLE_APPS_SCRIPT_URL: ${{ secrets.GAS_WEB_APP_URL }}
+          VITE_GOOGLE_APPS_SCRIPT_URL: ${{ steps.resolve_url.outputs.web_app_url }}
         run: npm run validate
 
       - name: Setup Pages
@@ -92,9 +99,14 @@ jobs:
             exit 0
           fi
 
-          if [ -z "$CLASPRC_JSON" ] || [ -z "$GAS_SCRIPT_ID" ] || [ -z "$GAS_DEPLOYMENT_ID" ] || [ -z "$GAS_WEB_APP_URL" ]; then
-            echo "::error::Missing one or more required secrets: CLASPRC_JSON, GAS_SCRIPT_ID, GAS_DEPLOYMENT_ID, GAS_WEB_APP_URL."
+          if [ -z "$CLASPRC_JSON" ] || [ -z "$GAS_SCRIPT_ID" ] || [ -z "$GAS_DEPLOYMENT_ID" ]; then
+            echo "::error::Missing one or more required secrets: CLASPRC_JSON, GAS_SCRIPT_ID, GAS_DEPLOYMENT_ID."
             exit 1
+          fi
+
+          RESOLVED_URL="$GAS_WEB_APP_URL"
+          if [ -z "$RESOLVED_URL" ]; then
+            RESOLVED_URL="https://script.google.com/macros/s/${GAS_DEPLOYMENT_ID}/exec"
           fi
 
           printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
@@ -103,8 +115,8 @@ jobs:
           npx --yes @google/clasp push --force
           npx --yes @google/clasp deploy -i "$GAS_DEPLOYMENT_ID" -d "CI ${GITHUB_SHA::7}"
 
-          echo "Running post-deploy health check on ${GAS_WEB_APP_URL}?action=ping"
-          curl -fsSL "${GAS_WEB_APP_URL}?action=ping" | grep -q '"status":"ok"'
+          echo "Running post-deploy health check on ${RESOLVED_URL}?action=ping"
+          curl -fsSL "${RESOLVED_URL}?action=ping" | grep -q '"status":"ok"'
           echo "Apps Script health check passed!"
 
   deploy:

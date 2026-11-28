@@ -211,8 +211,14 @@
   - Added tests in `tests/authAndSync.test.ts`, `tests/backend/codeGs.test.ts`, and `tests/ui/componentsCore.test.tsx`; updated `docs/SETUP_GUIDE.md`, `docs/MODULES_AND_FLOWCHARTS.md`, and `docs/CHANGE_LOG_AND_PROMPTS.md`.
 - **Files Touched:** `src/contracts/index.ts`, `src/lib/syncService.ts`, `src/store/useAppStore.ts`, `src/components/settings/SettingsModal.tsx`, `src/components/orders/PendingOrdersView.tsx`, `src/components/admin/UserRequestsView.tsx`, `backend/Code.gs`, `tests/authAndSync.test.ts`, `tests/backend/codeGs.test.ts`, `tests/ui/componentsCore.test.tsx`, `docs/SETUP_GUIDE.md`, `docs/MODULES_AND_FLOWCHARTS.md`, `docs/CHANGE_LOG_AND_PROMPTS.md`
 
-### #29 — Migration, Replication & Secret Rotation Reference Guide (`docs-only`)
+### #29 — Migration, Replication & Secret Rotation Reference Guide (`24f39be`)
 - **Date:** 2026-11-28
 - **User Prompt / Request:** Add a detailed step-by-step reference guide covering moving to a new Google account/Sheet, replicating to a new GitHub & Google account, and safely rotating all secrets at \$0/month with zero hardcoded credentials.
 - **Changes & Enhancements:** Created `docs/MIGRATION_AND_ROTATION_GUIDE.md` with Playbooks A, B, and C, a Secrets Reference Table, and 1-command rollback steps, and linked it in `docs/README.md`. Zero application code modified.
 - **Files Touched:** `docs/MIGRATION_AND_ROTATION_GUIDE.md`, `docs/README.md`, `docs/CHANGE_LOG_AND_PROMPTS.md`
+
+### #30 — Derive Web App URL from `GAS_DEPLOYMENT_ID` in CI When `GAS_WEB_APP_URL` Is Unset (`pending commit`)
+- **Date:** 2026-11-28
+- **User Prompt / Request:** Fix the recent GitHub Actions deployment failure (`Verify required build secrets`) and explain the edge cases in simple terms.
+- **Changes & Enhancements:** Updated `.github/workflows/deploy.yml` to automatically derive `https://script.google.com/macros/s/${GAS_DEPLOYMENT_ID}/exec` when `GAS_WEB_APP_URL` is not separately configured in GitHub Secrets, so CI succeeds immediately with `CLASPRC_JSON`, `GAS_SCRIPT_ID`, and `GAS_DEPLOYMENT_ID` without any hardcoded URLs in source control.
+- **Files Touched:** `.github/workflows/deploy.yml`, `docs/CHANGE_LOG_AND_PROMPTS.md`
