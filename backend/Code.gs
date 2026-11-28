@@ -1,6 +1,6 @@
 /**
- * KAATHA WHOLESALE – GOOGLE APPS SCRIPT SERVERLESS BACKEND (v2)
- * 
+ * KAATHA WHOLESALE – GOOGLE APPS SCRIPT SERVERLESS BACKEND (v3 — Repository + Constraint Engine)
+ *
  * Instructions:
  * 1. Open your Google Sheet.
  * 2. Click Extensions > Apps Script.
@@ -13,45 +13,733 @@
 // Temporary hold on outbound emails until a dedicated SMTP server is configured
 const ENABLE_EMAIL_DELIVERY = false;
 
-function setupDatabase() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  
-  const tables = {
-    'Users': ['id', 'name', 'email', 'phone', 'role', 'status', 'createdAt', 'passwordHash', 'requestedRole', 'requestedName', 'mustResetPassword'],
-    'User_Registrations': ['id', 'name', 'email', 'phone', 'requested_role', 'status', 'registered_at', 'temp_password_sent'],
-    'Master_Products': ['id', 'name_en', 'name_te', 'category', 'brand_en', 'brand_te', 'inner_wt_kg', 'inner_count', 'outer_wt_kg', 'stock_physical', 'stock_reserved', 'price_bag', 'cost_bag', 'retail_price_bag'],
-    'Master_Customers': ['id', 'name_en', 'name_te', 'phone', 'business_en', 'business_te', 'address_en', 'address_te', 'current_due'],
-    'Master_Suppliers': ['id', 'business_en', 'business_te', 'owner_en', 'owner_te', 'bank_name', 'account_no', 'ifsc_code', 'nickname_en', 'nickname_te'],
-    'Master_Orders_Sales': ['id', 'order_no', 'customer_id', 'customer_name', 'customer_phone', 'date', 'total_bags', 'total_weight_kg', 'subtotal', 'discount', 'grand_total', 'payment_mode', 'status', 'approved_by'],
-    'Pending_Orders': ['id', 'order_no', 'customer_id', 'customer_name', 'date', 'total_bags', 'discount', 'grand_total', 'status', 'submitted_by'],
-    'Master_Purchases': ['id', 'purchase_no', 'supplier_id', 'date', 'total_bags', 'grand_total', 'reference_bill'],
-    'Role_Permissions': ['role', 'config_json', 'updated_at', 'updated_by']
-  };
+var ERROR_CODES = {
+  DUPLICATE_KEY: 'DUPLICATE_KEY',
+  FOREIGN_KEY_VIOLATION: 'FOREIGN_KEY_VIOLATION',
+  CHECK_CONSTRAINT_FAILED: 'CHECK_CONSTRAINT_FAILED',
+  NOT_FOUND: 'NOT_FOUND',
+  CONFLICT_STALE_VERSION: 'CONFLICT_STALE_VERSION',
+  UNAUTHORIZED: 'UNAUTHORIZED',
+  FORBIDDEN: 'FORBIDDEN'
+};
 
-  for (const [sheetName, headers] of Object.entries(tables)) {
-    let sheet = ss.getSheetByName(sheetName);
-    if (!sheet) {
-      sheet = ss.insertSheet(sheetName);
-      sheet.appendRow(headers);
-      sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold').setBackground('#fed7aa');
-      sheet.setFrozenRows(1);
-    } else {
-      // Ensure missing headers are filled in row 1
-      const maxCol = Math.max(sheet.getLastColumn(), headers.length);
-      if (maxCol > 0) {
-        const currentHeaders = sheet.getRange(1, 1, 1, maxCol).getValues()[0];
-        headers.forEach((h, idx) => {
-          if (!currentHeaders[idx] || currentHeaders[idx].toString().trim() === '') {
-            sheet.getRange(1, idx + 1).setValue(h).setFontWeight('bold').setBackground('#fed7aa');
+var ORDER_STATUS_TRANSITIONS = {
+  PENDING_REVIEW: ['PENDING_REVIEW', 'APPROVED', 'DISPATCHED', 'DELIVERED', 'CANCELLED'],
+  APPROVED: ['APPROVED', 'DISPATCHED', 'DELIVERED', 'CANCELLED'],
+  DISPATCHED: ['DISPATCHED', 'DELIVERED'],
+  DELIVERED: ['DELIVERED'],
+  CANCELLED: ['CANCELLED']
+};
+
+var AUDIT_COLUMNS = ['version', 'created_at', 'updated_at', 'is_deleted'];
+
+/**
+ * Single Source of Truth Schema & Constraint Registry.
+ * Designed to map 1:1 to Google Sheets, PostgreSQL, MySQL, MongoDB, or Firestore adapters.
+ */
+var DB_SCHEMA = {
+  Users: {
+    primaryKey: 'id',
+    columns: ['id', 'name', 'email', 'phone', 'role', 'status', 'createdAt', 'passwordHash', 'requestedRole', 'requestedName', 'mustResetPassword', 'version', 'created_at', 'updated_at', 'is_deleted'],
+    uniqueKeys: [['email'], ['phone']],
+    foreignKeys: [],
+    checks: {
+      role: ['OWNER', 'ADMIN', 'STAFF', 'CUSTOMER'],
+      status: ['PENDING_APPROVAL', 'APPROVED', 'DENIED']
+    }
+  },
+  User_Registrations: {
+    primaryKey: 'id',
+    columns: ['id', 'name', 'email', 'phone', 'requested_role', 'status', 'registered_at', 'temp_password_sent', 'version', 'created_at', 'updated_at', 'is_deleted'],
+    uniqueKeys: [],
+    foreignKeys: [],
+    checks: {}
+  },
+  Master_Products: {
+    primaryKey: 'id',
+    columns: ['id', 'name_en', 'name_te', 'category', 'brand_en', 'brand_te', 'inner_wt_kg', 'inner_count', 'outer_wt_kg', 'stock_physical', 'stock_reserved', 'price_bag', 'cost_bag', 'retail_price_bag', 'version', 'created_at', 'updated_at', 'is_deleted'],
+    uniqueKeys: [['name_en', 'brand_en']],
+    foreignKeys: [],
+    checks: {
+      productIntegrity: true
+    }
+  },
+  Master_Customers: {
+    primaryKey: 'id',
+    columns: ['id', 'name_en', 'name_te', 'phone', 'business_en', 'business_te', 'address_en', 'address_te', 'current_due', 'version', 'created_at', 'updated_at', 'is_deleted'],
+    uniqueKeys: [['phone']],
+    foreignKeys: [],
+    checks: {
+      nonNegativeDue: true
+    }
+  },
+  Master_Suppliers: {
+    primaryKey: 'id',
+    columns: ['id', 'business_en', 'business_te', 'owner_en', 'owner_te', 'bank_name', 'account_no', 'ifsc_code', 'nickname_en', 'nickname_te', 'version', 'created_at', 'updated_at', 'is_deleted'],
+    uniqueKeys: [['business_en', 'account_no']],
+    foreignKeys: [],
+    checks: {}
+  },
+  Master_Orders_Sales: {
+    primaryKey: 'id',
+    columns: ['id', 'order_no', 'customer_id', 'customer_name', 'customer_phone', 'date', 'total_bags', 'total_weight_kg', 'subtotal', 'discount', 'grand_total', 'payment_mode', 'status', 'approved_by', 'version', 'created_at', 'updated_at', 'is_deleted'],
+    uniqueKeys: [['order_no']],
+    foreignKeys: [{ field: 'customer_id', targetTable: 'Master_Customers', targetField: 'id' }],
+    checks: {
+      orderIntegrity: true
+    }
+  },
+  Pending_Orders: {
+    primaryKey: 'id',
+    columns: ['id', 'order_no', 'customer_id', 'customer_name', 'date', 'total_bags', 'discount', 'grand_total', 'status', 'submitted_by', 'version', 'created_at', 'updated_at', 'is_deleted'],
+    uniqueKeys: [['order_no']],
+    foreignKeys: [{ field: 'customer_id', targetTable: 'Master_Customers', targetField: 'id' }],
+    checks: {
+      orderIntegrity: true
+    }
+  },
+  Order_Items: {
+    primaryKey: 'id',
+    columns: ['id', 'order_id', 'product_id', 'unit_type', 'quantity', 'rate_per_unit', 'line_total', 'version', 'created_at', 'updated_at', 'is_deleted'],
+    uniqueKeys: [],
+    foreignKeys: [
+      { field: 'order_id', targetTable: 'Master_Orders_Sales', targetField: 'id', altTargetTable: 'Pending_Orders' },
+      { field: 'product_id', targetTable: 'Master_Products', targetField: 'id' }
+    ],
+    checks: {
+      positiveQty: true
+    }
+  },
+  Master_Purchases: {
+    primaryKey: 'id',
+    columns: ['id', 'purchase_no', 'supplier_id', 'date', 'total_bags', 'grand_total', 'reference_bill', 'version', 'created_at', 'updated_at', 'is_deleted'],
+    uniqueKeys: [['purchase_no']],
+    foreignKeys: [{ field: 'supplier_id', targetTable: 'Master_Suppliers', targetField: 'id' }],
+    checks: {
+      nonNegativeGrandTotal: true
+    }
+  },
+  Role_Permissions: {
+    primaryKey: 'role',
+    columns: ['role', 'config_json', 'updated_by', 'version', 'created_at', 'updated_at', 'is_deleted'],
+    uniqueKeys: [],
+    foreignKeys: [],
+    checks: {
+      role: ['OWNER', 'ADMIN', 'STAFF', 'CUSTOMER']
+    }
+  }
+};
+
+function createConstraintError(code, message) {
+  var err = new Error(message);
+  err.code = code;
+  err.isConstraintError = true;
+  return err;
+}
+
+function normalizeEmailValue(val) {
+  var s = (val || '').toString().trim().toLowerCase();
+  if (s.endsWith('@gmail')) s += '.com';
+  return s;
+}
+
+function normalizePhoneValue(val) {
+  var digits = (val || '').toString().replace(/\D/g, '');
+  return digits.length > 10 ? digits.slice(-10) : digits;
+}
+
+function normalizeFieldValue(tableName, field, val) {
+  if (val === undefined || val === null) return '';
+  if (field === 'email') return normalizeEmailValue(val);
+  if (field === 'phone' && (tableName === 'Users' || tableName === 'Master_Customers')) {
+    return normalizePhoneValue(val);
+  }
+  return val.toString().trim().toLowerCase();
+}
+
+function nextBusinessNumber(prefix) {
+  var props = PropertiesService.getScriptProperties();
+  var year = new Date().getFullYear();
+  var propKey = 'SEQ_' + prefix + '_' + year;
+  var current = Number(props.getProperty(propKey) || '0');
+  var next = current + 1;
+  props.setProperty(propKey, String(next));
+  var padded = ('0000' + next).slice(-4);
+  return prefix + '-' + year + '-' + padded;
+}
+
+function getManagedTableNames() {
+  return Object.keys(DB_SCHEMA);
+}
+
+function ensureSheetHeaders(sheet, headers) {
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(headers);
+    sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold').setBackground('#fed7aa');
+    sheet.setFrozenRows(1);
+    return;
+  }
+  var maxCol = Math.max(sheet.getLastColumn(), headers.length);
+  if (maxCol > 0) {
+    var currentHeaders = sheet.getRange(1, 1, 1, maxCol).getValues()[0];
+    headers.forEach(function(h, idx) {
+      if (!currentHeaders[idx] || currentHeaders[idx].toString().trim() === '') {
+        sheet.getRange(1, idx + 1).setValue(h).setFontWeight('bold').setBackground('#fed7aa');
+      }
+    });
+  }
+}
+
+function getIndexSheet(ss) {
+  var idxSheet = ss.getSheetByName('_Indexes');
+  if (!idxSheet) {
+    idxSheet = ss.insertSheet('_Indexes');
+    idxSheet.appendRow(['index_key', 'table_name', 'field_key', 'lookup_value', 'row_index', 'updated_at']);
+    idxSheet.setFrozenRows(1);
+  }
+  return idxSheet;
+}
+
+/**
+ * Constraint Engine: validates CHECKs, state transitions, PK/UK uniqueness, FKs, and delete referential integrity.
+ */
+var ConstraintEngine = {
+  validateChecks: function(tableName, record, existingRecord) {
+    var schema = DB_SCHEMA[tableName];
+    if (!schema || !schema.checks) return;
+    var checks = schema.checks;
+
+    if (checks.role && record.role !== undefined && checks.role.indexOf(record.role) === -1) {
+      throw createConstraintError(ERROR_CODES.CHECK_CONSTRAINT_FAILED, 'Invalid role "' + record.role + '" for ' + tableName);
+    }
+    if (checks.status && record.status !== undefined && checks.status.indexOf(record.status) === -1) {
+      throw createConstraintError(ERROR_CODES.CHECK_CONSTRAINT_FAILED, 'Invalid status "' + record.status + '" for ' + tableName);
+    }
+
+    if (checks.productIntegrity) {
+      var innerWt = Number(record.inner_wt_kg);
+      var innerCnt = Number(record.inner_count);
+      var physical = Number(record.stock_physical || 0);
+      var reserved = Number(record.stock_reserved || 0);
+      var costBag = Number(record.cost_bag || 0);
+      var priceBag = Number(record.price_bag || 0);
+      var retailBag = Number(record.retail_price_bag || 0);
+
+      if (!(innerWt > 0)) {
+        throw createConstraintError(ERROR_CODES.CHECK_CONSTRAINT_FAILED, 'inner_wt_kg must be > 0');
+      }
+      if (!(innerCnt >= 1)) {
+        throw createConstraintError(ERROR_CODES.CHECK_CONSTRAINT_FAILED, 'inner_count must be >= 1');
+      }
+      if (physical < 0 || reserved < 0) {
+        throw createConstraintError(ERROR_CODES.CHECK_CONSTRAINT_FAILED, 'stock_physical and stock_reserved must be >= 0');
+      }
+      if (reserved > physical) {
+        throw createConstraintError(ERROR_CODES.CHECK_CONSTRAINT_FAILED, 'stock_reserved cannot exceed stock_physical');
+      }
+      if (costBag > priceBag) {
+        throw createConstraintError(ERROR_CODES.CHECK_CONSTRAINT_FAILED, 'cost_bag cannot exceed price_bag');
+      }
+      if (retailBag > 0 && priceBag > retailBag) {
+        throw createConstraintError(ERROR_CODES.CHECK_CONSTRAINT_FAILED, 'price_bag cannot exceed retail_price_bag');
+      }
+    }
+
+    if (checks.nonNegativeDue) {
+      if (Number(record.current_due || 0) < 0) {
+        throw createConstraintError(ERROR_CODES.CHECK_CONSTRAINT_FAILED, 'current_due must be >= 0');
+      }
+    }
+
+    if (checks.nonNegativeGrandTotal) {
+      if (Number(record.grand_total || 0) < 0) {
+        throw createConstraintError(ERROR_CODES.CHECK_CONSTRAINT_FAILED, 'grand_total must be >= 0');
+      }
+    }
+
+    if (checks.positiveQty) {
+      if (!(Number(record.quantity || 0) > 0)) {
+        throw createConstraintError(ERROR_CODES.CHECK_CONSTRAINT_FAILED, 'Order item quantity must be > 0');
+      }
+    }
+
+    if (checks.orderIntegrity) {
+      if (Number(record.grand_total || 0) < 0) {
+        throw createConstraintError(ERROR_CODES.CHECK_CONSTRAINT_FAILED, 'grand_total must be >= 0');
+      }
+      var validStatuses = Object.keys(ORDER_STATUS_TRANSITIONS);
+      var nextStatus = record.status || 'PENDING_REVIEW';
+      if (validStatuses.indexOf(nextStatus) === -1) {
+        throw createConstraintError(ERROR_CODES.CHECK_CONSTRAINT_FAILED, 'Invalid order status: ' + nextStatus);
+      }
+      if (existingRecord && existingRecord.status) {
+        var allowedNext = ORDER_STATUS_TRANSITIONS[existingRecord.status] || [];
+        if (allowedNext.indexOf(nextStatus) === -1) {
+          throw createConstraintError(
+            ERROR_CODES.CHECK_CONSTRAINT_FAILED,
+            'Invalid order status transition from ' + existingRecord.status + ' to ' + nextStatus
+          );
+        }
+      }
+    }
+  },
+
+  validateUniqueness: function(repo, tableName, record, excludePk) {
+    var schema = DB_SCHEMA[tableName];
+    if (!schema) return;
+    var pkField = schema.primaryKey;
+    var pkVal = record[pkField];
+    if (pkVal && !excludePk) {
+      var existingByPk = repo.findById(tableName, pkVal);
+      if (existingByPk) {
+        throw createConstraintError(ERROR_CODES.DUPLICATE_KEY, tableName + ' duplicate primary key: ' + pkVal);
+      }
+    }
+
+    var uniqueKeys = schema.uniqueKeys || [];
+    for (var i = 0; i < uniqueKeys.length; i++) {
+      var keyFields = uniqueKeys[i];
+      var allPresent = true;
+      var parts = [];
+      for (var j = 0; j < keyFields.length; j++) {
+        var f = keyFields[j];
+        var norm = normalizeFieldValue(tableName, f, record[f]);
+        if (!norm) {
+          allPresent = false;
+          break;
+        }
+        parts.push(norm);
+      }
+      if (!allPresent) continue;
+
+      var compositeVal = parts.join('|');
+      var hit = repo.findByUniqueIndex(tableName, keyFields, compositeVal);
+      if (hit && (!excludePk || String(hit[pkField]) !== String(excludePk))) {
+        throw createConstraintError(
+          ERROR_CODES.DUPLICATE_KEY,
+          tableName + ' duplicate unique key (' + keyFields.join(' + ') + '): ' + compositeVal
+        );
+      }
+    }
+  },
+
+  validateForeignKeys: function(repo, tableName, record) {
+    var schema = DB_SCHEMA[tableName];
+    if (!schema || !schema.foreignKeys) return;
+    for (var i = 0; i < schema.foreignKeys.length; i++) {
+      var fk = schema.foreignKeys[i];
+      var fkVal = record[fk.field];
+      if (fkVal === undefined || fkVal === null || fkVal === '') {
+        throw createConstraintError(
+          ERROR_CODES.FOREIGN_KEY_VIOLATION,
+          tableName + '.' + fk.field + ' is required and must reference ' + fk.targetTable + '.' + fk.targetField
+        );
+      }
+      var parent = repo.findById(fk.targetTable, fkVal);
+      if (!parent && fk.altTargetTable) {
+        parent = repo.findById(fk.altTargetTable, fkVal);
+      }
+      if (!parent) {
+        throw createConstraintError(
+          ERROR_CODES.FOREIGN_KEY_VIOLATION,
+          'Foreign key violation: ' + tableName + '.' + fk.field + ' (' + fkVal + ') not found in ' + fk.targetTable
+        );
+      }
+    }
+  },
+
+  checkDeleteReferentialIntegrity: function(repo, tableName, pkVal) {
+    var allTables = Object.keys(DB_SCHEMA);
+    for (var i = 0; i < allTables.length; i++) {
+      var childTable = allTables[i];
+      var fks = DB_SCHEMA[childTable].foreignKeys || [];
+      for (var j = 0; j < fks.length; j++) {
+        var fk = fks[j];
+        if (fk.targetTable === tableName || fk.altTargetTable === tableName) {
+          var where = {};
+          where[fk.field] = pkVal;
+          var children = repo.query(childTable, { where: where, limit: 1 });
+          if (children.total > 0) {
+            throw createConstraintError(
+              ERROR_CODES.FOREIGN_KEY_VIOLATION,
+              'Cannot delete ' + tableName + ' (' + pkVal + '): referenced by active record in ' + childTable
+            );
           }
-        });
+        }
+      }
+    }
+  }
+};
+
+/**
+ * Google Sheets Repository Adapter implementing the Database-Agnostic Repository Interface:
+ *   findById, findOne, query, insert, update, softDelete, transaction
+ * Uses LockService.getScriptLock() for concurrency and CacheService + _Indexes for O(1) lookups.
+ */
+function createSheetsRepository(ss) {
+  var cache = CacheService.getScriptCache();
+
+  function getSheetAndHeaders(tableName) {
+    var schema = DB_SCHEMA[tableName];
+    if (!schema) throw new Error('Unknown table: ' + tableName);
+    var sheet = ss.getSheetByName(tableName);
+    if (!sheet) {
+      sheet = ss.insertSheet(tableName);
+      ensureSheetHeaders(sheet, schema.columns);
+    }
+    var lastCol = Math.max(sheet.getLastColumn(), schema.columns.length);
+    var headers = sheet.getLastRow() >= 1
+      ? sheet.getRange(1, 1, 1, lastCol).getValues()[0]
+      : schema.columns.slice();
+    return { sheet: sheet, headers: headers, schema: schema };
+  }
+
+  function rowToObject(headers, row) {
+    var obj = {};
+    for (var i = 0; i < headers.length; i++) {
+      var h = headers[i];
+      if (h) obj[h] = row[i];
+    }
+    return obj;
+  }
+
+  function objectToRow(headers, obj) {
+    return headers.map(function(h) {
+      return obj[h] !== undefined ? obj[h] : '';
+    });
+  }
+
+  function isRowDeleted(obj) {
+    return obj.is_deleted === true || obj.is_deleted === 'true';
+  }
+
+  function makeIndexCacheKey(tableName, fieldKey, lookupVal) {
+    return 'idx:' + tableName + ':' + fieldKey + ':' + lookupVal;
+  }
+
+  function getIndexedRow(tableName, fieldKey, lookupVal) {
+    var cacheKey = makeIndexCacheKey(tableName, fieldKey, lookupVal);
+    var cached = cache.get(cacheKey);
+    if (cached !== null && cached !== undefined) {
+      var num = Number(cached);
+      if (num >= 2) return num;
+    }
+    return null;
+  }
+
+  function setIndexedRow(tableName, fieldKey, lookupVal, rowIndex) {
+    var cacheKey = makeIndexCacheKey(tableName, fieldKey, lookupVal);
+    cache.put(cacheKey, String(rowIndex), 300);
+  }
+
+  function invalidateRecordIndexes(tableName, record) {
+    var schema = DB_SCHEMA[tableName];
+    if (!schema || !record) return;
+    var keys = [];
+    var pkField = schema.primaryKey;
+    if (record[pkField]) {
+      keys.push(makeIndexCacheKey(tableName, pkField, String(record[pkField])));
+    }
+    var uks = schema.uniqueKeys || [];
+    for (var i = 0; i < uks.length; i++) {
+      var fields = uks[i];
+      var parts = fields.map(function(f) { return normalizeFieldValue(tableName, f, record[f]); });
+      if (parts.every(Boolean)) {
+        keys.push(makeIndexCacheKey(tableName, fields.join('+'), parts.join('|')));
+      }
+    }
+    if (keys.length > 0) cache.removeAll(keys);
+  }
+
+  function writeRecordIndexes(tableName, record, rowIndex) {
+    var schema = DB_SCHEMA[tableName];
+    if (!schema || !record) return;
+    var pkField = schema.primaryKey;
+    if (record[pkField]) {
+      setIndexedRow(tableName, pkField, String(record[pkField]), rowIndex);
+    }
+    var uks = schema.uniqueKeys || [];
+    for (var i = 0; i < uks.length; i++) {
+      var fields = uks[i];
+      var parts = fields.map(function(f) { return normalizeFieldValue(tableName, f, record[f]); });
+      if (parts.every(Boolean)) {
+        setIndexedRow(tableName, fields.join('+'), parts.join('|'), rowIndex);
       }
     }
   }
 
+  var repo = {
+    findById: function(tableName, id, options) {
+      if (id === undefined || id === null || id === '') return null;
+      var includeDeleted = options && options.includeDeleted;
+      var info = getSheetAndHeaders(tableName);
+      var sheet = info.sheet;
+      var headers = info.headers;
+      var pkField = info.schema.primaryKey;
+      var pkIdx = headers.indexOf(pkField);
+      if (sheet.getLastRow() <= 1 || pkIdx === -1) return null;
+
+      // 1. O(1) CacheService index probe
+      var cachedRowIdx = getIndexedRow(tableName, pkField, String(id));
+      if (cachedRowIdx && cachedRowIdx <= sheet.getLastRow()) {
+        var singleRow = sheet.getRange(cachedRowIdx, 1, 1, headers.length).getValues()[0];
+        if (String(singleRow[pkIdx]) === String(id)) {
+          var cachedObj = rowToObject(headers, singleRow);
+          if (!includeDeleted && isRowDeleted(cachedObj)) return null;
+          cachedObj._rowIndex = cachedRowIdx;
+          return cachedObj;
+        }
+      }
+
+      // 2. Fallback scan & populate index
+      var data = sheet.getDataRange().getValues();
+      for (var i = 1; i < data.length; i++) {
+        if (String(data[i][pkIdx]) === String(id)) {
+          var obj = rowToObject(headers, data[i]);
+          writeRecordIndexes(tableName, obj, i + 1);
+          if (!includeDeleted && isRowDeleted(obj)) return null;
+          obj._rowIndex = i + 1;
+          return obj;
+        }
+      }
+      return null;
+    },
+
+    findByUniqueIndex: function(tableName, keyFields, compositeVal) {
+      var info = getSheetAndHeaders(tableName);
+      var sheet = info.sheet;
+      var headers = info.headers;
+      if (sheet.getLastRow() <= 1) return null;
+      var fieldKey = keyFields.join('+');
+
+      var cachedRowIdx = getIndexedRow(tableName, fieldKey, compositeVal);
+      if (cachedRowIdx && cachedRowIdx <= sheet.getLastRow()) {
+        var singleRow = sheet.getRange(cachedRowIdx, 1, 1, headers.length).getValues()[0];
+        var cachedObj = rowToObject(headers, singleRow);
+        var cachedParts = keyFields.map(function(f) { return normalizeFieldValue(tableName, f, cachedObj[f]); });
+        if (cachedParts.join('|') === compositeVal && !isRowDeleted(cachedObj)) {
+          cachedObj._rowIndex = cachedRowIdx;
+          return cachedObj;
+        }
+      }
+
+      var data = sheet.getDataRange().getValues();
+      for (var i = 1; i < data.length; i++) {
+        var obj = rowToObject(headers, data[i]);
+        if (isRowDeleted(obj)) continue;
+        var parts = keyFields.map(function(f) { return normalizeFieldValue(tableName, f, obj[f]); });
+        if (parts.every(Boolean) && parts.join('|') === compositeVal) {
+          writeRecordIndexes(tableName, obj, i + 1);
+          obj._rowIndex = i + 1;
+          return obj;
+        }
+      }
+      return null;
+    },
+
+    findOne: function(tableName, where, options) {
+      var res = repo.query(tableName, { where: where, limit: 1, includeDeleted: options && options.includeDeleted });
+      return res.rows.length > 0 ? res.rows[0] : null;
+    },
+
+    query: function(tableName, opts) {
+      opts = opts || {};
+      var info = getSheetAndHeaders(tableName);
+      var sheet = info.sheet;
+      var headers = info.headers;
+      if (sheet.getLastRow() <= 1) {
+        return { rows: [], total: 0, limit: opts.limit || 50, offset: opts.offset || 0 };
+      }
+
+      var data = sheet.getDataRange().getValues();
+      var where = opts.where || {};
+      var whereKeys = Object.keys(where);
+      var matched = [];
+
+      for (var i = 1; i < data.length; i++) {
+        var obj = rowToObject(headers, data[i]);
+        if (!opts.includeDeleted && isRowDeleted(obj)) continue;
+
+        var ok = true;
+        for (var k = 0; k < whereKeys.length; k++) {
+          var key = whereKeys[k];
+          var expected = where[key];
+          if (expected === undefined) continue;
+          if (String(obj[key]) !== String(expected)) {
+            ok = false;
+            break;
+          }
+        }
+        if (ok) {
+          obj._rowIndex = i + 1;
+          matched.push(obj);
+        }
+      }
+
+      if (opts.sortBy) {
+        var sortField = opts.sortBy;
+        var dir = (opts.sortDir || 'asc').toLowerCase() === 'desc' ? -1 : 1;
+        matched.sort(function(a, b) {
+          var va = a[sortField];
+          var vb = b[sortField];
+          if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * dir;
+          return String(va || '').localeCompare(String(vb || '')) * dir;
+        });
+      }
+
+      var total = matched.length;
+      var offset = Math.max(0, Number(opts.offset || 0));
+      var limit = opts.limit !== undefined ? Math.max(1, Number(opts.limit)) : total || 50;
+      var paged = matched.slice(offset, offset + limit);
+
+      return { rows: paged, total: total, limit: limit, offset: offset };
+    },
+
+    insert: function(tableName, payload, options) {
+      return repo.transaction(function() {
+        var info = getSheetAndHeaders(tableName);
+        var schema = info.schema;
+        var pkField = schema.primaryKey;
+        var now = new Date().toISOString();
+        var record = Object.assign({}, payload);
+
+        // Server-controlled ID generation for new records
+        if (pkField === 'id' && !(options && options.preserveId)) {
+          record.id = Utilities.getUuid();
+        }
+
+        record.version = 1;
+        record.created_at = record.created_at || now;
+        record.updated_at = now;
+        record.is_deleted = false;
+
+        ConstraintEngine.validateChecks(tableName, record, null);
+        ConstraintEngine.validateUniqueness(repo, tableName, record, null);
+        ConstraintEngine.validateForeignKeys(repo, tableName, record);
+
+        if ((tableName === 'Master_Orders_Sales' || tableName === 'Pending_Orders') && !(options && options.preserveBusinessNo)) {
+          record.order_no = nextBusinessNumber('ORD');
+        }
+        if (tableName === 'Master_Purchases' && !(options && options.preserveBusinessNo)) {
+          record.purchase_no = nextBusinessNumber('PUR');
+        }
+
+        var rowValues = objectToRow(info.headers, record);
+        info.sheet.appendRow(rowValues);
+        var newRowIdx = info.sheet.getLastRow();
+        writeRecordIndexes(tableName, record, newRowIdx);
+        record._rowIndex = newRowIdx;
+        return record;
+      });
+    },
+
+    update: function(tableName, id, patch, expectedVersion) {
+      return repo.transaction(function() {
+        var existing = repo.findById(tableName, id);
+        if (!existing) {
+          throw createConstraintError(ERROR_CODES.NOT_FOUND, tableName + ' record not found: ' + id);
+        }
+        if (expectedVersion !== undefined && expectedVersion !== null && expectedVersion !== '') {
+          var curVer = Number(existing.version || 1);
+          if (Number(expectedVersion) !== curVer) {
+            throw createConstraintError(
+              ERROR_CODES.CONFLICT_STALE_VERSION,
+              'Stale version conflict on ' + tableName + ' (' + id + '): expected ' + expectedVersion + ', current ' + curVer
+            );
+          }
+        }
+
+        var now = new Date().toISOString();
+        var updated = Object.assign({}, existing, patch);
+        delete updated._rowIndex;
+        updated[DB_SCHEMA[tableName].primaryKey] = existing[DB_SCHEMA[tableName].primaryKey];
+        updated.version = Number(existing.version || 1) + 1;
+        updated.created_at = existing.created_at || now;
+        updated.updated_at = now;
+        updated.is_deleted = existing.is_deleted === true || existing.is_deleted === 'true';
+
+        ConstraintEngine.validateChecks(tableName, updated, existing);
+        ConstraintEngine.validateUniqueness(repo, tableName, updated, id);
+        ConstraintEngine.validateForeignKeys(repo, tableName, updated);
+
+        invalidateRecordIndexes(tableName, existing);
+        var info = getSheetAndHeaders(tableName);
+        var rowValues = objectToRow(info.headers, updated);
+        info.sheet.getRange(existing._rowIndex, 1, 1, info.headers.length).setValues([rowValues]);
+        writeRecordIndexes(tableName, updated, existing._rowIndex);
+        updated._rowIndex = existing._rowIndex;
+        return updated;
+      });
+    },
+
+    softDelete: function(tableName, id, expectedVersion) {
+      return repo.transaction(function() {
+        var existing = repo.findById(tableName, id);
+        if (!existing) {
+          throw createConstraintError(ERROR_CODES.NOT_FOUND, tableName + ' record not found: ' + id);
+        }
+        if (expectedVersion !== undefined && expectedVersion !== null && expectedVersion !== '') {
+          var curVer = Number(existing.version || 1);
+          if (Number(expectedVersion) !== curVer) {
+            throw createConstraintError(
+              ERROR_CODES.CONFLICT_STALE_VERSION,
+              'Stale version conflict on ' + tableName + ' (' + id + '): expected ' + expectedVersion + ', current ' + curVer
+            );
+          }
+        }
+
+        ConstraintEngine.checkDeleteReferentialIntegrity(repo, tableName, id);
+
+        var now = new Date().toISOString();
+        var deleted = Object.assign({}, existing, {
+          is_deleted: true,
+          version: Number(existing.version || 1) + 1,
+          updated_at: now
+        });
+        delete deleted._rowIndex;
+
+        invalidateRecordIndexes(tableName, existing);
+        var info = getSheetAndHeaders(tableName);
+        var rowValues = objectToRow(info.headers, deleted);
+        info.sheet.getRange(existing._rowIndex, 1, 1, info.headers.length).setValues([rowValues]);
+        return deleted;
+      });
+    },
+
+    transaction: function(fn) {
+      var lock = LockService.getScriptLock();
+      lock.waitLock(10000);
+      try {
+        return fn();
+      } finally {
+        lock.releaseLock();
+      }
+    }
+  };
+
+  return repo;
+}
+
+function setupDatabase() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var tableNames = getManagedTableNames();
+
+  for (var i = 0; i < tableNames.length; i++) {
+    var sheetName = tableNames[i];
+    var headers = DB_SCHEMA[sheetName].columns;
+    var sheet = ss.getSheetByName(sheetName);
+    if (!sheet) {
+      sheet = ss.insertSheet(sheetName);
+    }
+    ensureSheetHeaders(sheet, headers);
+  }
+
+  getIndexSheet(ss);
+
   // Pre-seed Master Admin if Users sheet is empty
-  const userSheet = ss.getSheetByName('Users');
+  var userSheet = ss.getSheetByName('Users');
   if (userSheet && userSheet.getLastRow() === 1) {
+    var now = new Date().toISOString();
     userSheet.appendRow([
       '00000000-0000-0000-0000-000000000001',
       'Snehit Tadepalli',
@@ -59,10 +747,14 @@ function setupDatabase() {
       '9999999999',
       'ADMIN',
       'APPROVED',
-      new Date().toISOString(),
+      now,
       '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918',
       '',
       '',
+      false,
+      1,
+      now,
+      now,
       false
     ]);
   }
@@ -71,19 +763,17 @@ function setupDatabase() {
   getJwtSecret();
 
   // Pre-seed default Role_Permissions if empty
-  const permSheet = ss.getSheetByName('Role_Permissions');
+  var permSheet = ss.getSheetByName('Role_Permissions');
   if (permSheet && permSheet.getLastRow() === 1) {
-    const roles = ['OWNER', 'ADMIN', 'STAFF', 'CUSTOMER'];
-    roles.forEach(r => {
-      permSheet.appendRow([r, JSON.stringify(DEFAULT_BACKEND_ROLE_PERMISSIONS[r]), new Date().toISOString(), 'SYSTEM']);
+    var roles = ['OWNER', 'ADMIN', 'STAFF', 'CUSTOMER'];
+    var permNow = new Date().toISOString();
+    roles.forEach(function(r) {
+      permSheet.appendRow([r, JSON.stringify(DEFAULT_BACKEND_ROLE_PERMISSIONS[r]), 'SYSTEM', 1, permNow, permNow, false]);
     });
   }
 
-  // Deduplicate and clean Users sheet
   deduplicateUsersTable(ss);
-
-  // Lock and protect all specified database sheets by default
-  lockDatabaseSheets(ss, Object.keys(tables));
+  lockDatabaseSheets(ss, tableNames);
 }
 
 /**
@@ -91,31 +781,26 @@ function setupDatabase() {
  * preserving only the latest, cleanest record and removing all duplicate rows.
  */
 function deduplicateUsersTable(ss) {
-  const userSheet = ss.getSheetByName('Users');
+  var userSheet = ss.getSheetByName('Users');
   if (!userSheet || userSheet.getLastRow() <= 1) return { removed: 0, total: 0 };
 
-  const data = userSheet.getDataRange().getValues();
-  const headers = data[0];
-  const rows = data.slice(1);
+  var data = userSheet.getDataRange().getValues();
+  var headers = data[0];
+  var rows = data.slice(1);
 
-  const emailIdx = headers.indexOf('email') !== -1 ? headers.indexOf('email') : 2;
-  const phoneIdx = headers.indexOf('phone') !== -1 ? headers.indexOf('phone') : 3;
-  const idIdx = headers.indexOf('id') !== -1 ? headers.indexOf('id') : 0;
+  var emailIdx = headers.indexOf('email') !== -1 ? headers.indexOf('email') : 2;
+  var phoneIdx = headers.indexOf('phone') !== -1 ? headers.indexOf('phone') : 3;
 
-  const seenEmails = {};
-  const seenPhones = {};
-  const uniqueRows = [];
+  var seenEmails = {};
+  var seenPhones = {};
+  var uniqueRows = [];
 
-  // Traverse in reverse so latest entries/updates are preserved
-  for (let i = rows.length - 1; i >= 0; i--) {
-    const row = rows[i];
-    const email = (row[emailIdx] || '').toString().trim().toLowerCase();
-    const rawPhone = (row[phoneIdx] || '').toString().replace(/\D/g, '');
-    const phone = rawPhone.length > 10 ? rawPhone.slice(-10) : rawPhone;
+  for (var i = rows.length - 1; i >= 0; i--) {
+    var row = rows[i];
+    var email = normalizeEmailValue(row[emailIdx]);
+    var phone = normalizePhoneValue(row[phoneIdx]);
 
     if (!email && !phone) continue;
-
-    // Check duplicate
     if ((email && seenEmails[email]) || (phone && phone.length === 10 && seenPhones[phone])) {
       continue;
     }
@@ -125,9 +810,9 @@ function deduplicateUsersTable(ss) {
     uniqueRows.unshift(row);
   }
 
-  const removedCount = rows.length - uniqueRows.length;
+  var removedCount = rows.length - uniqueRows.length;
   if (removedCount > 0) {
-    const cols = headers.length;
+    var cols = headers.length;
     userSheet.getRange(2, 1, userSheet.getLastRow() - 1, cols).clearContent();
     if (uniqueRows.length > 0) {
       userSheet.getRange(2, 1, uniqueRows.length, cols).setValues(uniqueRows);
@@ -137,29 +822,25 @@ function deduplicateUsersTable(ss) {
   return { removed: removedCount, total: uniqueRows.length };
 }
 
-/**
- * Locks specified sheets by default so human viewers cannot alter cell records.
- * Only the automated Google Apps Script execution engine retains full read/write permission.
- */
 function lockDatabaseSheets(ss, sheetNames) {
-  for (let i = 0; i < sheetNames.length; i++) {
-    const name = sheetNames[i];
-    const sheet = ss.getSheetByName(name);
+  for (var i = 0; i < sheetNames.length; i++) {
+    var name = sheetNames[i];
+    var sheet = ss.getSheetByName(name);
     if (sheet) {
-      const protections = sheet.getProtections(SpreadsheetApp.ProtectionType.SHEET);
+      var protections = sheet.getProtections(SpreadsheetApp.ProtectionType.SHEET);
       if (protections.length === 0) {
         try {
-          const protection = sheet.protect().setDescription('Kaatha Wholesale Managed - Locked by Default');
+          var protection = sheet.protect().setDescription('Kaatha Wholesale Managed - Locked by Default');
           protection.setWarningOnly(false);
-          const me = Session.getEffectiveUser();
+          var me = Session.getEffectiveUser();
           if (me) {
             protection.removeEditors(protection.getEditors());
             protection.addEditor(me);
           }
         } catch (err) {
           try {
-            const protection = sheet.protect().setDescription('Kaatha Wholesale Managed - Protected');
-            protection.setWarningOnly(true);
+            var p2 = sheet.protect().setDescription('Kaatha Wholesale Managed - Protected');
+            p2.setWarningOnly(true);
           } catch (innerErr) {}
         }
       }
@@ -167,10 +848,6 @@ function lockDatabaseSheets(ss, sheetNames) {
   }
 }
 
-/**
- * Default role-specific permissions JSON configuration in backend.
- * Defines list of features and functionalities accepted as boolean to globally control what can be seen and executed.
- */
 var DEFAULT_BACKEND_ROLE_PERMISSIONS = {
   OWNER: {
     dashboard_page: { enabled: true, functionalities: { view_dashboard: true, view_kpi_metrics: true, view_order_funnel_chart: true, view_inventory_health: true, view_credit_risk_table: true, view_recent_activity: true, quick_actions: true } },
@@ -214,10 +891,11 @@ function getOrInitRolePermissions(ss) {
   var sheet = ss.getSheetByName('Role_Permissions');
   if (!sheet) {
     sheet = ss.insertSheet('Role_Permissions');
-    sheet.appendRow(['role', 'config_json', 'updated_at', 'updated_by']);
+    ensureSheetHeaders(sheet, DB_SCHEMA.Role_Permissions.columns);
     var roles = ['OWNER', 'ADMIN', 'STAFF', 'CUSTOMER'];
+    var now = new Date().toISOString();
     roles.forEach(function(r) {
-      sheet.appendRow([r, JSON.stringify(DEFAULT_BACKEND_ROLE_PERMISSIONS[r]), new Date().toISOString(), 'SYSTEM']);
+      sheet.appendRow([r, JSON.stringify(DEFAULT_BACKEND_ROLE_PERMISSIONS[r]), 'SYSTEM', 1, now, now, false]);
     });
   }
 
@@ -264,7 +942,7 @@ function base64UrlDecodeString(str) {
 function signJwt(payloadObj) {
   var header = { alg: 'HS256', typ: 'JWT' };
   var iat = Math.floor(Date.now() / 1000);
-  var exp = iat + 3600; // Strict 1-hour expiration
+  var exp = iat + 3600;
   var fullPayload = Object.assign({}, payloadObj, { iat: iat, exp: exp });
 
   var headerB64 = base64UrlEncode(JSON.stringify(header));
@@ -313,42 +991,39 @@ function verifyJwt(token) {
 }
 
 function findUserRowByEmailOrId(ss, email, id) {
-  var userSheet = ss.getSheetByName('Users');
-  if (!userSheet || userSheet.getLastRow() <= 1) return null;
-  var data = userSheet.getDataRange().getValues();
-  var cleanEmail = (email || '').toString().trim().toLowerCase();
-  if (cleanEmail.endsWith('@gmail')) cleanEmail += '.com';
-
-  for (var i = 1; i < data.length; i++) {
-    var rowId = (data[i][0] || '').toString();
-    var rowEmail = (data[i][2] || '').toString().trim().toLowerCase();
-    if (rowEmail.endsWith('@gmail')) rowEmail += '.com';
-
-    if ((id && rowId === id) || (cleanEmail && rowEmail === cleanEmail)) {
-      return {
-        rowIndex: i + 1,
-        user: {
-          id: rowId,
-          name: (data[i][1] || '').toString(),
-          email: (data[i][2] || '').toString(),
-          phone: (data[i][3] || '').toString(),
-          role: (data[i][4] || 'STAFF').toString(),
-          status: (data[i][5] || 'PENDING_APPROVAL').toString(),
-          createdAt: (data[i][6] || new Date().toISOString()).toString(),
-          passwordHash: (data[i][7] || '').toString(),
-          requestedRole: (data[i][8] || '').toString() || undefined,
-          requestedName: (data[i][9] || '').toString() || undefined,
-          mustResetPassword: data[i][10] === true || data[i][10] === 'true'
-        }
-      };
-    }
+  var repo = createSheetsRepository(ss);
+  var user = null;
+  if (id) {
+    user = repo.findById('Users', id);
   }
-  return null;
+  if (!user && email) {
+    var normEmail = normalizeEmailValue(email);
+    user = repo.findByUniqueIndex('Users', ['email'], normEmail);
+  }
+  if (!user) return null;
+
+  return {
+    rowIndex: user._rowIndex,
+    user: {
+      id: String(user.id || ''),
+      name: String(user.name || ''),
+      email: String(user.email || ''),
+      phone: String(user.phone || ''),
+      role: String(user.role || 'STAFF'),
+      status: String(user.status || 'PENDING_APPROVAL'),
+      createdAt: String(user.createdAt || new Date().toISOString()),
+      passwordHash: String(user.passwordHash || ''),
+      requestedRole: user.requestedRole ? String(user.requestedRole) : undefined,
+      requestedName: user.requestedName ? String(user.requestedName) : undefined,
+      mustResetPassword: user.mustResetPassword === true || user.mustResetPassword === 'true',
+      version: Number(user.version || 1)
+    }
+  };
 }
 
 function checkBackendPermission(ss, userRole, pageKey, funcKey) {
   if (!userRole) return false;
-  if (userRole === 'OWNER') return true; // Owner has full uninhibited permissions
+  if (userRole === 'OWNER') return true;
   var perms = getOrInitRolePermissions(ss);
   var roleConfig = perms[userRole] || DEFAULT_BACKEND_ROLE_PERMISSIONS[userRole];
   if (!roleConfig) return false;
@@ -360,11 +1035,27 @@ function checkBackendPermission(ss, userRole, pageKey, funcKey) {
   return true;
 }
 
+function getAllActiveData(ss, repo) {
+  var result = {};
+  var sheetNames = getManagedTableNames();
+  for (var i = 0; i < sheetNames.length; i++) {
+    var name = sheetNames[i];
+    result[name] = repo.query(name, {}).rows.map(function(r) {
+      var clean = Object.assign({}, r);
+      delete clean._rowIndex;
+      return clean;
+    });
+  }
+  result['rolePermissions'] = getOrInitRolePermissions(ss);
+  return result;
+}
+
 function doGet(e) {
   try {
     setupDatabase();
-    const action = (e && e.parameter && e.parameter.action) || 'ping';
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    var action = (e && e.parameter && e.parameter.action) || 'ping';
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var repo = createSheetsRepository(ss);
 
     if (action === 'ping') {
       return createResponse({
@@ -376,36 +1067,17 @@ function doGet(e) {
     }
 
     if (action === 'getData') {
-      const result = {};
-      const sheetNames = ['Users', 'Master_Products', 'Master_Customers', 'Master_Suppliers', 'Master_Orders_Sales', 'Pending_Orders', 'Master_Purchases', 'Role_Permissions'];
-      
-      for (const name of sheetNames) {
-        const sheet = ss.getSheetByName(name);
-        if (sheet && sheet.getLastRow() > 1) {
-          const rows = sheet.getDataRange().getValues();
-          const headers = rows[0];
-          result[name] = rows.slice(1).map(row => {
-            const obj = {};
-            headers.forEach((h, i) => obj[h] = row[i]);
-            return obj;
-          });
-        } else {
-          result[name] = [];
-        }
-      }
-      result['rolePermissions'] = getOrInitRolePermissions(ss);
-      return createResponse({ status: 'success', data: result });
+      return createResponse({ status: 'success', data: getAllActiveData(ss, repo) });
     }
 
     if (action === 'lockSheets') {
-      const sheetNames = ['Users', 'Master_Products', 'Master_Customers', 'Master_Suppliers', 'Master_Orders_Sales', 'Pending_Orders', 'Master_Purchases', 'Role_Permissions'];
-      lockDatabaseSheets(ss, sheetNames);
+      lockDatabaseSheets(ss, getManagedTableNames());
       return createResponse({ status: 'success', message: 'Sheets locked and protected by default' });
     }
 
     return createResponse({ status: 'error', message: 'Unknown action: ' + action });
   } catch (err) {
-    return createResponse({ status: 'error', error: err.toString() });
+    return createResponse({ status: 'error', code: err.code || undefined, error: err.toString(), message: err.message || err.toString() });
   }
 }
 
@@ -416,9 +1088,10 @@ function doPost(e) {
       return createResponse({ status: 'error', message: 'No payload received' });
     }
 
-    const body = JSON.parse(e.postData.contents);
-    const action = body.action;
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    var body = JSON.parse(e.postData.contents);
+    var action = body.action;
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var repo = createSheetsRepository(ss);
 
     if (action === 'ping') {
       return createResponse({
@@ -431,18 +1104,18 @@ function doPost(e) {
 
     // --- Authentication: Login (issues HS256 1-hour JWT) ---
     if (action === 'login') {
-      const email = (body.email || '').toString().trim().toLowerCase();
-      const passwordHash = (body.passwordHash || '').toString().trim();
+      var email = normalizeEmailValue(body.email);
+      var passwordHash = (body.passwordHash || '').toString().trim();
       if (!email || !passwordHash) {
         return createResponse({ status: 'error', code: 'INVALID_CREDENTIALS', message: 'Email and password are required.' });
       }
 
-      const found = findUserRowByEmailOrId(ss, email, null);
+      var found = findUserRowByEmailOrId(ss, email, null);
       if (!found) {
-        return createResponse({ status: 'error', code: 'UNAUTHORIZED', message: 'No registered account found with this email address.' });
+        return createResponse({ status: 'error', code: ERROR_CODES.UNAUTHORIZED, message: 'No registered account found with this email address.' });
       }
 
-      const u = found.user;
+      var u = found.user;
       if (u.status === 'PENDING_APPROVAL') {
         return createResponse({
           status: 'error',
@@ -458,14 +1131,14 @@ function doPost(e) {
         });
       }
 
-      const rootAdminHash = '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918';
-      const isRootAdmin = u.email.toLowerCase() === 'dev.snehit@gmail.com' || u.email.toLowerCase() === 'dev.snehit@gmail';
-      const storedHash = u.passwordHash || (isRootAdmin ? rootAdminHash : '');
+      var rootAdminHash = '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918';
+      var isRootAdmin = u.email.toLowerCase() === 'dev.snehit@gmail.com' || u.email.toLowerCase() === 'dev.snehit@gmail';
+      var storedHash = u.passwordHash || (isRootAdmin ? rootAdminHash : '');
       if (!storedHash || storedHash !== passwordHash) {
         return createResponse({ status: 'error', code: 'INVALID_CREDENTIALS', message: 'Invalid password. Please verify and try again.' });
       }
 
-      const safeUser = {
+      var safeUser = {
         id: u.id,
         name: u.name,
         email: u.email,
@@ -475,7 +1148,8 @@ function doPost(e) {
         createdAt: u.createdAt,
         requestedRole: u.requestedRole,
         requestedName: u.requestedName,
-        mustResetPassword: u.mustResetPassword
+        mustResetPassword: u.mustResetPassword,
+        version: u.version
       };
 
       if (u.mustResetPassword) {
@@ -487,7 +1161,7 @@ function doPost(e) {
         });
       }
 
-      const token = signJwt({
+      var token = signJwt({
         sub: u.id,
         email: u.email,
         role: u.role,
@@ -504,81 +1178,63 @@ function doPost(e) {
 
     // --- Authentication: Explicit Token Refresh ---
     if (action === 'refreshToken') {
-      const verification = verifyJwt(body.authToken);
+      var verification = verifyJwt(body.authToken);
       if (!verification.valid) {
         return createResponse({ status: 'error', code: verification.code, message: verification.error });
       }
 
-      const found = findUserRowByEmailOrId(ss, verification.payload.email, verification.payload.sub);
-      if (!found || found.user.status !== 'APPROVED') {
+      var foundUser = findUserRowByEmailOrId(ss, verification.payload.email, verification.payload.sub);
+      if (!foundUser || foundUser.user.status !== 'APPROVED') {
         return createResponse({
           status: 'error',
-          code: 'UNAUTHORIZED',
+          code: ERROR_CODES.UNAUTHORIZED,
           message: 'User account is no longer active or approved.'
         });
       }
 
-      const u = found.user;
-      const freshToken = signJwt({
-        sub: u.id,
-        email: u.email,
-        role: u.role,
-        status: u.status
+      var ru = foundUser.user;
+      var freshToken = signJwt({
+        sub: ru.id,
+        email: ru.email,
+        role: ru.role,
+        status: ru.status
       });
 
       return createResponse({
         status: 'success',
         token: freshToken,
         user: {
-          id: u.id,
-          name: u.name,
-          email: u.email,
-          phone: u.phone,
-          role: u.role,
-          status: u.status,
-          createdAt: u.createdAt,
-          requestedRole: u.requestedRole,
-          requestedName: u.requestedName,
-          mustResetPassword: u.mustResetPassword
+          id: ru.id,
+          name: ru.name,
+          email: ru.email,
+          phone: ru.phone,
+          role: ru.role,
+          status: ru.status,
+          createdAt: ru.createdAt,
+          requestedRole: ru.requestedRole,
+          requestedName: ru.requestedName,
+          mustResetPassword: ru.mustResetPassword,
+          version: ru.version
         },
         message: 'Session token refreshed'
       });
     }
 
     if (action === 'getData') {
-      // If an authToken is supplied, verify it so expired/tampered sessions are caught immediately
       if (body.authToken) {
-        const getAuth = verifyJwt(body.authToken);
+        var getAuth = verifyJwt(body.authToken);
         if (!getAuth.valid) {
           return createResponse({ status: 'error', code: getAuth.code, message: getAuth.error });
         }
       }
-      const result = {};
-      const sheetNames = ['Users', 'Master_Products', 'Master_Customers', 'Master_Suppliers', 'Master_Orders_Sales', 'Pending_Orders', 'Master_Purchases', 'Role_Permissions'];
-      
-      for (const name of sheetNames) {
-        const sheet = ss.getSheetByName(name);
-        if (sheet && sheet.getLastRow() > 1) {
-          const rows = sheet.getDataRange().getValues();
-          const headers = rows[0];
-          result[name] = rows.slice(1).map(row => {
-            const obj = {};
-            headers.forEach((h, i) => obj[h] = row[i]);
-            return obj;
-          });
-        } else {
-          result[name] = [];
-        }
-      }
-      result['rolePermissions'] = getOrInitRolePermissions(ss);
-      return createResponse({ status: 'success', data: result });
+      return createResponse({ status: 'success', data: getAllActiveData(ss, repo) });
     }
 
     // Public/pre-auth actions do not require a session JWT; all other mutations require a valid HS256 JWT
-    const publicActions = ['registerUser', 'forgotPassword', 'resetPassword'];
-    let userRole = 'STAFF';
+    var publicActions = ['registerUser', 'forgotPassword', 'resetPassword'];
+    var userRole = 'STAFF';
     if (publicActions.indexOf(action) === -1) {
-      const authCheck = verifyJwt(body.authToken);
+      var authCheck = verifyJwt(body.authToken);
       if (!authCheck.valid) {
         return createResponse({
           status: 'error',
@@ -589,395 +1245,376 @@ function doPost(e) {
       userRole = authCheck.payload.role || 'STAFF';
     }
 
+    // --- Generic Indexed Query Endpoint ---
+    if (action === 'query') {
+      var tableName = body.table;
+      if (!DB_SCHEMA[tableName]) {
+        return createResponse({ status: 'error', code: ERROR_CODES.CHECK_CONSTRAINT_FAILED, message: 'Unknown table: ' + tableName });
+      }
+      var queryResult = repo.query(tableName, {
+        where: body.where || {},
+        sortBy: body.sortBy,
+        sortDir: body.sortDir,
+        limit: body.limit,
+        offset: body.offset,
+        includeDeleted: Boolean(body.includeDeleted)
+      });
+      return createResponse({
+        status: 'success',
+        rows: queryResult.rows.map(function(r) {
+          var c = Object.assign({}, r);
+          delete c._rowIndex;
+          return c;
+        }),
+        total: queryResult.total,
+        limit: queryResult.limit,
+        offset: queryResult.offset
+      });
+    }
+
     if (action === 'lockSheets') {
-      const sheetNames = ['Users', 'Master_Products', 'Master_Customers', 'Master_Suppliers', 'Master_Orders_Sales', 'Pending_Orders', 'Master_Purchases', 'Role_Permissions'];
-      lockDatabaseSheets(ss, sheetNames);
+      lockDatabaseSheets(ss, getManagedTableNames());
       return createResponse({ status: 'success', message: 'Sheets locked and protected by default' });
     }
 
     // --- Role Permissions Operations ---
     if (action === 'saveRolePermissions') {
       if (!checkBackendPermission(ss, userRole, 'user_management_page', 'manage_role_permissions')) {
-        return createResponse({ status: 'error', message: 'Permission denied: manage_role_permissions is disabled for role ' + userRole });
+        return createResponse({ status: 'error', code: ERROR_CODES.FORBIDDEN, message: 'Permission denied: manage_role_permissions is disabled for role ' + userRole });
       }
 
-      const { role: targetRole, config, allPermissions } = body;
-      const sheet = ss.getSheetByName('Role_Permissions') || ss.insertSheet('Role_Permissions');
-      if (sheet.getLastRow() === 0) {
-        sheet.appendRow(['role', 'config_json', 'updated_at', 'updated_by']);
-      }
+      var targetRole = body.role;
+      var config = body.config;
+      var allPermissions = body.allPermissions;
 
-      if (allPermissions && typeof allPermissions === 'object') {
-        const roles = ['OWNER', 'ADMIN', 'STAFF', 'CUSTOMER'];
-        roles.forEach(r => {
-          if (allPermissions[r]) {
-            let found = false;
-            const pData = sheet.getDataRange().getValues();
-            for (let i = 1; i < pData.length; i++) {
-              if (pData[i][0] === r) {
-                sheet.getRange(i + 1, 2).setValue(JSON.stringify(allPermissions[r]));
-                sheet.getRange(i + 1, 3).setValue(new Date().toISOString());
-                sheet.getRange(i + 1, 4).setValue(userRole);
-                found = true;
-                break;
+      repo.transaction(function() {
+        if (allPermissions && typeof allPermissions === 'object') {
+          ['OWNER', 'ADMIN', 'STAFF', 'CUSTOMER'].forEach(function(r) {
+            if (allPermissions[r]) {
+              var existingPerm = repo.findById('Role_Permissions', r);
+              if (existingPerm) {
+                repo.update('Role_Permissions', r, { config_json: JSON.stringify(allPermissions[r]), updated_by: userRole });
+              } else {
+                repo.insert('Role_Permissions', { role: r, config_json: JSON.stringify(allPermissions[r]), updated_by: userRole });
               }
             }
-            if (!found) {
-              sheet.appendRow([r, JSON.stringify(allPermissions[r]), new Date().toISOString(), userRole]);
-            }
-          }
-        });
-      } else if (targetRole && config) {
-        let found = false;
-        const pData = sheet.getDataRange().getValues();
-        for (let i = 1; i < pData.length; i++) {
-          if (pData[i][0] === targetRole) {
-            sheet.getRange(i + 1, 2).setValue(JSON.stringify(config));
-            sheet.getRange(i + 1, 3).setValue(new Date().toISOString());
-            sheet.getRange(i + 1, 4).setValue(userRole);
-            found = true;
-            break;
+          });
+        } else if (targetRole && config) {
+          var existingSingle = repo.findById('Role_Permissions', targetRole);
+          if (existingSingle) {
+            repo.update('Role_Permissions', targetRole, { config_json: JSON.stringify(config), updated_by: userRole });
+          } else {
+            repo.insert('Role_Permissions', { role: targetRole, config_json: JSON.stringify(config), updated_by: userRole });
           }
         }
-        if (!found) {
-          sheet.appendRow([targetRole, JSON.stringify(config), new Date().toISOString(), userRole]);
-        }
-      }
+      });
 
       return createResponse({ status: 'success', message: 'Role permissions saved to database' });
     }
 
     // --- Order Operations ---
     if (action === 'saveOrder') {
-      const order = body.order;
-      const targetSheetName = order.status === 'APPROVED' ? 'Master_Orders_Sales' : 'Pending_Orders';
-      const sheet = ss.getSheetByName(targetSheetName);
-      const data = sheet.getDataRange().getValues();
-      let found = false;
-      for (let i = 1; i < data.length; i++) {
-        if (data[i][0] === order.id) {
-          found = true;
-          break;
-        }
+      var order = body.order;
+      var targetSheetName = order.status === 'APPROVED' ? 'Master_Orders_Sales' : 'Pending_Orders';
+      var existingOrder = order.id ? repo.findById(targetSheetName, order.id) : null;
+
+      if (existingOrder && !checkBackendPermission(ss, userRole, 'orders_page', 'edit_order')) {
+        return createResponse({ status: 'error', code: ERROR_CODES.FORBIDDEN, message: 'Permission denied: edit_order is disabled for role ' + userRole });
+      }
+      if (!existingOrder && !checkBackendPermission(ss, userRole, 'orders_page', 'create_order')) {
+        return createResponse({ status: 'error', code: ERROR_CODES.FORBIDDEN, message: 'Permission denied: create_order is disabled for role ' + userRole });
       }
 
-      if (found && !checkBackendPermission(ss, userRole, 'orders_page', 'edit_order')) {
-        return createResponse({ status: 'error', message: 'Permission denied: edit_order is disabled for role ' + userRole });
-      }
-      if (!found && !checkBackendPermission(ss, userRole, 'orders_page', 'create_order')) {
-        return createResponse({ status: 'error', message: 'Permission denied: create_order is disabled for role ' + userRole });
-      }
-      
-      if (order.status === 'APPROVED') {
-        const rowData = [
-          order.id,
-          order.orderNumber,
-          order.customerId,
-          order.customerName,
-          order.customerPhone || '',
-          order.orderDate || new Date().toISOString(),
-          order.totalOuterBags || 0,
-          order.totalWeightKg || 0,
-          order.subtotal || 0,
-          order.discount || 0,
-          order.grandTotal || 0,
-          order.paymentMode || 'CREDIT',
-          order.status,
-          order.submittedByRole || 'STAFF'
-        ];
-        for (let i = 1; i < data.length; i++) {
-          if (data[i][0] === order.id) {
-            sheet.getRange(i + 1, 1, 1, rowData.length).setValues([rowData]);
-            found = true;
-            break;
+      var orderRecord = targetSheetName === 'Master_Orders_Sales'
+        ? {
+            order_no: order.orderNumber || '',
+            customer_id: order.customerId,
+            customer_name: order.customerName,
+            customer_phone: order.customerPhone || '',
+            date: order.orderDate || new Date().toISOString(),
+            total_bags: order.totalOuterBags || 0,
+            total_weight_kg: order.totalWeightKg || 0,
+            subtotal: order.subtotal || 0,
+            discount: order.discount || 0,
+            grand_total: order.grandTotal || 0,
+            payment_mode: order.paymentMode || 'CREDIT',
+            status: order.status || 'APPROVED',
+            approved_by: order.submittedByRole || userRole
           }
-        }
-        if (!found) sheet.appendRow(rowData);
-      } else {
-        const rowData = [
-          order.id,
-          order.orderNumber,
-          order.customerId,
-          order.customerName,
-          order.orderDate || new Date().toISOString(),
-          order.totalOuterBags || 0,
-          order.discount || 0,
-          order.grandTotal || 0,
-          order.status,
-          order.submittedByRole || 'STAFF'
-        ];
-        for (let i = 1; i < data.length; i++) {
-          if (data[i][0] === order.id) {
-            sheet.getRange(i + 1, 1, 1, rowData.length).setValues([rowData]);
-            found = true;
-            break;
-          }
-        }
-        if (!found) sheet.appendRow(rowData);
-      }
+        : {
+            order_no: order.orderNumber || '',
+            customer_id: order.customerId,
+            customer_name: order.customerName,
+            date: order.orderDate || new Date().toISOString(),
+            total_bags: order.totalOuterBags || 0,
+            discount: order.discount || 0,
+            grand_total: order.grandTotal || 0,
+            status: order.status || 'PENDING_REVIEW',
+            submitted_by: order.submittedByRole || userRole
+          };
 
-      return createResponse({ status: 'success', message: 'Order recorded in ' + targetSheetName, orderId: order.id });
+      var savedOrder = existingOrder
+        ? repo.update(targetSheetName, order.id, orderRecord, order.version)
+        : repo.insert(targetSheetName, orderRecord);
+
+      return createResponse({
+        status: 'success',
+        message: 'Order recorded in ' + targetSheetName,
+        id: savedOrder.id,
+        orderId: savedOrder.id,
+        orderNumber: savedOrder.order_no,
+        version: savedOrder.version
+      });
     }
 
     if (action === 'updateOrderStatus') {
-      const { orderId, newStatus, approvedByRole } = body;
+      var orderId = body.orderId;
+      var newStatus = body.newStatus;
+      var approvedByRole = body.approvedByRole;
+
       if (newStatus === 'APPROVED' && !checkBackendPermission(ss, userRole, 'orders_page', 'approve_order')) {
-        return createResponse({ status: 'error', message: 'Permission denied: approve_order is disabled for role ' + userRole });
+        return createResponse({ status: 'error', code: ERROR_CODES.FORBIDDEN, message: 'Permission denied: approve_order is disabled for role ' + userRole });
       }
       if (newStatus === 'DISPATCHED' && !checkBackendPermission(ss, userRole, 'orders_page', 'dispatch_order')) {
-        return createResponse({ status: 'error', message: 'Permission denied: dispatch_order is disabled for role ' + userRole });
+        return createResponse({ status: 'error', code: ERROR_CODES.FORBIDDEN, message: 'Permission denied: dispatch_order is disabled for role ' + userRole });
       }
       if (newStatus === 'DELIVERED' && !checkBackendPermission(ss, userRole, 'orders_page', 'deliver_order')) {
-        return createResponse({ status: 'error', message: 'Permission denied: deliver_order is disabled for role ' + userRole });
+        return createResponse({ status: 'error', code: ERROR_CODES.FORBIDDEN, message: 'Permission denied: deliver_order is disabled for role ' + userRole });
       }
 
-      // Search in Pending_Orders
-      const pendingSheet = ss.getSheetByName('Pending_Orders');
-      const salesSheet = ss.getSheetByName('Master_Orders_Sales');
-      const pData = pendingSheet.getDataRange().getValues();
-
-      for (let i = 1; i < pData.length; i++) {
-        if (pData[i][0] === orderId) {
-          if (newStatus === 'APPROVED' || newStatus === 'DELIVERED') {
-            // Move row to Master_Orders_Sales
-            salesSheet.appendRow([
-              pData[i][0],
-              pData[i][1],
-              pData[i][2],
-              pData[i][3],
-              '',
-              pData[i][4],
-              pData[i][5],
-              0,
-              pData[i][6],
-              'CREDIT',
-              newStatus,
-              approvedByRole || 'ADMIN'
-            ]);
-            pendingSheet.deleteRow(i + 1);
-            return createResponse({ status: 'success', message: 'Order approved & moved to Master Sales' });
-          } else {
-            pendingSheet.getRange(i + 1, 8).setValue(newStatus);
-            return createResponse({ status: 'success', message: 'Pending order status updated' });
-          }
+      var pendingOrder = repo.findById('Pending_Orders', orderId);
+      if (pendingOrder) {
+        if (newStatus === 'APPROVED' || newStatus === 'DELIVERED') {
+          var moved = repo.transaction(function() {
+            ConstraintEngine.validateChecks('Master_Orders_Sales', Object.assign({}, pendingOrder, { status: newStatus }), pendingOrder);
+            var insertedSale = repo.insert('Master_Orders_Sales', {
+              id: pendingOrder.id,
+              order_no: pendingOrder.order_no,
+              customer_id: pendingOrder.customer_id,
+              customer_name: pendingOrder.customer_name,
+              customer_phone: '',
+              date: pendingOrder.date,
+              total_bags: pendingOrder.total_bags,
+              total_weight_kg: 0,
+              subtotal: pendingOrder.grand_total,
+              discount: pendingOrder.discount,
+              grand_total: pendingOrder.grand_total,
+              payment_mode: 'CREDIT',
+              status: newStatus,
+              approved_by: approvedByRole || userRole
+            }, { preserveId: true, preserveBusinessNo: true });
+            repo.softDelete('Pending_Orders', pendingOrder.id);
+            return insertedSale;
+          });
+          return createResponse({ status: 'success', message: 'Order approved & moved to Master Sales', id: moved.id, version: moved.version });
+        } else {
+          var updatedPending = repo.update('Pending_Orders', orderId, { status: newStatus }, body.version);
+          return createResponse({ status: 'success', message: 'Pending order status updated', id: updatedPending.id, version: updatedPending.version });
         }
       }
 
-      return createResponse({ status: 'success', message: 'Order status recorded' });
+      var salesOrder = repo.findById('Master_Orders_Sales', orderId);
+      if (salesOrder) {
+        var updatedSale = repo.update('Master_Orders_Sales', orderId, { status: newStatus }, body.version);
+        return createResponse({ status: 'success', message: 'Order status updated', id: updatedSale.id, version: updatedSale.version });
+      }
+
+      return createResponse({ status: 'error', code: ERROR_CODES.NOT_FOUND, message: 'Order not found: ' + orderId });
     }
 
     if (action === 'deleteOrder') {
       if (!checkBackendPermission(ss, userRole, 'orders_page', 'delete_order')) {
-        return createResponse({ status: 'error', message: 'Permission denied: delete_order is disabled for role ' + userRole });
+        return createResponse({ status: 'error', code: ERROR_CODES.FORBIDDEN, message: 'Permission denied: delete_order is disabled for role ' + userRole });
       }
-      const { orderId } = body;
-      const pendingSheet = ss.getSheetByName('Pending_Orders');
-      if (pendingSheet) {
-        const pData = pendingSheet.getDataRange().getValues();
-        for (let i = 1; i < pData.length; i++) {
-          if (pData[i][0] === orderId) {
-            pendingSheet.deleteRow(i + 1);
-            return createResponse({ status: 'success', message: 'Order deleted from pending orders' });
-          }
-        }
+      var delOrderId = body.orderId;
+      if (repo.findById('Pending_Orders', delOrderId)) {
+        repo.softDelete('Pending_Orders', delOrderId, body.version);
+        return createResponse({ status: 'success', message: 'Order deleted from pending orders' });
       }
-      const salesSheet = ss.getSheetByName('Master_Orders_Sales');
-      if (salesSheet) {
-        const sData = salesSheet.getDataRange().getValues();
-        for (let i = 1; i < sData.length; i++) {
-          if (sData[i][0] === orderId) {
-            salesSheet.deleteRow(i + 1);
-            return createResponse({ status: 'success', message: 'Order deleted from sales orders' });
-          }
-        }
+      if (repo.findById('Master_Orders_Sales', delOrderId)) {
+        repo.softDelete('Master_Orders_Sales', delOrderId, body.version);
+        return createResponse({ status: 'success', message: 'Order deleted from sales orders' });
       }
-      return createResponse({ status: 'error', message: 'Order not found' });
+      return createResponse({ status: 'error', code: ERROR_CODES.NOT_FOUND, message: 'Order not found' });
+    }
+
+    // --- Order Items Operations ---
+    if (action === 'saveOrderItem') {
+      var item = body.item;
+      var existingItem = item.id ? repo.findById('Order_Items', item.id) : null;
+      var itemPayload = {
+        order_id: item.orderId,
+        product_id: item.productId,
+        unit_type: item.unitType || 'OUTER_BAG',
+        quantity: item.quantity,
+        rate_per_unit: item.ratePerUnit || 0,
+        line_total: item.lineTotal || 0
+      };
+      var savedItem = existingItem
+        ? repo.update('Order_Items', item.id, itemPayload, item.version)
+        : repo.insert('Order_Items', itemPayload);
+      return createResponse({ status: 'success', id: savedItem.id, version: savedItem.version, message: 'Order item saved' });
     }
 
     // --- Customer Operations ---
     if (action === 'saveCustomer') {
-      const c = body.customer;
-      const sheet = ss.getSheetByName('Master_Customers');
-      const data = sheet.getDataRange().getValues();
-      let found = false;
+      var c = body.customer;
+      var existingCust = c.id ? repo.findById('Master_Customers', c.id) : null;
 
-      for (let i = 1; i < data.length; i++) {
-        if (data[i][0] === c.id) {
-          found = true;
-          break;
-        }
+      if (existingCust && !checkBackendPermission(ss, userRole, 'customers_page', 'edit_customer')) {
+        return createResponse({ status: 'error', code: ERROR_CODES.FORBIDDEN, message: 'Permission denied: edit_customer is disabled for role ' + userRole });
+      }
+      if (!existingCust && !checkBackendPermission(ss, userRole, 'customers_page', 'add_customer')) {
+        return createResponse({ status: 'error', code: ERROR_CODES.FORBIDDEN, message: 'Permission denied: add_customer is disabled for role ' + userRole });
       }
 
-      if (found && !checkBackendPermission(ss, userRole, 'customers_page', 'edit_customer')) {
-        return createResponse({ status: 'error', message: 'Permission denied: edit_customer is disabled for role ' + userRole });
-      }
-      if (!found && !checkBackendPermission(ss, userRole, 'customers_page', 'add_customer')) {
-        return createResponse({ status: 'error', message: 'Permission denied: add_customer is disabled for role ' + userRole });
-      }
+      var custPayload = {
+        name_en: c.name,
+        name_te: c.nameTe || '',
+        phone: normalizePhoneValue(c.phone),
+        business_en: c.businessName || '',
+        business_te: c.businessNameTe || '',
+        address_en: c.address || '',
+        address_te: c.addressTe || '',
+        current_due: c.currentDue || 0
+      };
 
-      if (found) {
-        for (let i = 1; i < data.length; i++) {
-          if (data[i][0] === c.id) {
-            sheet.getRange(i + 1, 1, 1, 9).setValues([[
-              c.id, c.name, c.nameTe || '', c.phone, c.businessName || '', c.businessNameTe || '', c.address || '', c.addressTe || '', c.currentDue || 0
-            ]]);
-            break;
-          }
-        }
-      } else {
-        sheet.appendRow([
-          c.id, c.name, c.nameTe || '', c.phone, c.businessName || '', c.businessNameTe || '', c.address || '', c.addressTe || '', c.currentDue || 0
-        ]);
-      }
-      return createResponse({ status: 'success', message: 'Customer saved to sheet' });
+      var savedCust = existingCust
+        ? repo.update('Master_Customers', c.id, custPayload, c.version)
+        : repo.insert('Master_Customers', custPayload);
+
+      return createResponse({ status: 'success', id: savedCust.id, customerId: savedCust.id, version: savedCust.version, message: 'Customer saved to sheet' });
     }
 
     // --- Supplier Operations ---
     if (action === 'saveSupplier') {
-      const s = body.supplier;
-      const sheet = ss.getSheetByName('Master_Suppliers');
-      const data = sheet.getDataRange().getValues();
-      let found = false;
+      var s = body.supplier;
+      var existingSupp = s.id ? repo.findById('Master_Suppliers', s.id) : null;
 
-      for (let i = 1; i < data.length; i++) {
-        if (data[i][0] === s.id) {
-          found = true;
-          break;
-        }
+      if (existingSupp && !checkBackendPermission(ss, userRole, 'suppliers_page', 'edit_supplier')) {
+        return createResponse({ status: 'error', code: ERROR_CODES.FORBIDDEN, message: 'Permission denied: edit_supplier is disabled for role ' + userRole });
+      }
+      if (!existingSupp && !checkBackendPermission(ss, userRole, 'suppliers_page', 'add_supplier')) {
+        return createResponse({ status: 'error', code: ERROR_CODES.FORBIDDEN, message: 'Permission denied: add_supplier is disabled for role ' + userRole });
       }
 
-      if (found && !checkBackendPermission(ss, userRole, 'suppliers_page', 'edit_supplier')) {
-        return createResponse({ status: 'error', message: 'Permission denied: edit_supplier is disabled for role ' + userRole });
-      }
-      if (!found && !checkBackendPermission(ss, userRole, 'suppliers_page', 'add_supplier')) {
-        return createResponse({ status: 'error', message: 'Permission denied: add_supplier is disabled for role ' + userRole });
-      }
+      var suppPayload = {
+        business_en: s.businessName,
+        business_te: s.businessNameTe || '',
+        owner_en: s.ownerName || '',
+        owner_te: s.ownerNameTe || '',
+        bank_name: s.bankName,
+        account_no: s.accountNumber,
+        ifsc_code: s.ifscCode,
+        nickname_en: s.nickname,
+        nickname_te: s.nicknameTe || ''
+      };
 
-      if (found) {
-        for (let i = 1; i < data.length; i++) {
-          if (data[i][0] === s.id) {
-            sheet.getRange(i + 1, 1, 1, 10).setValues([[
-              s.id, s.businessName, s.businessNameTe || '', s.ownerName || '', s.ownerNameTe || '', s.bankName, s.accountNumber, s.ifscCode, s.nickname, s.nicknameTe || ''
-            ]]);
-            break;
-          }
-        }
-      } else {
-        sheet.appendRow([
-          s.id, s.businessName, s.businessNameTe || '', s.ownerName || '', s.ownerNameTe || '', s.bankName, s.accountNumber, s.ifscCode, s.nickname, s.nicknameTe || ''
-        ]);
-      }
-      return createResponse({ status: 'success', message: 'Supplier saved to sheet' });
+      var savedSupp = existingSupp
+        ? repo.update('Master_Suppliers', s.id, suppPayload, s.version)
+        : repo.insert('Master_Suppliers', suppPayload);
+
+      return createResponse({ status: 'success', id: savedSupp.id, supplierId: savedSupp.id, version: savedSupp.version, message: 'Supplier saved to sheet' });
+    }
+
+    // --- Purchase Operations ---
+    if (action === 'savePurchase') {
+      var pur = body.purchase;
+      var existingPur = pur.id ? repo.findById('Master_Purchases', pur.id) : null;
+      var purPayload = {
+        purchase_no: pur.purchaseNumber || '',
+        supplier_id: pur.supplierId,
+        date: pur.date || new Date().toISOString(),
+        total_bags: pur.totalBags || 0,
+        grand_total: pur.grandTotal || 0,
+        reference_bill: pur.referenceBill || ''
+      };
+      var savedPur = existingPur
+        ? repo.update('Master_Purchases', pur.id, purPayload, pur.version)
+        : repo.insert('Master_Purchases', purPayload);
+      return createResponse({
+        status: 'success',
+        id: savedPur.id,
+        purchaseId: savedPur.id,
+        purchaseNumber: savedPur.purchase_no,
+        version: savedPur.version,
+        message: 'Purchase saved to sheet'
+      });
     }
 
     // --- Product Operations ---
     if (action === 'saveProduct') {
-      const p = body.product;
-      const sheet = ss.getSheetByName('Master_Products');
-      const data = sheet.getDataRange().getValues();
-      let found = false;
+      var p = body.product;
+      var existingProd = p.id ? repo.findById('Master_Products', p.id) : null;
 
-      for (let i = 1; i < data.length; i++) {
-        if (data[i][0] === p.id) {
-          found = true;
-          break;
-        }
+      if (existingProd && !checkBackendPermission(ss, userRole, 'stock_page', 'edit_product')) {
+        return createResponse({ status: 'error', code: ERROR_CODES.FORBIDDEN, message: 'Permission denied: edit_product is disabled for role ' + userRole });
+      }
+      if (!existingProd && !checkBackendPermission(ss, userRole, 'stock_page', 'add_product')) {
+        return createResponse({ status: 'error', code: ERROR_CODES.FORBIDDEN, message: 'Permission denied: add_product is disabled for role ' + userRole });
       }
 
-      if (found && !checkBackendPermission(ss, userRole, 'stock_page', 'edit_product')) {
-        return createResponse({ status: 'error', message: 'Permission denied: edit_product is disabled for role ' + userRole });
-      }
-      if (!found && !checkBackendPermission(ss, userRole, 'stock_page', 'add_product')) {
-        return createResponse({ status: 'error', message: 'Permission denied: add_product is disabled for role ' + userRole });
-      }
+      var prodPayload = {
+        name_en: p.name,
+        name_te: p.nameTe || '',
+        category: p.category,
+        brand_en: p.brandOrMill || '',
+        brand_te: p.brandOrMillTe || '',
+        inner_wt_kg: p.innerBagWeightKg,
+        inner_count: p.innerBagsPerOuter,
+        outer_wt_kg: p.outerBagTotalKg,
+        stock_physical: p.stockPhysicalOuter,
+        stock_reserved: p.stockReservedOuter,
+        price_bag: p.wholesalePriceBag,
+        cost_bag: p.costPricePerBag,
+        retail_price_bag: p.retailPriceBag || 0
+      };
 
-      if (found) {
-        for (let i = 1; i < data.length; i++) {
-          if (data[i][0] === p.id) {
-            sheet.getRange(i + 1, 1, 1, 14).setValues([[
-              p.id, p.name, p.nameTe || '', p.category, p.brandOrMill || '', p.brandOrMillTe || '',
-              p.innerBagWeightKg, p.innerBagsPerOuter, p.outerBagTotalKg, p.stockPhysicalOuter, p.stockReservedOuter,
-              p.wholesalePriceBag, p.costPricePerBag, p.retailPriceBag || 0
-            ]]);
-            break;
-          }
-        }
-      } else {
-        sheet.appendRow([
-          p.id, p.name, p.nameTe || '', p.category, p.brandOrMill || '', p.brandOrMillTe || '',
-          p.innerBagWeightKg, p.innerBagsPerOuter, p.outerBagTotalKg, p.stockPhysicalOuter, p.stockReservedOuter,
-          p.wholesalePriceBag, p.costPricePerBag, p.retailPriceBag || 0
-        ]);
-      }
-      return createResponse({ status: 'success', message: 'Product inventory saved to sheet' });
+      var savedProd = existingProd
+        ? repo.update('Master_Products', p.id, prodPayload, p.version)
+        : repo.insert('Master_Products', prodPayload);
+
+      return createResponse({ status: 'success', id: savedProd.id, productId: savedProd.id, version: savedProd.version, message: 'Product inventory saved to sheet' });
     }
 
     // --- User Operations ---
     if (action === 'createUser') {
       if (!checkBackendPermission(ss, userRole, 'user_management_page', 'create_user')) {
-        return createResponse({ status: 'error', message: 'Permission denied: create_user is disabled for role ' + userRole });
+        return createResponse({ status: 'error', code: ERROR_CODES.FORBIDDEN, message: 'Permission denied: create_user is disabled for role ' + userRole });
       }
-      const user = body.user;
-      const tempPass = body.tempPassword || '';
-      const resetLink = body.resetLink || '';
+      var user = body.user;
+      var tempPass = body.tempPassword || '';
+      var resetLink = body.resetLink || '';
 
-      const userSheet = ss.getSheetByName('Users');
-      if (userSheet) {
-        const uData = userSheet.getDataRange().getValues();
-        let foundIdx = -1;
-        const normEmail = (user.email || '').toLowerCase().trim();
-        const rawPhone = (user.phone || '').replace(/\D/g, '');
-        const normPhone = rawPhone.length > 10 ? rawPhone.slice(-10) : rawPhone;
+      var normEmail = normalizeEmailValue(user.email);
+      var normPhone = normalizePhoneValue(user.phone);
+      var existingByPk = user.id ? repo.findById('Users', user.id) : null;
+      var userPayload = {
+        name: user.name,
+        email: normEmail,
+        phone: normPhone,
+        role: user.role,
+        status: 'APPROVED',
+        createdAt: new Date().toISOString(),
+        passwordHash: user.passwordHash || '',
+        requestedRole: '',
+        requestedName: '',
+        mustResetPassword: true
+      };
 
-        for (let i = 1; i < uData.length; i++) {
-          const rowEmail = (uData[i][2] || '').toString().toLowerCase().trim();
-          const rowRawPhone = (uData[i][3] || '').toString().replace(/\D/g, '');
-          const rowPhone = rowRawPhone.length > 10 ? rowRawPhone.slice(-10) : rowRawPhone;
+      var savedUser = existingByPk
+        ? repo.update('Users', user.id, userPayload, user.version)
+        : repo.insert('Users', userPayload);
 
-          if (uData[i][0] === user.id || (normEmail && rowEmail === normEmail) || (normPhone && normPhone.length === 10 && rowPhone === normPhone)) {
-            foundIdx = i + 1;
-            break;
-          }
-        }
-
-        const rowValues = [
-          user.id,
-          user.name,
-          user.email,
-          user.phone,
-          user.role,
-          'APPROVED',
-          new Date().toISOString(),
-          user.passwordHash || '',
-          '',
-          '',
-          true
-        ];
-
-        if (foundIdx !== -1) {
-          userSheet.getRange(foundIdx, 1, 1, rowValues.length).setValues([rowValues]);
-        } else {
-          userSheet.appendRow(rowValues);
-        }
-        deduplicateUsersTable(ss);
-      }
-
-      // Send automated email with credentials and direct password setup link (disabled while SMTP is on hold)
       if (ENABLE_EMAIL_DELIVERY && user.email) {
         try {
           var emailBody = 'Hello ' + user.name + ',\n\n' +
             'Your account for Kaatha Wholesale has been created by the administrator.\n\n' +
             'Role: ' + user.role + '\n' +
             'Email: ' + user.email + '\n';
-
-          if (tempPass) {
-            emailBody += 'Temporary Password: ' + tempPass + '\n\n';
-          }
-          if (resetLink) {
-            emailBody += 'Direct Password Setup Link:\n' + resetLink + '\n\n';
-          }
-          emailBody += 'Security Notice: Please sign in with your temporary password and set your permanent password on initial login.\n\n' +
-            'Regards,\nKaatha Wholesale Enterprise';
+          if (tempPass) emailBody += 'Temporary Password: ' + tempPass + '\n\n';
+          if (resetLink) emailBody += 'Direct Password Setup Link:\n' + resetLink + '\n\n';
+          emailBody += 'Security Notice: Please sign in with your temporary password and set your permanent password on initial login.\n\nRegards,\nKaatha Wholesale Enterprise';
 
           MailApp.sendEmail({
             to: user.email,
@@ -989,100 +1626,86 @@ function doPost(e) {
         }
       }
 
-      return createResponse({ 
-        status: 'success', 
+      return createResponse({
+        status: 'success',
         message: 'User created in database with temporary credentials and notification email dispatched',
-        userId: user.id 
+        id: savedUser.id,
+        userId: savedUser.id,
+        version: savedUser.version
       });
     }
 
     if (action === 'registerUser') {
-      const user = body.user;
-      const tempPass = body.tempPassword || '';
-      const resetLink = body.resetLink || '';
-      const isRoleChangeRequest = Boolean(body.isRoleChangeRequest);
-      const isReRequest = Boolean(body.isReRequest);
-      
-      // 1. Record registration / role request in dedicated User_Registrations sheet
-      const regSheet = ss.getSheetByName('User_Registrations');
-      if (regSheet) {
-        regSheet.appendRow([
-          user.id,
-          isRoleChangeRequest ? (user.requestedName || user.name) : user.name,
-          user.email,
-          user.phone,
-          isRoleChangeRequest ? (user.requestedRole || user.role) : user.role,
-          'PENDING_APPROVAL',
-          new Date().toISOString(),
-          isRoleChangeRequest ? 'NO (ROLE_CHANGE)' : isReRequest ? 'NO (RE_REQUEST)' : (tempPass ? 'SENT' : 'NO')
-        ]);
-      }
+      var regUser = body.user;
+      var regTempPass = body.tempPassword || '';
+      var regResetLink = body.resetLink || '';
+      var isRoleChangeRequest = Boolean(body.isRoleChangeRequest);
+      var isReRequest = Boolean(body.isReRequest);
+      var regEmail = normalizeEmailValue(regUser.email);
+      var regPhone = normalizePhoneValue(regUser.phone);
 
-      // 2. Register or update in Users sheet
-      const userSheet = ss.getSheetByName('Users');
-      if (userSheet) {
-        const uData = userSheet.getDataRange().getValues();
-        let foundIdx = -1;
-        const normEmail = (user.email || '').toLowerCase().trim();
-        const rawPhone = (user.phone || '').replace(/\D/g, '');
-        const normPhone = rawPhone.length > 10 ? rawPhone.slice(-10) : rawPhone;
+      var savedRegUser = repo.transaction(function() {
+        var existingUser = (regUser.id && repo.findById('Users', regUser.id))
+          || repo.findByUniqueIndex('Users', ['email'], regEmail)
+          || (regPhone.length === 10 ? repo.findByUniqueIndex('Users', ['phone'], regPhone) : null);
 
-        for (let i = 1; i < uData.length; i++) {
-          const rowEmail = (uData[i][2] || '').toString().toLowerCase().trim();
-          const rowRawPhone = (uData[i][3] || '').toString().replace(/\D/g, '');
-          const rowPhone = rowRawPhone.length > 10 ? rowRawPhone.slice(-10) : rowRawPhone;
+        var targetUserId = existingUser ? existingUser.id : null;
 
-          if (uData[i][0] === user.id || (normEmail && rowEmail === normEmail) || (normPhone && normPhone.length === 10 && rowPhone === normPhone)) {
-            foundIdx = i + 1;
-            break;
-          }
-        }
-
-        if (isRoleChangeRequest && foundIdx !== -1) {
-          // Existing APPROVED user: preserve active role, status, and passwordHash; store pending requestedRole & requestedName
-          userSheet.getRange(foundIdx, 9).setValue(user.requestedRole || '');
-          userSheet.getRange(foundIdx, 10).setValue(user.requestedName || user.name || '');
-        } else if (isReRequest && foundIdx !== -1) {
-          // Existing PENDING/DENIED user re-requesting: update name, role, status without altering passwordHash
-          userSheet.getRange(foundIdx, 2).setValue(user.name);
-          userSheet.getRange(foundIdx, 5).setValue(user.role);
-          userSheet.getRange(foundIdx, 6).setValue('PENDING_APPROVAL');
-          userSheet.getRange(foundIdx, 9).setValue('');
-          userSheet.getRange(foundIdx, 10).setValue('');
+        if (isRoleChangeRequest && existingUser) {
+          var updatedRoleReq = repo.update('Users', existingUser.id, {
+            requestedRole: regUser.requestedRole || '',
+            requestedName: regUser.requestedName || regUser.name || ''
+          });
+          targetUserId = updatedRoleReq.id;
+        } else if (isReRequest && existingUser) {
+          var updatedReReq = repo.update('Users', existingUser.id, {
+            name: regUser.name,
+            role: regUser.role,
+            status: 'PENDING_APPROVAL',
+            requestedRole: '',
+            requestedName: ''
+          });
+          targetUserId = updatedReReq.id;
+        } else if (existingUser) {
+          throw createConstraintError(ERROR_CODES.DUPLICATE_KEY, 'Users duplicate email or phone');
         } else {
-          const rowValues = [
-            user.id,
-            user.name,
-            user.email,
-            user.phone,
-            user.role,
-            user.status || 'PENDING_APPROVAL',
-            new Date().toISOString(),
-            user.passwordHash || '',
-            user.requestedRole || '',
-            user.requestedName || '',
-            Boolean(user.mustResetPassword)
-          ];
-
-          if (foundIdx !== -1) {
-            userSheet.getRange(foundIdx, 1, 1, rowValues.length).setValues([rowValues]);
-          } else {
-            userSheet.appendRow(rowValues);
-          }
+          var insertedUser = repo.insert('Users', {
+            name: regUser.name,
+            email: regEmail,
+            phone: regPhone,
+            role: regUser.role,
+            status: regUser.status || 'PENDING_APPROVAL',
+            createdAt: new Date().toISOString(),
+            passwordHash: regUser.passwordHash || '',
+            requestedRole: regUser.requestedRole || '',
+            requestedName: regUser.requestedName || '',
+            mustResetPassword: Boolean(regUser.mustResetPassword)
+          });
+          targetUserId = insertedUser.id;
         }
-        deduplicateUsersTable(ss);
-      }
 
-      // 3. Send automated confirmation email with temporary password and reset link (disabled while SMTP is on hold)
-      if (ENABLE_EMAIL_DELIVERY && !isRoleChangeRequest && !isReRequest && (tempPass || resetLink) && user.email) {
+        repo.insert('User_Registrations', {
+          name: isRoleChangeRequest ? (regUser.requestedName || regUser.name) : regUser.name,
+          email: regEmail,
+          phone: regPhone,
+          requested_role: isRoleChangeRequest ? (regUser.requestedRole || regUser.role) : regUser.role,
+          status: 'PENDING_APPROVAL',
+          registered_at: new Date().toISOString(),
+          temp_password_sent: isRoleChangeRequest ? 'NO (ROLE_CHANGE)' : isReRequest ? 'NO (RE_REQUEST)' : (regTempPass ? 'SENT' : 'NO')
+        });
+
+        return targetUserId;
+      });
+
+      if (ENABLE_EMAIL_DELIVERY && !isRoleChangeRequest && !isReRequest && (regTempPass || regResetLink) && regUser.email) {
         try {
           MailApp.sendEmail({
-            to: user.email,
+            to: regUser.email,
             subject: 'Kaatha Wholesale - Access Request & Password Setup',
-            body: 'Hello ' + user.name + ',\n\n' +
+            body: 'Hello ' + regUser.name + ',\n\n' +
                   'Your registration request for Kaatha Wholesale has been received and is pending administrator approval.\n\n' +
-                  (tempPass ? ('Temporary Password: ' + tempPass + '\n') : '') +
-                  (resetLink ? ('Password Setup Link: ' + resetLink + '\n\n') : '\n') +
+                  (regTempPass ? ('Temporary Password: ' + regTempPass + '\n') : '') +
+                  (regResetLink ? ('Password Setup Link: ' + regResetLink + '\n\n') : '\n') +
                   'Security Notice: Please set your permanent password using the link above. You will be able to sign in once an administrator approves your request.\n\n' +
                   'Regards,\nKaatha Wholesale Enterprise'
           });
@@ -1091,54 +1714,38 @@ function doPost(e) {
         }
       }
 
-      return createResponse({ 
-        status: 'success', 
+      return createResponse({
+        status: 'success',
         message: isRoleChangeRequest
           ? 'Role change request recorded; existing privileges preserved until admin approval'
           : isReRequest
           ? 'Access request updated with new role without password change'
           : 'Registration recorded in User_Registrations sheet and confirmation email dispatched',
-        userId: user.id 
+        id: savedRegUser,
+        userId: savedRegUser
       });
     }
 
     if (action === 'forgotPassword') {
-      const { email, resetLink, resetToken, expiresAt, name, tempPassword, passwordHash } = body;
-      const userSheet = ss.getSheetByName('Users');
-      if (userSheet && email) {
-        const uData = userSheet.getDataRange().getValues();
-        for (let i = 1; i < uData.length; i++) {
-          if (uData[i][2] && uData[i][2].toString().toLowerCase() === email.toLowerCase()) {
-            if (passwordHash) {
-              userSheet.getRange(i + 1, 8).setValue(passwordHash);
-            }
-            break;
-          }
-        }
+      var fpEmail = normalizeEmailValue(body.email);
+      var fpUser = fpEmail ? repo.findByUniqueIndex('Users', ['email'], fpEmail) : null;
+      if (fpUser && body.passwordHash) {
+        repo.update('Users', fpUser.id, { passwordHash: body.passwordHash });
       }
 
-      if (ENABLE_EMAIL_DELIVERY && email) {
+      if (ENABLE_EMAIL_DELIVERY && body.email) {
         try {
-          if (resetLink) {
+          if (body.resetLink) {
             MailApp.sendEmail({
-              to: email,
+              to: body.email,
               subject: 'Kaatha Wholesale - Password Reset Link',
-              body: 'Hello ' + (name ? name : '') + ',\n\n' +
-                    'A password reset request was initiated for your Kaatha Wholesale account.\n\n' +
-                    'Please click the unique link below to reset your password:\n' +
-                    resetLink + '\n\n' +
-                    'Security Notice: This link is valid for 1 hour. If you did not make this request, you can safely ignore this email.\n\n' +
-                    'Regards,\nKaatha Wholesale Enterprise'
+              body: 'Hello ' + (body.name || '') + ',\n\nPlease click the unique link below to reset your password:\n' + body.resetLink
             });
-          } else if (tempPassword) {
+          } else if (body.tempPassword) {
             MailApp.sendEmail({
-              to: email,
+              to: body.email,
               subject: 'Kaatha Wholesale - Temporary Password Reset Code',
-              body: 'Hello,\n\n' +
-                    'A password reset request was initiated for your Kaatha Wholesale account.\n\n' +
-                    'Your Temporary Password: ' + tempPassword + '\n\n' +
-                    'Please sign in with this temporary password. You will be prompted immediately to set your new permanent password.\n\n' +
-                    'Regards,\nKaatha Wholesale Enterprise'
+              body: 'Hello,\n\nYour Temporary Password: ' + body.tempPassword
             });
           }
         } catch (mailErr) {
@@ -1149,16 +1756,13 @@ function doPost(e) {
     }
 
     if (action === 'resetPassword') {
-      const { email, newPasswordHash } = body;
-      const userSheet = ss.getSheetByName('Users');
-      if (userSheet && email && newPasswordHash) {
-        const uData = userSheet.getDataRange().getValues();
-        for (let i = 1; i < uData.length; i++) {
-          if (uData[i][2] && uData[i][2].toString().toLowerCase() === email.toLowerCase()) {
-            userSheet.getRange(i + 1, 8).setValue(newPasswordHash);
-            userSheet.getRange(i + 1, 11).setValue(false);
-            return createResponse({ status: 'success', message: 'Password hash successfully updated' });
-          }
+      var rpEmail = normalizeEmailValue(body.email);
+      var newPasswordHash = body.newPasswordHash;
+      if (rpEmail && newPasswordHash) {
+        var rpUser = repo.findByUniqueIndex('Users', ['email'], rpEmail);
+        if (rpUser) {
+          repo.update('Users', rpUser.id, { passwordHash: newPasswordHash, mustResetPassword: false });
+          return createResponse({ status: 'success', message: 'Password hash successfully updated' });
         }
       }
       return createResponse({ status: 'success', message: 'Password reset recorded' });
@@ -1166,196 +1770,157 @@ function doPost(e) {
 
     if (action === 'approveUser') {
       if (!checkBackendPermission(ss, userRole, 'user_management_page', 'approve_user')) {
-        return createResponse({ status: 'error', message: 'Permission denied: approve_user is disabled for role ' + userRole });
+        return createResponse({ status: 'error', code: ERROR_CODES.FORBIDDEN, message: 'Permission denied: approve_user is disabled for role ' + userRole });
       }
-      const { userId, newStatus, role, name, clearRequestedRole } = body;
-      
-      // Update in User_Registrations (latest matching entry)
-      const regSheet = ss.getSheetByName('User_Registrations');
-      if (regSheet) {
-        const rData = regSheet.getDataRange().getValues();
-        for (let i = rData.length - 1; i >= 1; i--) {
-          if (rData[i][0] === userId) {
-            if (newStatus) regSheet.getRange(i + 1, 6).setValue(clearRequestedRole ? 'DENIED' : newStatus);
-            if (role && !clearRequestedRole) regSheet.getRange(i + 1, 5).setValue(role);
-            if (name) regSheet.getRange(i + 1, 2).setValue(name);
-            break;
-          }
-        }
+      var appUserId = body.userId;
+      var newStatus = body.newStatus;
+      var appRole = body.role;
+      var appName = body.name;
+      var clearRequestedRole = body.clearRequestedRole;
+
+      var targetUser = repo.findById('Users', appUserId);
+      if (!targetUser) {
+        return createResponse({ status: 'error', code: ERROR_CODES.NOT_FOUND, message: 'User not found' });
       }
 
-      // Update in Users
-      const userSheet = ss.getSheetByName('Users');
-      if (userSheet) {
-        const data = userSheet.getDataRange().getValues();
-        for (let i = 1; i < data.length; i++) {
-          if (data[i][0] === userId) {
-            if (name) userSheet.getRange(i + 1, 2).setValue(name);
-            if (newStatus) userSheet.getRange(i + 1, 6).setValue(newStatus);
-            if (role) userSheet.getRange(i + 1, 5).setValue(role);
-            if (newStatus === 'APPROVED' || newStatus === 'DENIED' || clearRequestedRole) {
-              userSheet.getRange(i + 1, 9).setValue('');
-              userSheet.getRange(i + 1, 10).setValue('');
-            }
-            return createResponse({ status: 'success', message: 'User status updated' });
-          }
-        }
+      var patch = {};
+      if (appName) patch.name = appName;
+      if (newStatus) patch.status = newStatus;
+      if (appRole) patch.role = appRole;
+      if (newStatus === 'APPROVED' || newStatus === 'DENIED' || clearRequestedRole) {
+        patch.requestedRole = '';
+        patch.requestedName = '';
       }
-      return createResponse({ status: 'error', message: 'User not found' });
+
+      var updatedUser = repo.update('Users', appUserId, patch, body.version);
+      return createResponse({ status: 'success', message: 'User status updated', id: updatedUser.id, version: updatedUser.version });
     }
 
     if (action === 'updateUser') {
       if (!checkBackendPermission(ss, userRole, 'user_management_page', 'edit_user')) {
-        return createResponse({ status: 'error', message: 'Permission denied: edit_user is disabled for role ' + userRole });
+        return createResponse({ status: 'error', code: ERROR_CODES.FORBIDDEN, message: 'Permission denied: edit_user is disabled for role ' + userRole });
       }
-      const { userId, name, role, status } = body;
-      const userSheet = ss.getSheetByName('Users');
-      if (userSheet) {
-        const data = userSheet.getDataRange().getValues();
-        for (let i = 1; i < data.length; i++) {
-          if (data[i][0] === userId) {
-            if (name) userSheet.getRange(i + 1, 2).setValue(name);
-            if (role) userSheet.getRange(i + 1, 5).setValue(role);
-            if (status) userSheet.getRange(i + 1, 6).setValue(status);
-            deduplicateUsersTable(ss);
-            return createResponse({ status: 'success', message: 'User updated successfully' });
-          }
-        }
-      }
-      return createResponse({ status: 'error', message: 'User not found' });
+      var updPatch = {};
+      if (body.name) updPatch.name = body.name;
+      if (body.role) updPatch.role = body.role;
+      if (body.status) updPatch.status = body.status;
+
+      var updatedUsr = repo.update('Users', body.userId, updPatch, body.version);
+      return createResponse({ status: 'success', message: 'User updated successfully', id: updatedUsr.id, version: updatedUsr.version });
     }
 
     if (action === 'deleteUser') {
       if (!checkBackendPermission(ss, userRole, 'user_management_page', 'delete_user')) {
-        return createResponse({ status: 'error', message: 'Permission denied: delete_user is disabled for role ' + userRole });
+        return createResponse({ status: 'error', code: ERROR_CODES.FORBIDDEN, message: 'Permission denied: delete_user is disabled for role ' + userRole });
       }
-      const { userId } = body;
-      const userSheet = ss.getSheetByName('Users');
-      if (userSheet) {
-        const data = userSheet.getDataRange().getValues();
-        for (let i = 1; i < data.length; i++) {
-          if (data[i][0] === userId) {
-            userSheet.deleteRow(i + 1);
-            return createResponse({ status: 'success', message: 'User deleted successfully' });
-          }
-        }
-      }
-      return createResponse({ status: 'error', message: 'User not found' });
+      repo.softDelete('Users', body.userId, body.version);
+      return createResponse({ status: 'success', message: 'User deleted successfully' });
     }
 
     if (action === 'cleanDuplicateUsers') {
-      const stats = deduplicateUsersTable(ss);
-      return createResponse({ status: 'success', message: 'Deduplicated users table', stats });
+      var stats = deduplicateUsersTable(ss);
+      return createResponse({ status: 'success', message: 'Deduplicated users table', stats: stats });
     }
 
     if (action === 'deleteProduct') {
       if (!checkBackendPermission(ss, userRole, 'stock_page', 'delete_product')) {
-        return createResponse({ status: 'error', message: 'Permission denied: delete_product is disabled for role ' + userRole });
+        return createResponse({ status: 'error', code: ERROR_CODES.FORBIDDEN, message: 'Permission denied: delete_product is disabled for role ' + userRole });
       }
-      const { productId } = body;
-      const sheet = ss.getSheetByName('Master_Products');
-      if (sheet) {
-        const data = sheet.getDataRange().getValues();
-        for (let i = 1; i < data.length; i++) {
-          if (data[i][0] === productId) {
-            sheet.deleteRow(i + 1);
-            return createResponse({ status: 'success', message: 'Product deleted' });
-          }
-        }
-      }
-      return createResponse({ status: 'error', message: 'Product not found' });
+      repo.softDelete('Master_Products', body.productId, body.version);
+      return createResponse({ status: 'success', message: 'Product deleted' });
     }
 
     if (action === 'deleteCustomer') {
       if (!checkBackendPermission(ss, userRole, 'customers_page', 'delete_customer')) {
-        return createResponse({ status: 'error', message: 'Permission denied: delete_customer is disabled for role ' + userRole });
+        return createResponse({ status: 'error', code: ERROR_CODES.FORBIDDEN, message: 'Permission denied: delete_customer is disabled for role ' + userRole });
       }
-      const { customerId } = body;
-      const sheet = ss.getSheetByName('Master_Customers');
-      if (sheet) {
-        const data = sheet.getDataRange().getValues();
-        for (let i = 1; i < data.length; i++) {
-          if (data[i][0] === customerId) {
-            sheet.deleteRow(i + 1);
-            return createResponse({ status: 'success', message: 'Customer deleted' });
-          }
-        }
-      }
-      return createResponse({ status: 'error', message: 'Customer not found' });
+      repo.softDelete('Master_Customers', body.customerId, body.version);
+      return createResponse({ status: 'success', message: 'Customer deleted' });
     }
 
     if (action === 'deleteSupplier') {
       if (!checkBackendPermission(ss, userRole, 'suppliers_page', 'delete_supplier')) {
-        return createResponse({ status: 'error', message: 'Permission denied: delete_supplier is disabled for role ' + userRole });
+        return createResponse({ status: 'error', code: ERROR_CODES.FORBIDDEN, message: 'Permission denied: delete_supplier is disabled for role ' + userRole });
       }
-      const { supplierId } = body;
-      const sheet = ss.getSheetByName('Master_Suppliers');
-      if (sheet) {
-        const data = sheet.getDataRange().getValues();
-        for (let i = 1; i < data.length; i++) {
-          if (data[i][0] === supplierId) {
-            sheet.deleteRow(i + 1);
-            return createResponse({ status: 'success', message: 'Supplier deleted' });
-          }
-        }
-      }
-      return createResponse({ status: 'error', message: 'Supplier not found' });
+      repo.softDelete('Master_Suppliers', body.supplierId, body.version);
+      return createResponse({ status: 'success', message: 'Supplier deleted' });
+    }
+
+    if (action === 'deletePurchase') {
+      repo.softDelete('Master_Purchases', body.purchaseId, body.version);
+      return createResponse({ status: 'success', message: 'Purchase deleted' });
     }
 
     // --- Batch Full Sync ---
     if (action === 'syncAll') {
-      const { products = [], customers = [], suppliers = [], orders = [], users = [] } = body;
+      var products = body.products || [];
+      var customers = body.customers || [];
+      var suppliers = body.suppliers || [];
+      var orders = body.orders || [];
+      var users = body.users || [];
 
-      // Update Products
-      const prodSheet = ss.getSheetByName('Master_Products');
-      if (prodSheet && products.length > 0) {
-        if (prodSheet.getLastRow() > 1) {
-          prodSheet.getRange(2, 1, prodSheet.getLastRow() - 1, 13).clearContent();
+      repo.transaction(function() {
+        var now = new Date().toISOString();
+        var prodSheet = ss.getSheetByName('Master_Products');
+        if (prodSheet && products.length > 0) {
+          if (prodSheet.getLastRow() > 1) {
+            prodSheet.getRange(2, 1, prodSheet.getLastRow() - 1, DB_SCHEMA.Master_Products.columns.length).clearContent();
+          }
+          var pRows = products.map(function(p) {
+            return [
+              p.id, p.name, p.nameTe || '', p.category, p.brandOrMill || '', p.brandOrMillTe || '',
+              p.innerBagWeightKg, p.innerBagsPerOuter, p.outerBagTotalKg, p.stockPhysicalOuter, p.stockReservedOuter,
+              p.wholesalePriceBag, p.costPricePerBag, p.retailPriceBag || 0, p.version || 1, p.createdAt || now, now, false
+            ];
+          });
+          prodSheet.getRange(2, 1, pRows.length, DB_SCHEMA.Master_Products.columns.length).setValues(pRows);
         }
-        const rows = products.map(p => [
-          p.id, p.name, p.nameTe || '', p.category, p.brandOrMill || '', p.brandOrMillTe || '',
-          p.innerBagWeightKg, p.innerBagsPerOuter, p.outerBagTotalKg, p.stockPhysicalOuter, p.stockReservedOuter,
-          p.wholesalePriceBag, p.costPricePerBag
-        ]);
-        prodSheet.getRange(2, 1, rows.length, 13).setValues(rows);
-      }
 
-      // Update Customers
-      const custSheet = ss.getSheetByName('Master_Customers');
-      if (custSheet && customers.length > 0) {
-        if (custSheet.getLastRow() > 1) {
-          custSheet.getRange(2, 1, custSheet.getLastRow() - 1, 9).clearContent();
+        var custSheet = ss.getSheetByName('Master_Customers');
+        if (custSheet && customers.length > 0) {
+          if (custSheet.getLastRow() > 1) {
+            custSheet.getRange(2, 1, custSheet.getLastRow() - 1, DB_SCHEMA.Master_Customers.columns.length).clearContent();
+          }
+          var cRows = customers.map(function(c) {
+            return [
+              c.id, c.name, c.nameTe || '', normalizePhoneValue(c.phone), c.businessName || '', c.businessNameTe || '',
+              c.address || '', c.addressTe || '', c.currentDue || 0, c.version || 1, c.createdAt || now, now, false
+            ];
+          });
+          custSheet.getRange(2, 1, cRows.length, DB_SCHEMA.Master_Customers.columns.length).setValues(cRows);
         }
-        const rows = customers.map(c => [
-          c.id, c.name, c.nameTe || '', c.phone, c.businessName || '', c.businessNameTe || '', c.address || '', c.addressTe || '', c.currentDue || 0
-        ]);
-        custSheet.getRange(2, 1, rows.length, 9).setValues(rows);
-      }
 
-      // Update Suppliers
-      const suppSheet = ss.getSheetByName('Master_Suppliers');
-      if (suppSheet && suppliers.length > 0) {
-        if (suppSheet.getLastRow() > 1) {
-          suppSheet.getRange(2, 1, suppSheet.getLastRow() - 1, 10).clearContent();
+        var suppSheet = ss.getSheetByName('Master_Suppliers');
+        if (suppSheet && suppliers.length > 0) {
+          if (suppSheet.getLastRow() > 1) {
+            suppSheet.getRange(2, 1, suppSheet.getLastRow() - 1, DB_SCHEMA.Master_Suppliers.columns.length).clearContent();
+          }
+          var sRows = suppliers.map(function(s) {
+            return [
+              s.id, s.businessName, s.businessNameTe || '', s.ownerName || '', s.ownerNameTe || '',
+              s.bankName, s.accountNumber, s.ifscCode, s.nickname, s.nicknameTe || '',
+              s.version || 1, s.createdAt || now, now, false
+            ];
+          });
+          suppSheet.getRange(2, 1, sRows.length, DB_SCHEMA.Master_Suppliers.columns.length).setValues(sRows);
         }
-        const rows = suppliers.map(s => [
-          s.id, s.businessName, s.businessNameTe || '', s.ownerName || '', s.ownerNameTe || '', s.bankName, s.accountNumber, s.ifscCode, s.nickname, s.nicknameTe || ''
-        ]);
-        suppSheet.getRange(2, 1, rows.length, 10).setValues(rows);
-      }
 
-      // Update Users (clean deduplicated records)
-      const userSheet = ss.getSheetByName('Users');
-      if (userSheet && users.length > 0) {
-        if (userSheet.getLastRow() > 1) {
-          userSheet.getRange(2, 1, userSheet.getLastRow() - 1, 8).clearContent();
+        var userSheet = ss.getSheetByName('Users');
+        if (userSheet && users.length > 0) {
+          if (userSheet.getLastRow() > 1) {
+            userSheet.getRange(2, 1, userSheet.getLastRow() - 1, DB_SCHEMA.Users.columns.length).clearContent();
+          }
+          var uRows = users.map(function(u) {
+            return [
+              u.id, u.name, normalizeEmailValue(u.email), normalizePhoneValue(u.phone), u.role, u.status || 'APPROVED',
+              u.createdAt || now, u.passwordHash || '', u.requestedRole || '', u.requestedName || '',
+              Boolean(u.mustResetPassword), u.version || 1, u.createdAt || now, now, false
+            ];
+          });
+          userSheet.getRange(2, 1, uRows.length, DB_SCHEMA.Users.columns.length).setValues(uRows);
+          deduplicateUsersTable(ss);
         }
-        const uRows = users.map(u => [
-          u.id, u.name, u.email, u.phone, u.role, u.status || 'APPROVED', u.createdAt || new Date().toISOString(), u.passwordHash || ''
-        ]);
-        userSheet.getRange(2, 1, uRows.length, 8).setValues(uRows);
-        deduplicateUsersTable(ss);
-      }
+      });
 
       return createResponse({
         status: 'success',
@@ -1371,7 +1936,12 @@ function doPost(e) {
 
     return createResponse({ status: 'error', message: 'Unknown action: ' + action });
   } catch (err) {
-    return createResponse({ status: 'error', error: err.toString() });
+    return createResponse({
+      status: 'error',
+      code: err && err.code ? err.code : undefined,
+      message: err && err.message ? err.message : String(err),
+      error: err ? err.toString() : 'Unknown error'
+    });
   }
 }
 

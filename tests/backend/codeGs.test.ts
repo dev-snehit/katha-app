@@ -93,10 +93,11 @@ describe('Backend Code.gs API & HS256 JWT Integration', () => {
     expect(pendingLogin.code).toBe('PENDING_APPROVAL');
 
     // Admin approves
+    const regUserId = regRes.userId;
     const approveRes = gas.callPost({
       action: 'approveUser',
       authToken: adminToken,
-      userId: 'u-staff-1',
+      userId: regUserId,
       newStatus: 'APPROVED',
       role: 'STAFF',
     });
@@ -107,7 +108,7 @@ describe('Backend Code.gs API & HS256 JWT Integration', () => {
       action: 'registerUser',
       isRoleChangeRequest: true,
       user: {
-        id: 'u-staff-1',
+        id: regUserId,
         name: 'Suresh',
         email: 'suresh@kaatha.com',
         phone: '9876543210',
@@ -125,7 +126,7 @@ describe('Backend Code.gs API & HS256 JWT Integration', () => {
     gas.callPost({
       action: 'approveUser',
       authToken: adminToken,
-      userId: 'u-staff-1',
+      userId: regUserId,
       newStatus: 'APPROVED',
       role: 'OWNER',
       name: 'Suresh Owner',
@@ -144,6 +145,7 @@ describe('Backend Code.gs API & HS256 JWT Integration', () => {
       resetLink: 'https://kaatha.app/reset-password/tok-2',
     });
     expect(createRes.status).toBe('success');
+    const createdUserId = createRes.userId;
 
     const mustResetLogin = gas.callPost({ action: 'login', email: 'raju@kaatha.com', passwordHash: staffHash });
     expect(mustResetLogin.mustResetPassword).toBe(true);
@@ -162,45 +164,53 @@ describe('Backend Code.gs API & HS256 JWT Integration', () => {
       user: { id: 'u-x', name: 'X', email: 'x@kaatha.com', phone: '9876543299', role: 'ADMIN' },
     });
     expect(forbiddenCreate.status).toBe('error');
+    expect(forbiddenCreate.code).toBe('FORBIDDEN');
     expect(forbiddenCreate.message).toContain('Permission denied');
 
     // Update and delete user as admin
-    expect(gas.callPost({ action: 'updateUser', authToken: adminToken, userId: 'u-cust-1', name: 'Raju G', role: 'CUSTOMER', status: 'APPROVED' }).status).toBe('success');
-    expect(gas.callPost({ action: 'deleteUser', authToken: adminToken, userId: 'u-cust-1' }).status).toBe('success');
+    expect(gas.callPost({ action: 'updateUser', authToken: adminToken, userId: createdUserId, name: 'Raju G', role: 'CUSTOMER', status: 'APPROVED' }).status).toBe('success');
+    expect(gas.callPost({ action: 'deleteUser', authToken: adminToken, userId: createdUserId }).status).toBe('success');
   });
 
   it('executes full CRUD for orders, products, customers, suppliers, rolePermissions, and syncAll with JWT enforcement', () => {
     const adminToken = gas.callPost({ action: 'login', email: 'dev.snehit@gmail.com', passwordHash: adminHash }).token;
 
-    expect(gas.callPost({
+    const prodRes = gas.callPost({
       action: 'saveProduct',
       authToken: adminToken,
-      product: { id: 'p1', name: 'Sona Masoori', category: 'Rice', innerBagWeightKg: 26, innerBagsPerOuter: 1, outerBagTotalKg: 26, stockPhysicalOuter: 100, stockReservedOuter: 0, wholesalePriceBag: 1200, costPricePerBag: 1000, retailPriceBag: 1350 },
-    }).status).toBe('success');
+      product: { name: 'Sona Masoori', brandOrMill: 'Kaveri', category: 'Rice', innerBagWeightKg: 26, innerBagsPerOuter: 1, outerBagTotalKg: 26, stockPhysicalOuter: 100, stockReservedOuter: 0, wholesalePriceBag: 1200, costPricePerBag: 1000, retailPriceBag: 1350 },
+    });
+    expect(prodRes.status).toBe('success');
+    expect(prodRes.id).toBeTruthy();
+    expect(prodRes.version).toBe(1);
 
-    expect(gas.callPost({
+    const custRes = gas.callPost({
       action: 'saveCustomer',
       authToken: adminToken,
-      customer: { id: 'c1', name: 'Lakshmi Traders', phone: '9876543212', currentDue: 5000 },
-    }).status).toBe('success');
+      customer: { name: 'Lakshmi Traders', phone: '9876543212', currentDue: 5000 },
+    });
+    expect(custRes.status).toBe('success');
 
-    expect(gas.callPost({
+    const suppRes = gas.callPost({
       action: 'saveSupplier',
       authToken: adminToken,
-      supplier: { id: 's1', businessName: 'Sri Sai Mill', bankName: 'SBI', accountNumber: '12345', ifscCode: 'SBIN0001', nickname: 'SaiMill' },
-    }).status).toBe('success');
+      supplier: { businessName: 'Sri Sai Mill', bankName: 'SBI', accountNumber: '12345', ifscCode: 'SBIN0001', nickname: 'SaiMill' },
+    });
+    expect(suppRes.status).toBe('success');
 
-    expect(gas.callPost({
+    const orderRes = gas.callPost({
       action: 'saveOrder',
       authToken: adminToken,
-      order: { id: 'o1', orderNumber: 'ORD-101', customerId: 'c1', customerName: 'Lakshmi Traders', customerPhone: '9876543212', orderDate: '2026-11-28', totalOuterBags: 10, totalWeightKg: 260, subtotal: 12000, discount: 0, grandTotal: 12000, paymentMode: 'CASH', status: 'PENDING_REVIEW' },
-    }).status).toBe('success');
+      order: { customerId: custRes.id, customerName: 'Lakshmi Traders', customerPhone: '9876543212', orderDate: '2026-11-28', totalOuterBags: 10, totalWeightKg: 260, subtotal: 12000, discount: 0, grandTotal: 12000, paymentMode: 'CASH', status: 'PENDING_REVIEW' },
+    });
+    expect(orderRes.status).toBe('success');
+    expect(orderRes.orderNumber).toMatch(/^ORD-\d{4}-0001$/);
 
-    expect(gas.callPost({ action: 'updateOrderStatus', authToken: adminToken, orderId: 'o1', newStatus: 'APPROVED' }).status).toBe('success');
-    expect(gas.callPost({ action: 'deleteOrder', authToken: adminToken, orderId: 'o1' }).status).toBe('success');
-    expect(gas.callPost({ action: 'deleteProduct', authToken: adminToken, productId: 'p1' }).status).toBe('success');
-    expect(gas.callPost({ action: 'deleteCustomer', authToken: adminToken, customerId: 'c1' }).status).toBe('success');
-    expect(gas.callPost({ action: 'deleteSupplier', authToken: adminToken, supplierId: 's1' }).status).toBe('success');
+    expect(gas.callPost({ action: 'updateOrderStatus', authToken: adminToken, orderId: orderRes.id, newStatus: 'APPROVED' }).status).toBe('success');
+    expect(gas.callPost({ action: 'deleteOrder', authToken: adminToken, orderId: orderRes.id }).status).toBe('success');
+    expect(gas.callPost({ action: 'deleteProduct', authToken: adminToken, productId: prodRes.id }).status).toBe('success');
+    expect(gas.callPost({ action: 'deleteCustomer', authToken: adminToken, customerId: custRes.id }).status).toBe('success');
+    expect(gas.callPost({ action: 'deleteSupplier', authToken: adminToken, supplierId: suppRes.id }).status).toBe('success');
 
     expect(gas.callPost({
       action: 'saveRolePermissions',
@@ -246,5 +256,129 @@ describe('Backend Code.gs API & HS256 JWT Integration', () => {
     });
     expect(created.status).toBe('success');
     expect(gas.sentEmails.length).toBe(beforeCount);
+  });
+
+  it('enforces Repository locking, DUPLICATE_KEY, FOREIGN_KEY_VIOLATION, CHECK_CONSTRAINT_FAILED, CONFLICT_STALE_VERSION, and indexed query pagination', () => {
+    const adminToken = gas.callPost({ action: 'login', email: 'dev.snehit@gmail.com', passwordHash: adminHash }).token;
+
+    // 1. CHECK constraints
+    const badProd = gas.callPost({
+      action: 'saveProduct',
+      authToken: adminToken,
+      product: { name: 'Bad Rice', brandOrMill: 'MillX', category: 'Rice', innerBagWeightKg: 25, innerBagsPerOuter: 1, outerBagTotalKg: 25, stockPhysicalOuter: 5, stockReservedOuter: 10, wholesalePriceBag: 1200, costPricePerBag: 1000 },
+    });
+    expect(badProd.status).toBe('error');
+    expect(badProd.code).toBe('CHECK_CONSTRAINT_FAILED');
+
+    const badPricing = gas.callPost({
+      action: 'saveProduct',
+      authToken: adminToken,
+      product: { name: 'Bad Price', brandOrMill: 'MillX', category: 'Rice', innerBagWeightKg: 25, innerBagsPerOuter: 1, outerBagTotalKg: 25, stockPhysicalOuter: 10, stockReservedOuter: 0, wholesalePriceBag: 900, costPricePerBag: 1000 },
+    });
+    expect(badPricing.code).toBe('CHECK_CONSTRAINT_FAILED');
+
+    const badDue = gas.callPost({
+      action: 'saveCustomer',
+      authToken: adminToken,
+      customer: { name: 'Neg Customer', phone: '9000011111', currentDue: -100 },
+    });
+    expect(badDue.code).toBe('CHECK_CONSTRAINT_FAILED');
+
+    // 2. Insert valid Customer, Supplier, Product
+    const cust = gas.callPost({
+      action: 'saveCustomer',
+      authToken: adminToken,
+      customer: { name: 'Valid Cust', phone: '9000022222', currentDue: 100 },
+    });
+    expect(cust.status).toBe('success');
+
+    // Duplicate phone UK -> DUPLICATE_KEY
+    const dupCust = gas.callPost({
+      action: 'saveCustomer',
+      authToken: adminToken,
+      customer: { name: 'Dup Cust', phone: '+91 9000022222', currentDue: 0 },
+    });
+    expect(dupCust.status).toBe('error');
+    expect(dupCust.code).toBe('DUPLICATE_KEY');
+
+    // 3. Optimistic concurrency CONFLICT_STALE_VERSION
+    const upd1 = gas.callPost({
+      action: 'saveCustomer',
+      authToken: adminToken,
+      customer: { id: cust.id, name: 'Valid Cust v2', phone: '9000022222', currentDue: 200, version: 1 },
+    });
+    expect(upd1.status).toBe('success');
+    expect(upd1.version).toBe(2);
+
+    const staleUpd = gas.callPost({
+      action: 'saveCustomer',
+      authToken: adminToken,
+      customer: { id: cust.id, name: 'Stale Write', phone: '9000022222', currentDue: 300, version: 1 },
+    });
+    expect(staleUpd.status).toBe('error');
+    expect(staleUpd.code).toBe('CONFLICT_STALE_VERSION');
+
+    // 4. Foreign key validation & delete protection (FOREIGN_KEY_VIOLATION)
+    const orphanOrder = gas.callPost({
+      action: 'saveOrder',
+      authToken: adminToken,
+      order: { customerId: 'non-existent-cust', customerName: 'Ghost', grandTotal: 500, status: 'PENDING_REVIEW' },
+    });
+    expect(orphanOrder.status).toBe('error');
+    expect(orphanOrder.code).toBe('FOREIGN_KEY_VIOLATION');
+
+    const validOrder = gas.callPost({
+      action: 'saveOrder',
+      authToken: adminToken,
+      order: { customerId: cust.id, customerName: 'Valid Cust v2', totalOuterBags: 5, grandTotal: 5000, status: 'PENDING_REVIEW' },
+    });
+    expect(validOrder.status).toBe('success');
+    expect(validOrder.orderNumber).toMatch(/^ORD-\d{4}-0001$/);
+
+    // Deleting customer referenced by active order must fail with FOREIGN_KEY_VIOLATION
+    const blockedDelete = gas.callPost({ action: 'deleteCustomer', authToken: adminToken, customerId: cust.id });
+    expect(blockedDelete.status).toBe('error');
+    expect(blockedDelete.code).toBe('FOREIGN_KEY_VIOLATION');
+
+    // Invalid state transition DELIVERED -> PENDING_REVIEW
+    expect(gas.callPost({ action: 'updateOrderStatus', authToken: adminToken, orderId: validOrder.id, newStatus: 'DELIVERED' }).status).toBe('success');
+    const badTransition = gas.callPost({ action: 'updateOrderStatus', authToken: adminToken, orderId: validOrder.id, newStatus: 'PENDING_REVIEW' });
+    expect(badTransition.status).toBe('error');
+    expect(badTransition.code).toBe('CHECK_CONSTRAINT_FAILED');
+
+    // 5. Purchase sequential number PUR-YYYY-0001 & Supplier FK
+    const supp = gas.callPost({
+      action: 'saveSupplier',
+      authToken: adminToken,
+      supplier: { businessName: 'Godavari Mill', bankName: 'HDFC', accountNumber: '998877', ifscCode: 'HDFC0001', nickname: 'Goda' },
+    });
+    const pur = gas.callPost({
+      action: 'savePurchase',
+      authToken: adminToken,
+      purchase: { supplierId: supp.id, totalBags: 50, grandTotal: 50000, referenceBill: 'BILL-1' },
+    });
+    expect(pur.status).toBe('success');
+    expect(pur.purchaseNumber).toMatch(/^PUR-\d{4}-0001$/);
+
+    // 6. Indexed query & pagination
+    gas.callPost({ action: 'saveCustomer', authToken: adminToken, customer: { name: 'Alpha', phone: '9000033333', currentDue: 10 } });
+    gas.callPost({ action: 'saveCustomer', authToken: adminToken, customer: { name: 'Beta', phone: '9000044444', currentDue: 20 } });
+    const paged = gas.callPost({
+      action: 'query',
+      authToken: adminToken,
+      table: 'Master_Customers',
+      sortBy: 'name_en',
+      sortDir: 'asc',
+      limit: 2,
+      offset: 1,
+    });
+    expect(paged.status).toBe('success');
+    expect(paged.total).toBe(3);
+    expect(paged.rows.length).toBe(2);
+
+    // 7. LockService concurrency check: every lock acquired was released
+    expect(gas.lockStats.acquisitions).toBeGreaterThan(0);
+    expect(gas.lockStats.acquisitions).toBe(gas.lockStats.releases);
+    expect(gas.lockStats.currentlyLocked).toBe(false);
   });
 });

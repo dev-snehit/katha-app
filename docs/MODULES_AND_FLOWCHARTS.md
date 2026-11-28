@@ -230,7 +230,12 @@ flowchart TD
 
 ### Capabilities
 - **CORS-Safe Transport (`syncService.ts`):** Sends `POST` requests with `Content-Type: text/plain;charset=utf-8` and `redirect: 'follow'` to Google Apps Script Web App URL to avoid CORS preflight failures.
-- **JWT-Authenticated Mutations:** Every protected `doPost` action attaches `authToken`; `backend/Code.gs` verifies the HS256 signature and `exp` via `verifyJwt()`, derives `userRole` from the verified JWT payload (never trusting raw client role strings), and returns `TOKEN_EXPIRED` / `UNAUTHORIZED` if invalid/expired—triggering immediate forced `logout()` on the client.
+- **JWT-Authenticated Mutations:** Every protected `doPost` action attaches `authToken`; `backend/Code.gs` verifies the HS256 signature and `exp` via `verifyJwt()`, derives `userRole` from the verified JWT payload (never trusting raw client role strings), and returns `TOKEN_EXPIRED` / `UNAUTHORIZED` / `FORBIDDEN` if invalid/expired/unauthorized—triggering immediate forced `logout()` on expired tokens.
+- **Database-Agnostic Repository & Constraint Engine (`backend/Code.gs`):**
+  - **`DB_SCHEMA` Single Source of Truth:** Declaratively defines Primary Keys (`PK`), normalized Unique Keys (`UK`), Foreign Keys (`FK`), `CHECK` rules (pricing, stock, non-negative dues, order status transitions), and audit columns (`version`, `created_at`, `updated_at`, `is_deleted`) across `Users`, `User_Registrations`, `Master_Products`, `Master_Customers`, `Master_Suppliers`, `Master_Orders_Sales`, `Pending_Orders`, `Order_Items`, `Master_Purchases`, and `Role_Permissions`.
+  - **Backend-Controlled IDs & Concurrency:** `insert()` generates server-controlled UUIDs and atomic sequential numbers (`ORD-YYYY-0001`, `PUR-YYYY-0001`) inside `LockService.getScriptLock()`.
+  - **O(1) Indexing & Optimistic Locking:** `SheetsRepository` (`findById`, `findOne`, `query`, `insert`, `update`, `softDelete`, `transaction`) maintains `CacheService` + `_Indexes` lookups (`table:field:value -> rowIndex`), enforces `CONFLICT_STALE_VERSION` on `version` mismatches, and blocks deletes with `FOREIGN_KEY_VIOLATION` when active child records exist.
+  - **Structured Error Codes:** `DUPLICATE_KEY`, `FOREIGN_KEY_VIOLATION`, `CHECK_CONSTRAINT_FAILED`, `NOT_FOUND`, `CONFLICT_STALE_VERSION`, `UNAUTHORIZED`, `FORBIDDEN`.
 - **Loading Spinner & Top-Right Toast Notifications:** Every `triggerSync` and `syncAllToGoogleSheets` database write activates `actionLoading` (full-screen loading spinner) while in flight and displays a bilingual (`EN`/`TE`) top-right toast (`ToastContainer.tsx`) confirming success or surfacing user-friendly error details on failure.
 - **Hydration & Deduplication:** `connectAndHydrateServer()` fetches all sheets (`getData`), normalizes emails/phones, deduplicates user records, and synchronizes active user status/role.
 - **Settings & Font Scaling (`SettingsModal.tsx`):** Configure backend webhook URL, test connection (`pingGoogleSheet`), trigger manual 1-click Sync All, and adjust persistent `baseFontSize` (`12px`–`20px`).
@@ -247,8 +252,8 @@ flowchart LR
     ActiveCheck -- APPROVED --> UpdateSession["Update currentUser & UI State"]
     Mutation["User Mutation (Order / Stock / User / Permissions)"] --> LocalUpdate["Update Zustand + LocalStorage + Start actionLoading Spinner"]
     LocalUpdate --> Push["POST text/plain to backendUrl with authToken (triggerSync)"]
-    Push --> CodeGS["backend/Code.gs: verifyJwt() -> Check Role Permission -> Update Sheet"]
+    Push --> CodeGS["backend/Code.gs: verifyJwt() -> LockService + Repository + ConstraintEngine (PK/UK/FK/CHECK/Version)"]
     CodeGS -- "TOKEN_EXPIRED / UNAUTHORIZED" --> ForceLogout
-    CodeGS -- "Success" --> ToastOK["Stop Spinner -> Top-Right Success Toast (ToastContainer)"]
-    CodeGS -- "Error / Network Fail" --> ToastErr["Stop Spinner -> Top-Right Friendly Error Toast (ToastContainer)"]
+    CodeGS -- "DUPLICATE_KEY / FK / CHECK / STALE_VERSION" --> ToastErr["Stop Spinner -> Top-Right Friendly Error Toast (ToastContainer)"]
+    CodeGS -- "Success (Update Sheet + Cache Index)" --> ToastOK["Stop Spinner -> Top-Right Success Toast (ToastContainer)"]
 ```

@@ -46,6 +46,18 @@ class MockRange {
     return this.setValues([[val]]);
   }
 
+  clearContent() {
+    for (let r = 0; r < this.numRows; r++) {
+      const targetRowIdx = this.row - 1 + r;
+      if (this.sheet.rows[targetRowIdx]) {
+        for (let c = 0; c < this.numCols; c++) {
+          this.sheet.rows[targetRowIdx][this.col - 1 + c] = '';
+        }
+      }
+    }
+    return this;
+  }
+
   setFontWeight() {
     return this;
   }
@@ -102,7 +114,9 @@ export class MockSheet {
 export function createGasRuntime() {
   const sheets = new Map<string, MockSheet>();
   const scriptProps = new Map<string, string>();
+  const scriptCache = new Map<string, string>();
   const sentEmails: SentEmail[] = [];
+  const lockStats = { acquisitions: 0, releases: 0, currentlyLocked: false };
 
   const ss = {
     getName: () => 'Kaatha Mock DB',
@@ -124,6 +138,39 @@ export function createGasRuntime() {
     String,
     Number,
     Boolean,
+    Error,
+    RegExp,
+    LockService: {
+      getScriptLock: () => ({
+        tryLock: () => {
+          lockStats.acquisitions++;
+          lockStats.currentlyLocked = true;
+          return true;
+        },
+        waitLock: () => {
+          lockStats.acquisitions++;
+          lockStats.currentlyLocked = true;
+        },
+        releaseLock: () => {
+          lockStats.releases++;
+          lockStats.currentlyLocked = false;
+        },
+      }),
+    },
+    CacheService: {
+      getScriptCache: () => ({
+        get: (k: string) => scriptCache.get(k) ?? null,
+        put: (k: string, v: string) => {
+          scriptCache.set(k, String(v));
+        },
+        remove: (k: string) => {
+          scriptCache.delete(k);
+        },
+        removeAll: (keys: string[]) => {
+          (keys || []).forEach((k) => scriptCache.delete(k));
+        },
+      }),
+    },
     SpreadsheetApp: {
       getActiveSpreadsheet: () => ss,
       ProtectionType: { SHEET: 'SHEET', RANGE: 'RANGE' },
@@ -181,6 +228,8 @@ export function createGasRuntime() {
     context,
     sheets,
     scriptProps,
+    scriptCache,
+    lockStats,
     sentEmails,
     callGet: (params: Record<string, string>) => {
       const raw = context.doGet({ parameter: params });
