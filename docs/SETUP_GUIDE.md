@@ -140,8 +140,44 @@ This guide walks you through setting up, deploying, and operating Kaatha Wholesa
 
 ---
 
-## 5. Security & Data Protection
+## 5. Automated CI/CD with Fixed Deployment ID (`clasp` + GitHub Actions)
+
+Once your initial Web App deployment is created, you **never need to manually copy/paste code or change `DEFAULT_SERVER_URL` again**. Whenever `backend/` changes are pushed to `main`, GitHub Actions automatically pushes `backend/Code.gs` + `backend/appsscript.json` and updates your **same fixed Deployment ID** (`GAS_DEPLOYMENT_ID`), keeping the Web App URL constant and avoiding Google's 20-deployment limit.
+
+### One-Time Setup
+1. **Enable Google Apps Script API:**
+   - Visit `https://script.google.com/home/usersettings` and turn **Google Apps Script API** **ON**.
+2. **Publish GCP OAuth Consent Screen to "In production":**
+   - In Google Cloud Console for your Apps Script project, open **APIs & Services → OAuth consent screen**.
+   - Click **Publish App** so status is **In production** *(prevents OAuth refresh tokens from expiring every 7 days)*.
+3. **Authenticate `clasp` Locally & Export Credentials:**
+   ```bash
+   npx @google/clasp login
+   ```
+   - After signing in with your Google account, copy the entire JSON contents of `~/.clasprc.json` (on Windows: `%USERPROFILE%\.clasprc.json`).
+   - **Never commit `.clasprc.json`** (it is excluded in `.gitignore`).
+4. **Find Your `GAS_SCRIPT_ID` & Fixed `GAS_DEPLOYMENT_ID`:**
+   - In Google Apps Script → **Project Settings**, copy the **Script ID** (`GAS_SCRIPT_ID`).
+   - Run `npx @google/clasp deployments` (or check **Deploy → Manage deployments**) and copy the active Web App **Deployment ID** (`AKfycb...`, i.e., `GAS_DEPLOYMENT_ID`).
+5. **Add GitHub Repository Secrets:**
+   - Open your GitHub repo → **Settings → Secrets and variables → Actions → New repository secret** and add:
+     - `CLASPRC_JSON`: full JSON content of `~/.clasprc.json`
+     - `GAS_SCRIPT_ID`: your Apps Script Project Script ID
+     - `GAS_DEPLOYMENT_ID`: your fixed Web App Deployment ID (`AKfycb...`)
+6. **Single-Source Frontend URL (`src/config/backend.ts`):**
+   - `DEFAULT_SERVER_URL` in `src/config/backend.ts` remains fixed to your Web App URL. Every CI backend deploy also runs `curl -fsSL "<WEB_APP_URL>?action=ping"` to verify `"status":"ok"` before publishing GitHub Pages.
+
+### 1-Command Version Rollback
+If a backend deployment ever needs to be rolled back to an earlier Apps Script version (`<version>`):
+```bash
+npx @google/clasp versions
+npx @google/clasp deploy -i <GAS_DEPLOYMENT_ID> -V <version>
+```
+
+---
+
+## 6. Security & Data Protection
 * **Sheet Cell Protection**: In your Google Sheet, you can lock the tabs (`Data > Protect sheets and ranges`) to make them read-only for humans. The Google Apps Script bypasses human locks and safely writes all validated transactions.
-* **No Secret Leaks**: No API passwords or service account JSON keys are embedded in the public GitHub repository.
+* **No Secret Leaks**: No API passwords, `.clasprc.json` tokens, or service account JSON keys are embedded in the public GitHub repository.
 
 **Support / Questions:** Contact the Master Administrator at `dev.snehit@gmail.com`.

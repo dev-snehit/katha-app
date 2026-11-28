@@ -52,12 +52,58 @@ jobs:
         with:
           path: './dist'
 
+  deploy-backend:
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Push & redeploy fixed-ID Google Apps Script Web App
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+          GAS_SCRIPT_ID: ${{ secrets.GAS_SCRIPT_ID }}
+          GAS_DEPLOYMENT_ID: ${{ secrets.GAS_DEPLOYMENT_ID }}
+        run: |
+          CHANGED=$(git diff --name-only HEAD~1 HEAD || true)
+          if ! echo "$CHANGED" | grep -qE '^backend/'; then
+            echo "No backend/ changes in this commit; skipping Apps Script push."
+            exit 0
+          fi
+
+          if [ -z "$CLASPRC_JSON" ] || [ -z "$GAS_SCRIPT_ID" ] || [ -z "$GAS_DEPLOYMENT_ID" ]; then
+            echo "::notice::CLASPRC_JSON, GAS_SCRIPT_ID, or GAS_DEPLOYMENT_ID secret not set; skipping automatic Apps Script deployment."
+            exit 0
+          fi
+
+          printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
+          printf '{"scriptId":"%s","rootDir":"backend"}\n' "$GAS_SCRIPT_ID" > .clasp.json
+
+          npx --yes @google/clasp push --force
+          npx --yes @google/clasp deploy -i "$GAS_DEPLOYMENT_ID" -d "CI ${GITHUB_SHA::7}"
+
+          WEB_APP_URL=$(node -e "const fs=require('fs'); const txt=fs.readFileSync('src/config/backend.ts','utf8'); const m=txt.match(/https:\/\/script\.google\.com\/macros\/s\/[^\"'\s]+/); if(m) console.log(m[0]);")
+          if [ -n "$WEB_APP_URL" ]; then
+            echo "Running post-deploy health check on $WEB_APP_URL?action=ping"
+            curl -fsSL "${WEB_APP_URL}?action=ping" | grep -q '"status":"ok"'
+            echo "Apps Script health check passed!"
+          fi
+
   deploy:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
-    needs: build
+    needs: [build, deploy-backend]
+    if: always() && needs.build.result == 'success' && (needs.deploy-backend.result == 'success' || needs.deploy-backend.result == 'skipped')
     steps:
       - name: Deploy to GitHub Pages
         id: deployment

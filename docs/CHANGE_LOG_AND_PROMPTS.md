@@ -171,7 +171,7 @@
   - Updated `docs/MODULES_AND_FLOWCHARTS.md` and `docs/CHANGE_LOG_AND_PROMPTS.md`.
 - **Files Touched:** `backend/Code.gs`, `tests/backend/gasHarness.ts`, `tests/backend/codeGs.test.ts`, `docs/MODULES_AND_FLOWCHARTS.md`, `docs/CHANGE_LOG_AND_PROMPTS.md`
 
-### #25 — Update Live Backend Deployment URL & Centralize Single Source of Truth (`pending commit`)
+### #25 — Update Live Backend Deployment URL & Centralize Single Source of Truth (`528f64a`)
 - **Date:** 2026-11-28
 - **User Prompt / Request:** Update the new Google Apps Script deployment URL everywhere required and ensure it only needs to be updated in one place.
 - **Changes & Enhancements:**
@@ -179,3 +179,12 @@
   - Commented out the stale `VITE_GOOGLE_APPS_SCRIPT_URL` override in local `.env` so `src/config/backend.ts` acts as the single source of truth across local dev and production builds.
   - Updated `docs/MODULES_AND_FLOWCHARTS.md` and `docs/CHANGE_LOG_AND_PROMPTS.md`.
 - **Files Touched:** `src/config/backend.ts`, `docs/MODULES_AND_FLOWCHARTS.md`, `docs/CHANGE_LOG_AND_PROMPTS.md`
+
+### #26 — Fixed Deployment ID CI/CD Automation (`clasp` + GitHub Pages) (`pending commit`)
+- **Date:** 2026-11-28
+- **User Prompt / Request:** Implement Fixed Deployment ID automation for Google Apps Script (`clasp`) + GitHub Pages CI/CD with `backend/appsscript.json`, `backend/.clasp.json`, `.gitignore` exclusions, `deploy-backend` job with post-deploy `?action=ping` health check, and synchronized documentation.
+- **Changes & Enhancements:**
+  - Added `backend/appsscript.json` manifest and `backend/.clasp.json` template; excluded `.clasprc.json`, `*.clasprc.json`, and root `.clasp.json` in `.gitignore`; added manifest/template JSON validation to `format:check` in `package.json`.
+  - Added `deploy-backend` job in `.github/workflows/deploy.yml` gated on `build` (`npm run validate`), `backend/` diff, and `CLASPRC_JSON`/`GAS_SCRIPT_ID`/`GAS_DEPLOYMENT_ID` secrets, running `clasp push --force`, `clasp deploy -i "$GAS_DEPLOYMENT_ID"`, and a `curl ?action=ping` health check before GitHub Pages `deploy`.
+  - Documented one-time `clasp` + GCP OAuth setup, GitHub Secrets, and 1-command rollback in `docs/SETUP_GUIDE.md`; added Section 10 + Mermaid CI/CD flowchart in `docs/MODULES_AND_FLOWCHARTS.md`; updated `docs/README.md` and `docs/CHANGE_LOG_AND_PROMPTS.md`.
+- **Files Touched:** `backend/appsscript.json`, `backend/.clasp.json`, `.gitignore`, `package.json`, `.github/workflows/deploy.yml`, `docs/SETUP_GUIDE.md`, `docs/MODULES_AND_FLOWCHARTS.md`, `docs/README.md`, `docs/CHANGE_LOG_AND_PROMPTS.md`

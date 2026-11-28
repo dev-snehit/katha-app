@@ -9,9 +9,12 @@ node_modules/
 # Production build artifacts
 dist/
 
-# Env files
+# Env & Clasp credential files
 .env
 .env.local
+.clasprc.json
+*.clasprc.json
+/.clasp.json
 
 # OS files
 .DS_Store

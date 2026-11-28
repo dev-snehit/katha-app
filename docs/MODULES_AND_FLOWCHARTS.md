@@ -258,3 +258,31 @@ flowchart LR
     CodeGS -- "DUPLICATE_KEY / FK / CHECK / STALE_VERSION" --> ToastErr["Stop Spinner -> Top-Right Friendly Error Toast (ToastContainer)"]
     CodeGS -- "Success (Update Sheet + Cache Index)" --> ToastOK["Stop Spinner -> Top-Right Success Toast (ToastContainer)"]
 ```
+
+---
+
+## 10. CI/CD & Fixed-ID Backend Deployment (`clasp` + GitHub Pages)
+
+**Files:** `.github/workflows/deploy.yml`, `backend/appsscript.json`, `backend/.clasp.json`, `src/config/backend.ts`, `.githooks/pre-commit`, `docs/SETUP_GUIDE.md`
+
+### Capabilities
+- **Mandatory Validation Gate (`build` job):** Verifies `docs/MODULES_AND_FLOWCHARTS.md` and `docs/CHANGE_LOG_AND_PROMPTS.md` are updated on `src/` or `backend/` pushes, then runs `npm run validate` (`typecheck`, `lint`, `format:check`, `docs:check`, `build`, and all Vitest suites).
+- **Fixed-ID Apps Script Deployment (`deploy-backend` job):** Runs on `push` to `main` when `backend/` files changed and `CLASPRC_JSON`, `GAS_SCRIPT_ID`, and `GAS_DEPLOYMENT_ID` secrets are configured. Authenticates `@google/clasp`, runs `clasp push --force`, redeploys the **same fixed `GAS_DEPLOYMENT_ID`** (zero URL drift in `src/config/backend.ts`, avoiding the 20-deployment cap), and verifies `GET ?action=ping` returns `"status":"ok"` before GitHub Pages deploys.
+- **Frontend Deployment (`deploy` job):** Publishes `./dist` to GitHub Pages once `build` succeeds and `deploy-backend` succeeds (or skips when no `backend/` changes occurred).
+
+### CI/CD Flowchart
+
+```mermaid
+flowchart TD
+    Push["git push origin main"] --> DocSync["Check docs/MODULES_AND_FLOWCHARTS.md & docs/CHANGE_LOG_AND_PROMPTS.md sync"]
+    DocSync --> Validate["npm run validate (typecheck, lint, format, docs, build, vitest)"]
+    Validate -- Fail --> Abort["Block Deployment"]
+    Validate -- Pass --> BackendChanged{"backend/ changed & clasp secrets set?"}
+    BackendChanged -- No --> Pages["Deploy ./dist to GitHub Pages"]
+    BackendChanged -- Yes --> ClaspAuth["Write ~/.clasprc.json & .clasp.json"]
+    ClaspAuth --> ClaspPush["npx @google/clasp push --force"]
+    ClaspPush --> ClaspDeploy["npx @google/clasp deploy -i GAS_DEPLOYMENT_ID"]
+    ClaspDeploy --> HealthCheck{"curl ?action=ping returns status: ok?"}
+    HealthCheck -- No --> Abort
+    HealthCheck -- Yes --> Pages
+```
