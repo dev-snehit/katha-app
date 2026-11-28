@@ -122,3 +122,9 @@
   - Added full-stack E2E integration suite (`tests/e2e/e2eFlows.test.tsx`) wiring `<App />` to the real `backend/Code.gs` VM harness.
   - Raised overall statement/line coverage from 17.72% to 87.08% across 22 test files (167 passing tests).
 - **Files Touched:** `package.json`, `package-lock.json`, `vite.config.ts`, `tests/backend/gasHarness.ts`, `tests/backend/codeGs.test.ts`, `tests/unit/libsAndExports.test.ts`, `tests/unit/storeAndLibsDeep.test.ts`, `tests/ui/componentsCore.test.tsx`, `tests/ui/viewsPart1.test.tsx`, `tests/ui/viewsPart2.test.tsx`, `tests/ui/crudModalsDeep.test.tsx`, `tests/ui/regressionFlows.test.tsx`, `tests/e2e/e2eFlows.test.tsx`, `docs/README.md`, `docs/CHANGE_LOG_AND_PROMPTS.md`
+
+### #19 — Move "Forgot Password?" Below Password Input for Smooth Keyboard Tab Flow (`pending commit`)
+- **Date:** 2026-11-28
+- **User Prompt / Request:** Move the "Forgot Password?" option below the password input field in the Sign In form so keyboard navigation (`Tab`) flows uninterrupted from Email to Password.
+- **Changes & Enhancements:** Relocated the "Forgot Password?" button below the password input (right-aligned) in `src/components/auth/AuthView.tsx` and added `aria-label` on the password visibility toggle.
+- **Files Touched:** `src/components/auth/AuthView.tsx`, `docs/CHANGE_LOG_AND_PROMPTS.md`

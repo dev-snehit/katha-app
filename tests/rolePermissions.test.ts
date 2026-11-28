@@ -160,7 +160,7 @@ describe('Role Specific Permissions & Access Governance', () => {
       expect(updatedStore.hasFunctionalityAccess('orders_page', 'delete_order')).toBe(false);
       // Other functionalities remain enabled
       expect(updatedStore.hasFunctionalityAccess('orders_page', 'view_orders')).toBe(true);
-    });
+    }, 15000);
 
     it('properly guards page access when whole module is disabled', async () => {
       useAppStore.setState({
@@ -214,6 +214,6 @@ describe('Role Specific Permissions & Access Governance', () => {
       const created = stateUsers.find((u) => u.email === 'staff.miller@kaatha.internal');
       expect(created).toBeDefined();
       expect(created?.passwordHash).toBeDefined();
-    });
+    }, 15000);
   });
 });

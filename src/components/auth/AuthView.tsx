@@ -435,23 +435,9 @@ export const AuthView: React.FC = () => {
               </div>
 
               <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="block text-xs font-bold text-slate-700">
-                    {language === 'TE' ? 'పాస్‌వర్డ్' : 'Password / Passcode'}
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMode('FORGOT');
-                      setForgotSuccess(null);
-                      setForgotError(null);
-                      navigate('/forgot-password');
-                    }}
-                    className="text-[11px] font-semibold text-[#FF5A36] hover:underline"
-                  >
-                    {language === 'TE' ? 'పాస్‌వర్డ్ మర్చిపోయారా?' : 'Forgot Password?'}
-                  </button>
-                </div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  {language === 'TE' ? 'పాస్‌వర్డ్' : 'Password / Passcode'}
+                </label>
                 <div className="relative">
                   <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
                   <input
@@ -465,9 +451,24 @@ export const AuthView: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? (language === 'TE' ? 'పాస్‌వర్డ్ దాచు' : 'Hide password') : (language === 'TE' ? 'పాస్‌వర్డ్ చూపించు' : 'Show password')}
                     className="absolute right-3.5 top-3.5 text-slate-400 hover:text-slate-600 focus:outline-none"
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                <div className="flex justify-end mt-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode('FORGOT');
+                      setForgotSuccess(null);
+                      setForgotError(null);
+                      navigate('/forgot-password');
+                    }}
+                    className="text-[11px] font-semibold text-[#FF5A36] hover:underline"
+                  >
+                    {language === 'TE' ? 'పాస్‌వర్డ్ మర్చిపోయారా?' : 'Forgot Password?'}
                   </button>
                 </div>
               </div>
