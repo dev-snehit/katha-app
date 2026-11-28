@@ -3,7 +3,7 @@ import { useAppStore } from '../../store/useAppStore';
 import { en } from '../../locales/en';
 import { te } from '../../locales/te';
 import { getLocalizedText } from '../../lib/bilingualHelper';
-import { Order, OrderItem, UnitType } from '../../contracts';
+import { Order, OrderItem, UnitType, WALK_IN_CUSTOMER_ID, Customer } from '../../contracts';
 import { AlertDialog, DialogType } from '../ui/AlertDialog';
 import { useModalDismiss } from '../../hooks/useModalDismiss';
 import { useRouter } from '../../lib/router';
@@ -394,7 +394,18 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
     e.preventDefault();
     setErrorMessage('');
 
-    const customer = customers.find((c) => c.id === selectedCustomerId);
+    const walkInFallback: Customer = {
+      id: WALK_IN_CUSTOMER_ID,
+      name: 'Walk-In Customer',
+      nameTe: 'వాక్-ఇన్ కస్టమర్',
+      phone: '0000000000',
+      currentDue: 0,
+      createdAt: new Date().toISOString(),
+    };
+    const selectableCustomers = customers.some((c) => c.id === WALK_IN_CUSTOMER_ID)
+      ? customers
+      : [walkInFallback, ...customers];
+    const customer = selectableCustomers.find((c) => c.id === selectedCustomerId);
     if (!customer) {
       setErrorMessage(isTe ? 'దయచేసి ఒక కస్టమర్‌ను ఎంచుకోండి.' : 'Please select a customer.');
       return;
@@ -980,6 +991,11 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
                   className="w-full text-sm border border-slate-200 rounded-2xl p-3 outline-none focus:border-orange-500 bg-slate-50/50 font-medium min-h-[46px]"
                 >
                   <option value="">{isTe ? 'కస్టమర్‌ను ఎంచుకోండి...' : 'Select Customer...'}</option>
+                  {!customers.some((c) => c.id === WALK_IN_CUSTOMER_ID) && (
+                    <option value={WALK_IN_CUSTOMER_ID}>
+                      {isTe ? 'వాక్-ఇన్ కస్టమర్ (కౌంటర్ నగదు)' : 'Walk-In Customer (Counter Cash)'}
+                    </option>
+                  )}
                   {customers.map((c) => (
                     <option key={c.id} value={c.id}>
                       {getLocalizedText(c, 'name', language)} ({c.phone})

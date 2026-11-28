@@ -189,7 +189,7 @@
   - Documented one-time `clasp` + GCP OAuth setup, GitHub Secrets, and 1-command rollback in `docs/SETUP_GUIDE.md`; added Section 10 + Mermaid CI/CD flowchart in `docs/MODULES_AND_FLOWCHARTS.md`; updated `docs/README.md` and `docs/CHANGE_LOG_AND_PROMPTS.md`.
 - **Files Touched:** `backend/appsscript.json`, `backend/.clasp.json`, `.gitignore`, `package.json`, `.github/workflows/deploy.yml`, `docs/SETUP_GUIDE.md`, `docs/MODULES_AND_FLOWCHARTS.md`, `docs/README.md`, `docs/CHANGE_LOG_AND_PROMPTS.md`
 
-### #27 — Remove Hardcoded Backend URL & Password Hash Fallbacks; Inject via Repository Secrets (`pending commit`)
+### #27 — Remove Hardcoded Backend URL & Password Hash Fallbacks; Inject via Repository Secrets (`f3c1e9f`)
 - **Date:** 2026-11-28
 - **User Prompt / Request:** Move any sensitive configuration or secrets out of the source repository into GitHub Repository Secrets with zero fallbacks and fail-fast error handling.
 - **Changes & Enhancements:**
@@ -198,3 +198,15 @@
   - Removed the hardcoded `rootAdminHash` fallback and hardcoded admin credentials from `backend/Code.gs`, reading `INITIAL_ADMIN_EMAIL` / `INITIAL_ADMIN_PASSWORD_HASH` from `PropertiesService.getScriptProperties()` (and seeding them in `tests/backend/gasHarness.ts`).
   - Updated `docs/SETUP_GUIDE.md`, `docs/MODULES_AND_FLOWCHARTS.md`, and `docs/CHANGE_LOG_AND_PROMPTS.md`.
 - **Files Touched:** `src/config/backend.ts`, `backend/Code.gs`, `.github/workflows/deploy.yml`, `tests/backend/gasHarness.ts`, `tests/authAndSync.test.ts`, `docs/SETUP_GUIDE.md`, `docs/MODULES_AND_FLOWCHARTS.md`, `docs/CHANGE_LOG_AND_PROMPTS.md`
+
+### #28 — Reliability Hardening: Server ID/Version Reconciliation, Locked Backend URL, Walk-In Customer Seed & Bilingual Error Mapping (`pending commit`)
+- **Date:** 2026-11-28
+- **User Prompt / Request:** Harden Kaatha Wholesale against ID/version drift, stale `localStorage` backend URLs, counter-cash FK failures, transient lock/network errors, and silent failures, keeping all tests and docs synchronized.
+- **Changes & Enhancements:**
+  - Added optional `version?: number` to entity schemas and exported `WALK_IN_CUSTOMER_ID` in `src/contracts/index.ts`.
+  - Updated `triggerSync()` in `src/store/useAppStore.ts` to reconcile server-returned `{ id, orderNumber, version }` in Zustand + `localStorage`, pass `version` on updates/soft-deletes, map `DUPLICATE_KEY`/`FOREIGN_KEY_VIOLATION`/`CHECK_CONSTRAINT_FAILED`/`CONFLICT_STALE_VERSION`/`FORBIDDEN`/`NOT_FOUND` to bilingual EN/TE toasts, and auto-rehydrate on `CONFLICT_STALE_VERSION`.
+  - Locked `backendUrl` to `DEFAULT_SERVER_URL` when configured (clearing stale `localStorage`) and made the URL input read-only (`CI/CD Managed`) in `src/components/settings/SettingsModal.tsx`.
+  - Auto-seeded `"Walk-In Customer"` in `backend/Code.gs` `setupDatabase()` and wired it in `src/components/orders/PendingOrdersView.tsx`.
+  - Updated `src/components/admin/UserRequestsView.tsx` copy for the on-screen credentials card while email delivery is on hold, and added 500ms transient retry in `src/lib/syncService.ts`.
+  - Added tests in `tests/authAndSync.test.ts`, `tests/backend/codeGs.test.ts`, and `tests/ui/componentsCore.test.tsx`; updated `docs/SETUP_GUIDE.md`, `docs/MODULES_AND_FLOWCHARTS.md`, and `docs/CHANGE_LOG_AND_PROMPTS.md`.
+- **Files Touched:** `src/contracts/index.ts`, `src/lib/syncService.ts`, `src/store/useAppStore.ts`, `src/components/settings/SettingsModal.tsx`, `src/components/orders/PendingOrdersView.tsx`, `src/components/admin/UserRequestsView.tsx`, `backend/Code.gs`, `tests/authAndSync.test.ts`, `tests/backend/codeGs.test.ts`, `tests/ui/componentsCore.test.tsx`, `docs/SETUP_GUIDE.md`, `docs/MODULES_AND_FLOWCHARTS.md`, `docs/CHANGE_LOG_AND_PROMPTS.md`

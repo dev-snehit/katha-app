@@ -777,6 +777,38 @@ function setupDatabase() {
     });
   }
 
+  // Auto-seed deterministic "Walk-In Customer" so counter-cash orders never violate FK
+  var custSheet = ss.getSheetByName('Master_Customers');
+  if (custSheet) {
+    var walkInId = '00000000-0000-0000-0000-000000000002';
+    var custRows = custSheet.getDataRange().getValues();
+    var hasWalkIn = false;
+    for (var ci = 1; ci < custRows.length; ci++) {
+      if (String(custRows[ci][0]) === walkInId) {
+        hasWalkIn = true;
+        break;
+      }
+    }
+    if (!hasWalkIn) {
+      var walkInNow = new Date().toISOString();
+      custSheet.appendRow([
+        walkInId,
+        'Walk-In Customer',
+        'వాక్-ఇన్ కస్టమర్',
+        '0000000000',
+        'Counter Cash Sale',
+        'కౌంటర్ నగదు అమ్మకం',
+        'Counter',
+        'కౌంటర్',
+        0,
+        1,
+        walkInNow,
+        walkInNow,
+        false
+      ]);
+    }
+  }
+
   deduplicateUsersTable(ss);
   lockDatabaseSheets(ss, tableNames);
 }

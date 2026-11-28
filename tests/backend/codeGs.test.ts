@@ -373,12 +373,27 @@ describe('Backend Code.gs API & HS256 JWT Integration', () => {
       offset: 1,
     });
     expect(paged.status).toBe('success');
-    expect(paged.total).toBe(3);
+    expect(paged.total).toBe(4); // Walk-In Customer + 3 created customers
     expect(paged.rows.length).toBe(2);
 
     // 7. LockService concurrency check: every lock acquired was released
     expect(gas.lockStats.acquisitions).toBeGreaterThan(0);
     expect(gas.lockStats.acquisitions).toBe(gas.lockStats.releases);
     expect(gas.lockStats.currentlyLocked).toBe(false);
+
+    // 8. Walk-In Customer is auto-seeded and valid for counter-cash orders
+    const walkInOrder = gas.callPost({
+      action: 'saveOrder',
+      authToken: adminToken,
+      order: {
+        customerId: '00000000-0000-0000-0000-000000000002',
+        customerName: 'Walk-In Customer',
+        totalOuterBags: 2,
+        grandTotal: 2400,
+        paymentMode: 'CASH',
+        status: 'PENDING_REVIEW',
+      },
+    });
+    expect(walkInOrder.status).toBe('success');
   });
 });

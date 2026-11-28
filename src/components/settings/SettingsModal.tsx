@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { pingGoogleSheet } from '../../lib/syncService';
+import { DEFAULT_SERVER_URL } from '../../config/backend';
 import { 
   Settings, 
   Link2, 
+  Lock,
   Check, 
   ExternalLink, 
   RefreshCw, 
@@ -33,7 +35,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     language,
     connectAndHydrateServer
   } = useAppStore();
-  const [urlInput, setUrlInput] = useState(backendUrl);
+  const isManagedUrl = Boolean(DEFAULT_SERVER_URL);
+  const [urlInput, setUrlInput] = useState(DEFAULT_SERVER_URL || backendUrl);
+
+  useEffect(() => {
+    setUrlInput(DEFAULT_SERVER_URL || backendUrl);
+  }, [backendUrl]);
   const [saved, setSaved] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
@@ -126,22 +133,41 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 : 'Connect Kaatha Wholesale to your secure cloud database backend API. All inventory, customer records, and orders synchronize automatically.'}
             </p>
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5">
-              {language === 'TE' ? 'బ్యాకెండ్ డేటాబేస్ వెబ్‌హుక్ API URL:' : 'Backend Database Webhook API URL:'}
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-bold text-slate-700">
+                {language === 'TE' ? 'బ్యాకెండ్ డేటాబేస్ వెబ్‌హుక్ API URL:' : 'Backend Database Webhook API URL:'}
+              </label>
+              {isManagedUrl && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  <Lock className="w-3 h-3" />
+                  <span>{language === 'TE' ? 'CI/CD ఆటో-కాన్ఫిగర్' : 'CI/CD Managed'}</span>
+                </span>
+              )}
+            </div>
             <div className="relative">
               <input
                 type="url"
                 required
+                readOnly={isManagedUrl}
                 placeholder="https://script.google.com/macros/s/AKfycbx.../exec"
                 value={urlInput}
-                onChange={(e) => setUrlInput(e.target.value)}
-                className="w-full text-xs font-mono border border-slate-300 rounded-xl p-3 outline-none focus:border-[#FF5A36] focus:ring-2 focus:ring-[#FF5A36]/10 pr-10 bg-slate-50 focus:bg-white transition-all"
+                onChange={(e) => {
+                  if (!isManagedUrl) setUrlInput(e.target.value);
+                }}
+                className={`w-full text-xs font-mono border border-slate-300 rounded-xl p-3 outline-none pr-10 transition-all ${
+                  isManagedUrl
+                    ? 'bg-slate-100 text-slate-600 cursor-not-allowed'
+                    : 'bg-slate-50 focus:bg-white focus:border-[#FF5A36] focus:ring-2 focus:ring-[#FF5A36]/10'
+                }`}
               />
               <Link2 className="w-4 h-4 text-slate-400 absolute right-3.5 top-3.5" />
             </div>
             <p className="text-[11px] text-slate-400 mt-1.5">
-              Follow setup instructions in <span className="font-semibold text-slate-700">docs/SETUP_GUIDE.md</span>.
+              {isManagedUrl
+                ? (language === 'TE'
+                    ? 'ఈ సర్వర్ URL ఆటోమేటెడ్ డిప్లాయ్‌మెంట్ ద్వారా సెట్ చేయబడింది మరియు మార్చబడదు.'
+                    : 'This server URL is locked to the automated CI/CD deployment configuration.')
+                : (<>Follow setup instructions in <span className="font-semibold text-slate-700">docs/SETUP_GUIDE.md</span>.</>)}
             </p>
           </div>
 

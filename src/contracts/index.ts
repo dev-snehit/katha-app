@@ -43,8 +43,11 @@ export const UserSchema = z.object({
   requestedRole: RoleEnum.optional(),
   requestedName: z.string().optional(),
   requestedAt: z.string().optional(),
+  version: z.number().int().positive().optional(),
 });
 export type User = z.infer<typeof UserSchema>;
+
+export const WALK_IN_CUSTOMER_ID = '00000000-0000-0000-0000-000000000002';
 
 // Pre-seeded Root Administrator
 export const INITIAL_ADMIN_USER: User = {
@@ -72,6 +75,7 @@ export const CustomerSchema = z.object({
   businessNameTe: z.string().optional(),
   currentDue: z.number().default(0),
   createdAt: z.string(),
+  version: z.number().int().positive().optional(),
 });
 export type Customer = z.infer<typeof CustomerSchema>;
 
@@ -88,6 +92,7 @@ export const SupplierSchema = z.object({
   nickname: z.string().min(2, "Reference nickname required (e.g. Lalitha SBI)"),
   nicknameTe: z.string().optional(),
   createdAt: z.string(),
+  version: z.number().int().positive().optional(),
 });
 export type Supplier = z.infer<typeof SupplierSchema>;
 
@@ -110,6 +115,7 @@ export const ProductSchema = z.object({
   wholesalePriceBag: z.number().nonnegative(), // Wholesale Value
   retailPriceBag: z.number().nonnegative().optional(), // Retail Value
   pricePerInnerBag: z.number().nonnegative(),
+  version: z.number().int().positive().optional(),
 });
 export type Product = z.infer<typeof ProductSchema>;
 
@@ -150,6 +156,7 @@ export const OrderSchema = z.object({
   submittedByRole: RoleEnum,
   approvedByRole: RoleEnum.optional(),
   createdAt: z.string(),
+  version: z.number().int().positive().optional(),
 });
 export type Order = z.infer<typeof OrderSchema>;
 

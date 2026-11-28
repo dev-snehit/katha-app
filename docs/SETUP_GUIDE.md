@@ -166,8 +166,9 @@ Once your initial Web App deployment is created, you **never need to manually co
      - `GAS_DEPLOYMENT_ID`: your fixed Web App Deployment ID (`AKfycb...`)
      - `GAS_WEB_APP_URL`: your fixed Web App `/exec` URL (injected as `VITE_GOOGLE_APPS_SCRIPT_URL` during GitHub Pages build and used for post-deploy `?action=ping` health checks)
 6. **Zero Hardcoded Secrets or URL Fallbacks (`src/config/backend.ts` & `backend/Code.gs`):**
-   - `DEFAULT_SERVER_URL` in `src/config/backend.ts` has no hardcoded URL fallback; it is injected from `GAS_WEB_APP_URL` in CI (or `.env` locally) and throws a clear error via `getRequiredServerUrl()` if missing.
-   - `backend/Code.gs` has no hardcoded admin password hash fallback; initial admin seeding reads `INITIAL_ADMIN_EMAIL` / `INITIAL_ADMIN_PASSWORD_HASH` from `PropertiesService.getScriptProperties()` when `Users` is empty.
+   - `DEFAULT_SERVER_URL` in `src/config/backend.ts` has no hardcoded URL fallback; it is injected from `GAS_WEB_APP_URL` in CI (or `.env` locally) and throws a clear error via `getRequiredServerUrl()` if missing. When `DEFAULT_SERVER_URL` is configured, `SettingsModal.tsx` locks the URL field as read-only (`CI/CD Managed`) and clears any stale `localStorage` URL so non-technical users never experience broken connections.
+   - `backend/Code.gs` has no hardcoded admin password hash fallback; initial admin seeding reads `INITIAL_ADMIN_EMAIL`, `INITIAL_ADMIN_NAME`, `INITIAL_ADMIN_PHONE`, and `INITIAL_ADMIN_PASSWORD_HASH` from Apps Script **Project Settings → Script Properties** (`PropertiesService.getScriptProperties()`) when `Users` is empty.
+   - `setupDatabase()` automatically seeds a deterministic **Walk-In Customer** (`00000000-0000-0000-0000-000000000002`) in `Master_Customers` so counter-cash orders always satisfy foreign-key constraints.
 
 ### 1-Command Version Rollback
 If a backend deployment ever needs to be rolled back to an earlier Apps Script version (`<version>`):

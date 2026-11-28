@@ -837,4 +837,89 @@ describe('HS256 JWT Session Lifecycle & Pre-Expiry Warning', () => {
       'https://script.google.com/macros/s/test/exec'
     );
   });
+
+  it('reconciles server-assigned UUID, orderNumber, and version in Zustand + localStorage', async () => {
+    await useAppStore.getState().login('dev.snehit@gmail.com', 'admin');
+    const localOrder = {
+      id: 'local-ord-1',
+      orderNumber: 'ORD-LOCAL-1',
+      customerId: '00000000-0000-0000-0000-000000000002',
+      customerName: 'Walk-In Customer',
+      customerPhone: '0000000000',
+      orderDate: '2026-11-28',
+      status: 'PENDING_REVIEW' as const,
+      totalOuterBags: 2,
+      totalInnerBags: 0,
+      totalWeightKg: 50,
+      items: [{ productId: 'p1', productName: 'Rice', unitType: 'OUTER_BAG' as const, quantity: 2, unitPrice: 1000, lineTotal: 2000 }],
+      subtotal: 2000,
+      hamaliCharges: 0,
+      transportCharges: 0,
+      discount: 0,
+      grandTotal: 2000,
+      paymentMode: 'CASH' as const,
+      submittedByRole: 'ADMIN' as const,
+      createdAt: new Date().toISOString(),
+    };
+    useAppStore.setState({ orders: [localOrder] });
+
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        status: 'success',
+        id: 'srv-uuid-999',
+        orderNumber: 'ORD-2026-0042',
+        version: 1,
+      }),
+    });
+
+    await useAppStore.getState().triggerSync('saveOrder', { order: localOrder });
+    const saved = useAppStore.getState().orders.find((o) => o.id === 'srv-uuid-999');
+    expect(saved).toBeDefined();
+    expect(saved?.orderNumber).toBe('ORD-2026-0042');
+    expect(saved?.version).toBe(1);
+  });
+
+  it('maps structured backend error codes to bilingual toasts and re-hydrates on CONFLICT_STALE_VERSION', async () => {
+    await useAppStore.getState().login('dev.snehit@gmail.com', 'admin');
+    useAppStore.setState({ toasts: [] });
+
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ status: 'error', code: 'DUPLICATE_KEY', message: 'Phone exists' }),
+    });
+    await useAppStore.getState().triggerSync('saveCustomer', { customer: { id: 'c1' } });
+    expect(useAppStore.getState().toasts.some((t) => t.message.includes('Duplicate record detected'))).toBe(true);
+
+    // CONFLICT_STALE_VERSION triggers Data Out of Date toast + connectAndHydrateServer
+    useAppStore.setState({ toasts: [] });
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ status: 'error', code: 'CONFLICT_STALE_VERSION', message: 'Stale version' }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ status: 'success', data: { Users: [], Master_Products: [], Master_Customers: [], Master_Suppliers: [], Master_Orders_Sales: [], Pending_Orders: [] } }),
+      });
+    global.fetch = fetchMock;
+
+    await useAppStore.getState().triggerSync('saveCustomer', { customer: { id: 'c1', version: 1 } });
+    expect(useAppStore.getState().toasts.some((t) => t.title === 'Data Out of Date')).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('retries once with 500ms backoff on transient network error in pushToGoogleSheet', async () => {
+    const fetchMock = vi.fn()
+      .mockRejectedValueOnce(new Error('Network timeout'))
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ status: 'success', message: 'Recovered on retry' }),
+      });
+    global.fetch = fetchMock;
+
+    const res = await pushToGoogleSheet('https://script.google.com/macros/s/valid/exec', 'ping', {});
+    expect(res.success).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
 });

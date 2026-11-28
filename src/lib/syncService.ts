@@ -14,6 +14,12 @@ export interface SyncResponse {
   details?: any;
 }
 
+const TRANSIENT_ERROR_PATTERN = /lock|timeout|timed out|too many|temporarily|network|failed to fetch|econnreset/i;
+
+function sleepMs(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export async function pushToGoogleSheet(
   backendUrl: string,
   action: string,
@@ -26,45 +32,68 @@ export async function pushToGoogleSheet(
     };
   }
 
-  try {
-    const postBody = JSON.stringify({
-      action,
-      timestamp: new Date().toISOString(),
-      ...payload
-    });
+  const maxAttempts = 2; // Initial attempt + 1 automatic retry with 500ms backoff
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const postBody = JSON.stringify({
+        action,
+        timestamp: new Date().toISOString(),
+        ...payload
+      });
 
-    const response = await fetch(backendUrl.trim(), {
-      method: 'POST',
-      mode: 'cors',
-      redirect: 'follow',
-      headers: {
-        'Content-Type': 'text/plain;charset=utf-8'
-      },
-      body: postBody
-    });
+      const response = await fetch(backendUrl.trim(), {
+        method: 'POST',
+        mode: 'cors',
+        redirect: 'follow',
+        headers: {
+          'Content-Type': 'text/plain;charset=utf-8'
+        },
+        body: postBody
+      });
 
-    if (!response.ok) {
+      if (!response.ok) {
+        const isTransientHttp = response.status >= 500 && response.status < 600;
+        if (isTransientHttp && attempt < maxAttempts) {
+          await sleepMs(500);
+          continue;
+        }
+        return {
+          success: false,
+          error: `HTTP error: ${response.status} ${response.statusText}`
+        };
+      }
+
+      const data = await response.json();
+      const errText = data.error || (data.status === 'error' ? data.message : '');
+      if (data.status === 'error' && !data.code && TRANSIENT_ERROR_PATTERN.test(String(errText)) && attempt < maxAttempts) {
+        await sleepMs(500);
+        continue;
+      }
+
+      return {
+        success: data.status === 'success' || data.status === 'ok',
+        message: data.message || 'Synchronized with Backend Database',
+        error: data.error || (data.status === 'error' ? data.message : undefined),
+        code: data.code,
+        details: data
+      };
+    } catch (err: any) {
+      console.warn(`[Kaatha Sync] Push failed for action "${action}" (attempt ${attempt}):`, err);
+      if (attempt < maxAttempts) {
+        await sleepMs(500);
+        continue;
+      }
       return {
         success: false,
-        error: `HTTP error: ${response.status} ${response.statusText}`
+        error: err.message || 'Unable to reach backend database webhook'
       };
     }
-
-    const data = await response.json();
-    return {
-      success: data.status === 'success' || data.status === 'ok',
-      message: data.message || 'Synchronized with Backend Database',
-      error: data.error || (data.status === 'error' ? data.message : undefined),
-      code: data.code,
-      details: data
-    };
-  } catch (err: any) {
-    console.warn(`[Kaatha Sync] Push failed for action "${action}":`, err);
-    return {
-      success: false,
-      error: err.message || 'Unable to reach backend database webhook'
-    };
   }
+
+  return {
+    success: false,
+    error: 'Unable to reach backend database webhook'
+  };
 }
 
 export async function pingGoogleSheet(backendUrl: string): Promise<SyncResponse> {

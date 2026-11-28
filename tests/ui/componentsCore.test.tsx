@@ -126,6 +126,13 @@ describe('UI Components: AlertDialog, Navbar, SettingsModal & AuthView', () => {
     expect(useAppStore.getState().baseFontSize).toBeGreaterThan(16);
     fireEvent.click(screen.getByText(/Reset/i));
     expect(useAppStore.getState().baseFontSize).toBe(16);
+
+    // If DEFAULT_SERVER_URL is configured via env, SettingsModal locks the URL input as readOnly
+    const urlInput = screen.getByPlaceholderText(/script\.google\.com/i) as HTMLInputElement;
+    if ((import.meta as any).env?.VITE_GOOGLE_APPS_SCRIPT_URL) {
+      expect(urlInput.readOnly).toBe(true);
+      expect(screen.getByText(/CI\/CD Managed/i)).toBeInTheDocument();
+    }
   });
 
   it('renders AuthView modes (Login, Request Access, Forgot Password, Reset Link redirect, Session Expired banner)', async () => {

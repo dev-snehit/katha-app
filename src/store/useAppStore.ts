@@ -213,7 +213,10 @@ const hasRootAdmin = storedUsers.some(
 );
 const initialUsers = hasRootAdmin ? storedUsers : [INITIAL_ADMIN_USER, ...storedUsers];
 
-const initialBackendUrl = loadFromStorage<string>('backendUrl', '') || DEFAULT_SERVER_URL;
+if (DEFAULT_SERVER_URL) {
+  saveToStorage('backendUrl', '');
+}
+const initialBackendUrl = DEFAULT_SERVER_URL || loadFromStorage<string>('backendUrl', '');
 const rawStoredUser = loadFromStorage<User | null>('currentUser', null);
 const rawStoredToken = loadFromStorage<string | null>('authToken', null);
 const hasValidInitialSession = Boolean(rawStoredUser && rawStoredToken && !isJwtExpired(rawStoredToken));
@@ -589,6 +592,15 @@ export const useAppStore = create<AppState>((set, get) => ({
   syncError: null,
 
   setBackendUrl: (url) => {
+    if (DEFAULT_SERVER_URL) {
+      saveToStorage('backendUrl', '');
+      set({
+        backendUrl: DEFAULT_SERVER_URL,
+        syncStatus: 'IDLE',
+        syncError: null
+      });
+      return;
+    }
     const trimmed = url.trim();
     saveToStorage('backendUrl', trimmed);
     set({ 
@@ -657,6 +669,59 @@ export const useAppStore = create<AppState>((set, get) => ({
         return;
       }
       if (res.success) {
+        const srvId = res.details?.id as string | undefined;
+        const srvOrderNo = res.details?.orderNumber as string | undefined;
+        const srvVer = res.details?.version !== undefined ? Number(res.details.version) : undefined;
+
+        if (srvId || srvOrderNo || srvVer !== undefined) {
+          if (action === 'saveOrder' && payload.order?.id) {
+            const clientId = payload.order.id;
+            const updatedOrders = get().orders.map((o) =>
+              o.id === clientId
+                ? { ...o, ...(srvId ? { id: srvId } : {}), ...(srvOrderNo ? { orderNumber: srvOrderNo } : {}), ...(srvVer !== undefined ? { version: srvVer } : {}) }
+                : o
+            );
+            saveToStorage('orders', updatedOrders);
+            set({ orders: updatedOrders });
+          } else if (action === 'updateOrderStatus' && payload.orderId && srvVer !== undefined) {
+            const updatedOrders = get().orders.map((o) =>
+              o.id === payload.orderId ? { ...o, version: srvVer } : o
+            );
+            saveToStorage('orders', updatedOrders);
+            set({ orders: updatedOrders });
+          } else if (action === 'saveProduct' && payload.product?.id) {
+            const clientId = payload.product.id;
+            const updatedInv = get().inventory.map((p) =>
+              p.id === clientId ? { ...p, ...(srvId ? { id: srvId } : {}), ...(srvVer !== undefined ? { version: srvVer } : {}) } : p
+            );
+            saveToStorage('inventory', updatedInv);
+            set({ inventory: updatedInv });
+          } else if (action === 'saveCustomer' && payload.customer?.id) {
+            const clientId = payload.customer.id;
+            const updatedCust = get().customers.map((c) =>
+              c.id === clientId ? { ...c, ...(srvId ? { id: srvId } : {}), ...(srvVer !== undefined ? { version: srvVer } : {}) } : c
+            );
+            saveToStorage('customers', updatedCust);
+            set({ customers: updatedCust });
+          } else if (action === 'saveSupplier' && payload.supplier?.id) {
+            const clientId = payload.supplier.id;
+            const updatedSupp = get().suppliers.map((s) =>
+              s.id === clientId ? { ...s, ...(srvId ? { id: srvId } : {}), ...(srvVer !== undefined ? { version: srvVer } : {}) } : s
+            );
+            saveToStorage('suppliers', updatedSupp);
+            set({ suppliers: updatedSupp });
+          } else if ((action === 'createUser' || action === 'registerUser' || action === 'approveUser' || action === 'updateUser')) {
+            const clientUserId = payload.user?.id || payload.userId;
+            if (clientUserId) {
+              const updatedUsers = get().users.map((u) =>
+                u.id === clientUserId ? { ...u, ...(srvId ? { id: srvId } : {}), ...(srvVer !== undefined ? { version: srvVer } : {}) } : u
+              );
+              saveToStorage('users', updatedUsers);
+              set({ users: updatedUsers });
+            }
+          }
+        }
+
         set({
           syncStatus: 'SYNCED',
           lastSyncTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
@@ -672,18 +737,53 @@ export const useAppStore = create<AppState>((set, get) => ({
           });
         }
       } else {
-        const errMsg = res.details?.message || res.error || 'Failed to sync changes with Backend Database.';
+        const rawErr = res.details?.message || res.error || 'Failed to sync changes with Backend Database.';
+        const code = res.code || res.details?.code;
+        const mappedErrors: Record<string, { en: string; te: string }> = {
+          DUPLICATE_KEY: {
+            en: `Duplicate record detected: ${rawErr}`,
+            te: `ఈ వివరాలు ఇప్పటికే డేటాబేస్‌లో ఉన్నాయి: ${rawErr}`,
+          },
+          FOREIGN_KEY_VIOLATION: {
+            en: `Cannot complete action because related records exist or are missing: ${rawErr}`,
+            te: `సంబంధిత రికార్డులు ఉన్నందున లేదా లేనందున ఈ చర్య సాధ్యం కాదు: ${rawErr}`,
+          },
+          CHECK_CONSTRAINT_FAILED: {
+            en: `Validation check failed: ${rawErr}`,
+            te: `డేటా నియమాలు సరిపోలలేదు: ${rawErr}`,
+          },
+          CONFLICT_STALE_VERSION: {
+            en: 'Another user updated this record. Refreshing latest data from server...',
+            te: 'మరొకరు ఈ రికార్డును మార్చారు. తాజా డేటా రీఫ్రెష్ అవుతోంది...',
+          },
+          FORBIDDEN: {
+            en: `Permission denied for your role: ${rawErr}`,
+            te: `మీ పాత్రకు ఈ చర్యకు అనుమతి లేదు: ${rawErr}`,
+          },
+          NOT_FOUND: {
+            en: `Record no longer exists on server: ${rawErr}`,
+            te: `ఈ రికార్డు సర్వర్‌లో కనుగొనబడలేదు: ${rawErr}`,
+          },
+        };
+        const mapped = code && mappedErrors[code] ? mappedErrors[code] : null;
+        const errMsg = mapped ? mapped.en : rawErr;
+        const errMsgTe = mapped ? mapped.te : `డేటాబేస్‌లో సేవ్ చేయడం విఫలమైంది: ${rawErr}`;
+
         set({
           syncStatus: 'ERROR',
           syncError: errMsg
         });
         get().addToast({
           type: 'error',
-          title: 'Database Save Failed',
-          titleTe: 'డేటాబేస్ సేవ్ విఫలమైంది',
+          title: code === 'CONFLICT_STALE_VERSION' ? 'Data Out of Date' : 'Database Save Failed',
+          titleTe: code === 'CONFLICT_STALE_VERSION' ? 'పాత డేటా లోపం' : 'డేటాబేస్ సేవ్ విఫలమైంది',
           message: errMsg,
-          messageTe: `డేటాబేస్‌లో సేవ్ చేయడం విఫలమైంది: ${errMsg}`,
+          messageTe: errMsgTe,
         });
+
+        if (code === 'CONFLICT_STALE_VERSION') {
+          get().connectAndHydrateServer();
+        }
       }
     } finally {
       if (startedSpinnerHere) {
@@ -1298,17 +1398,22 @@ export const useAppStore = create<AppState>((set, get) => ({
       userId,
       name: updatedUser.name,
       role: updatedUser.role,
-      status: updatedUser.status
+      status: updatedUser.status,
+      ...(existing.version !== undefined ? { version: existing.version } : {}),
     });
     return true;
   },
 
   deleteUser: async (userId) => {
     const currentUsers = get().users;
+    const targetUser = currentUsers.find(u => u.id === userId);
     const filtered = currentUsers.filter(u => u.id !== userId);
     saveToStorage('users', filtered);
     set({ users: filtered });
-    await get().triggerSync('deleteUser', { userId });
+    await get().triggerSync('deleteUser', {
+      userId,
+      ...(targetUser?.version !== undefined ? { version: targetUser.version } : {}),
+    });
     return true;
   },
 
@@ -1416,7 +1521,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     const updatedOrders = get().orders.filter((o) => o.id !== orderId);
     saveToStorage('orders', updatedOrders);
     set({ orders: updatedOrders, inventory: updatedInventory });
-    await get().triggerSync('deleteOrder', { orderId });
+    await get().triggerSync('deleteOrder', {
+      orderId,
+      ...(targetOrder?.version !== undefined ? { version: targetOrder.version } : {}),
+    });
     return true;
   },
 
@@ -1460,25 +1568,41 @@ export const useAppStore = create<AppState>((set, get) => ({
       customers: updatedCustomers,
     });
 
-    get().triggerSync('updateOrderStatus', { orderId, newStatus: 'APPROVED', approvedByRole });
+    get().triggerSync('updateOrderStatus', {
+      orderId,
+      newStatus: 'APPROVED',
+      approvedByRole,
+      ...(targetOrder.version !== undefined ? { version: targetOrder.version } : {}),
+    });
   },
 
   markOrderDispatched: (orderId, vehicleNo) => {
+    const targetOrder = get().orders.find((o) => o.id === orderId);
     const updated = get().orders.map((o) => 
       o.id === orderId ? { ...o, status: 'DISPATCHED' as const, ...(vehicleNo ? { vehicleNumber: vehicleNo } : {}) } : o
     );
     saveToStorage('orders', updated);
     set({ orders: updated });
-    get().triggerSync('updateOrderStatus', { orderId, newStatus: 'DISPATCHED', vehicleNumber: vehicleNo });
+    get().triggerSync('updateOrderStatus', {
+      orderId,
+      newStatus: 'DISPATCHED',
+      vehicleNumber: vehicleNo,
+      ...(targetOrder?.version !== undefined ? { version: targetOrder.version } : {}),
+    });
   },
 
   markOrderDelivered: (orderId) => {
+    const targetOrder = get().orders.find((o) => o.id === orderId);
     const updated = get().orders.map((o) => 
       o.id === orderId ? { ...o, status: 'DELIVERED' as const } : o
     );
     saveToStorage('orders', updated);
     set({ orders: updated });
-    get().triggerSync('updateOrderStatus', { orderId, newStatus: 'DELIVERED' });
+    get().triggerSync('updateOrderStatus', {
+      orderId,
+      newStatus: 'DELIVERED',
+      ...(targetOrder?.version !== undefined ? { version: targetOrder.version } : {}),
+    });
   },
 
   addCustomer: (customer) => {
@@ -1496,10 +1620,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   deleteCustomer: async (customerId) => {
+    const target = get().customers.find((c) => c.id === customerId);
     const updated = get().customers.filter((c) => c.id !== customerId);
     saveToStorage('customers', updated);
     set({ customers: updated });
-    await get().triggerSync('deleteCustomer', { customerId });
+    await get().triggerSync('deleteCustomer', {
+      customerId,
+      ...(target?.version !== undefined ? { version: target.version } : {}),
+    });
     return true;
   },
 
@@ -1518,10 +1646,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   deleteSupplier: async (supplierId) => {
+    const target = get().suppliers.find((s) => s.id === supplierId);
     const updated = get().suppliers.filter((s) => s.id !== supplierId);
     saveToStorage('suppliers', updated);
     set({ suppliers: updated });
-    await get().triggerSync('deleteSupplier', { supplierId });
+    await get().triggerSync('deleteSupplier', {
+      supplierId,
+      ...(target?.version !== undefined ? { version: target.version } : {}),
+    });
     return true;
   },
 
@@ -1540,10 +1672,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   deleteProduct: async (productId) => {
+    const target = get().inventory.find((p) => p.id === productId);
     const updated = get().inventory.filter((p) => p.id !== productId);
     saveToStorage('inventory', updated);
     set({ inventory: updated });
-    await get().triggerSync('deleteProduct', { productId });
+    await get().triggerSync('deleteProduct', {
+      productId,
+      ...(target?.version !== undefined ? { version: target.version } : {}),
+    });
     return true;
   },
   

@@ -670,8 +670,8 @@ export const UserRequestsView: React.FC = () => {
                       </h4>
                       <p className="text-emerald-800">
                         {isTe
-                          ? `ఖాతా వివరాలు మరియు తాత్కాలిక పాస్‌వర్డ్ ${createdUserResult.user.email} ఈమెయిల్‌కు పంపబడ్డాయి.`
-                          : `The user entry has been saved in the database, and an automated email with credentials was dispatched to ${createdUserResult.user.email}.`}
+                          ? `ఖాతా వివరాలు డేటాబేస్‌లో సేవ్ చేయబడ్డాయి. ఈమెయిల్ డెలివరీ తాత్కాలికంగా నిలిపివేయబడింది — దయచేసి దిగువ వివరాలను కాపీ చేసి ${createdUserResult.user.email} కి WhatsApp/SMS ద్వారా పంపండి.`
+                          : `The user entry has been saved in the database. Email delivery is temporarily on hold — copy and share the credentials & setup link below with ${createdUserResult.user.email} via WhatsApp/SMS.`}
                       </p>
                     </div>
                   </div>
