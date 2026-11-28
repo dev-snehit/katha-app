@@ -151,3 +151,12 @@
 - **User Prompt / Request:** Check whether everything is documented properly and all flowcharts are up to date.
 - **Changes & Enhancements:** Updated the Mermaid flowcharts in Section 1 (Authentication, `/login` & `/register` URL sync, on-screen setup link & email delivery hold) and Section 9 (JWT `authToken` enforcement on all `triggerSync` requests, `actionLoading` spinner, `TOKEN_EXPIRED` forced logout, and top-right `ToastContainer` success/error notifications) in `docs/MODULES_AND_FLOWCHARTS.md`, and recorded commit `a53eec4` in `docs/CHANGE_LOG_AND_PROMPTS.md`. Zero application code modified.
 - **Files Touched:** `docs/MODULES_AND_FLOWCHARTS.md`, `docs/CHANGE_LOG_AND_PROMPTS.md`
+
+### #23 — Automated Git Pre-Commit & CI/CD Documentation Sync Enforcement (`pending commit`)
+- **Date:** 2026-11-28
+- **User Prompt / Request:** Ensure every change in the repository is automatically documented and kept up to date at all times without needing explicit user prompts.
+- **Changes & Enhancements:**
+  - Created `.githooks/pre-commit` to block any commit touching `src/`, `backend/`, or `tests/` unless `docs/CHANGE_LOG_AND_PROMPTS.md` (and `docs/MODULES_AND_FLOWCHARTS.md` for `src/` or `backend/` changes) is also updated and staged.
+  - Added `docs:check` and `prepare` (`git config core.hooksPath .githooks`) scripts to `package.json`, and wired `docs:check` into `npm run validate`.
+  - Updated `.github/workflows/deploy.yml` to verify documentation/flowchart sync on `push` and run `npm run validate` before deploying.
+- **Files Touched:** `.githooks/pre-commit`, `package.json`, `.github/workflows/deploy.yml`, `docs/CHANGE_LOG_AND_PROMPTS.md`

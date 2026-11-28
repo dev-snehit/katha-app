@@ -1,0 +1,26 @@
+#!/bin/sh
+# Kaatha Wholesale — Automatic Documentation & Flowchart Sync Guard
+# Enforces AGENTS.md & .agents/rules/documentation-sync.md on every commit.
+
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACMR)
+
+HAS_CODE_OR_TEST=$(echo "$STAGED_FILES" | grep -E '^(src|backend|tests)/' || true)
+HAS_APP_CODE=$(echo "$STAGED_FILES" | grep -E '^(src|backend)/' || true)
+HAS_CHANGELOG=$(echo "$STAGED_FILES" | grep -E '^docs/CHANGE_LOG_AND_PROMPTS\.md$' || true)
+HAS_FLOWCHARTS=$(echo "$STAGED_FILES" | grep -E '^docs/MODULES_AND_FLOWCHARTS\.md$' || true)
+
+if [ -n "$HAS_CODE_OR_TEST" ] && [ -z "$HAS_CHANGELOG" ]; then
+  echo ""
+  echo "[doc-sync] ERROR: You staged changes in src/, backend/, or tests/ without updating docs/CHANGE_LOG_AND_PROMPTS.md."
+  echo "[doc-sync] Please append a sequential entry to docs/CHANGE_LOG_AND_PROMPTS.md and stage it."
+  exit 1
+fi
+
+if [ -n "$HAS_APP_CODE" ] && [ -z "$HAS_FLOWCHARTS" ]; then
+  echo ""
+  echo "[doc-sync] ERROR: You staged changes in src/ or backend/ without updating docs/MODULES_AND_FLOWCHARTS.md."
+  echo "[doc-sync] Please update the corresponding module section and Mermaid flowchart, then stage it."
+  exit 1
+fi
+
+npm run docs:check --silent

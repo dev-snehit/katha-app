@@ -17,7 +17,9 @@
     "test:e2e": "vitest run tests/e2e",
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
-    "validate": "npm run typecheck && npm run lint && npm run format:check && npm run build && npm test -- --run"
+    "docs:check": "node -e \"const fs=require('fs'),p=require('path'); ['docs/README.md','docs/MODULES_AND_FLOWCHARTS.md','docs/CHANGE_LOG_AND_PROMPTS.md','AGENTS.md','.agents/rules/documentation-sync.md'].forEach(f=>{const c=fs.readFileSync(p.resolve(f),'utf8'); if(!c.trim()) throw new Error('Empty doc: '+f); const opens=(c.match(/\\x60\\x60\\x60mermaid/g)||[]).length; const closes=(c.match(/^\\x60\\x60\\x60$/gm)||[]).length; if(opens>0 && closes<opens) throw new Error('Unclosed mermaid block in '+f);}); console.log('Docs & Mermaid check passed');\"",
+    "prepare": "git config core.hooksPath .githooks || true",
+    "validate": "npm run typecheck && npm run lint && npm run format:check && npm run docs:check && npm run build && npm test -- --run"
   },
   "dependencies": {
     "clsx": "^2.1.1",

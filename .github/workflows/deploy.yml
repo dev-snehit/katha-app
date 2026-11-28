@@ -20,6 +20,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -30,11 +32,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run automated unit tests
-        run: npm run test
+      - name: Verify documentation & flowchart sync
+        if: github.event_name == 'push'
+        run: |
+          CHANGED=$(git diff --name-only HEAD~1 HEAD || true)
+          if echo "$CHANGED" | grep -qE '^(src|backend)/'; then
+            echo "$CHANGED" | grep -qE '^docs/MODULES_AND_FLOWCHARTS\.md$' || (echo "Missing docs/MODULES_AND_FLOWCHARTS.md update" && exit 1)
+            echo "$CHANGED" | grep -qE '^docs/CHANGE_LOG_AND_PROMPTS\.md$' || (echo "Missing docs/CHANGE_LOG_AND_PROMPTS.md update" && exit 1)
+          fi
 
-      - name: Build static web application
-        run: npm run build
+      - name: Run full hard validation (typecheck, lint, format, docs, build, tests)
+        run: npm run validate
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
