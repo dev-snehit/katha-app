@@ -132,6 +132,13 @@ export interface AppState {
   updateUser: (userId: string, updates: { name?: string; role?: Role; status?: UserStatus }) => Promise<boolean>;
   deleteUser: (userId: string) => Promise<boolean>;
   cleanDuplicateUsers: () => Promise<{ removed: number; total: number }>;
+  masterResetDatabase: () => Promise<{
+    success: boolean;
+    message: string;
+    user?: User;
+    tempPassword?: string;
+    resetLink?: string;
+  }>;
 
   addOrder: (order: Order) => void;
   updateOrder: (order: Order) => void;
@@ -644,6 +651,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       resetPassword: { loadingEn: 'Updating password in database...', loadingTe: 'పాస్‌వర్డ్ అప్‌డేట్ అవుతోంది...', okEn: 'Password updated in database.', okTe: 'పాస్‌వర్డ్ డేటాబేస్‌లో అప్‌డేట్ చేయబడింది.' },
       saveFollowUp: { loadingEn: 'Saving follow-up lead...', loadingTe: 'ఫాలో-అప్ వివరాలు సేవ్ అవుతున్నాయి...', okEn: 'Follow-up saved to database.', okTe: 'ఫాలో-అప్ వివరాలు డేటాబేస్‌లో సేవ్ చేయబడ్డాయి.' },
       deleteFollowUp: { loadingEn: 'Deleting follow-up...', loadingTe: 'ఫాలో-అప్ తొలగించబడుతోంది...', okEn: 'Follow-up deleted from database.', okTe: 'ఫాలో-అప్ డేటాబేస్ నుండి తొలగించబడింది.' },
+      masterResetDatabase: { loadingEn: 'Resetting database and creating default Admin...', loadingTe: 'డేటాబేస్ రీసెట్ & డిఫాల్ట్ అడ్మిన్ సృష్టిస్తోంది...', okEn: 'Master reset complete. Default Admin created.', okTe: 'మాస్టర్ రీసెట్ పూర్తయింది. డిఫాల్ట్ అడ్మిన్ సృష్టించబడ్డారు.' },
     };
 
     const labels = actionLabels[action];
@@ -1221,6 +1229,93 @@ export const useAppStore = create<AppState>((set, get) => ({
       success: true,
       message: 'User account created in database with temporary password and password setup link dispatched.',
       user: newUser,
+      tempPassword,
+      resetLink,
+    };
+  },
+
+  masterResetDatabase: async () => {
+    const normEmail = normalizeEmail('dev.snehit@gmail.com');
+    const normPhone = normalizePhone('9032447447');
+    const randomDigits = Math.floor(1000 + Math.random() * 9000);
+    const tempPassword = `Kaatha@${randomDigits}`;
+    const passwordHash = await hashPassword(tempPassword);
+    const resetToken = `rst-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const basePath = typeof window !== 'undefined' && window.location.pathname.startsWith('/katha-app') ? '/katha-app' : '';
+    const resetLink = `${origin}${basePath}/reset-password/${resetToken}`;
+
+    const defaultAdmin: User = {
+      id: crypto.randomUUID ? crypto.randomUUID() : `usr-${Date.now()}-admin`,
+      name: 'Administrator',
+      email: normEmail,
+      phone: normPhone,
+      role: 'ADMIN',
+      status: 'APPROVED',
+      createdAt: new Date().toISOString(),
+      password: tempPassword,
+      passwordHash,
+      mustResetPassword: true,
+      resetPasswordToken: resetToken,
+      resetPasswordExpires: expiresAt,
+    };
+
+    await get().triggerSync('masterResetDatabase', {
+      user: defaultAdmin,
+      tempPassword,
+      resetLink,
+      resetToken,
+      expiresAt,
+    });
+
+    if (get().syncStatus === 'ERROR') {
+      return {
+        success: false,
+        message: 'Master reset failed on the server. Local data was preserved.',
+      };
+    }
+
+    const walkInCustomer: Customer = {
+      id: '00000000-0000-0000-0000-000000000002',
+      name: 'Walk-In Customer',
+      nameTe: 'వాక్-ఇన్ కస్టమర్',
+      phone: '0000000000',
+      address: 'Counter Cash Sale',
+      addressTe: 'కౌంటర్ నగదు అమ్మకం',
+      businessName: 'Counter',
+      businessNameTe: 'కౌంటర్',
+      currentDue: 0,
+      version: 1,
+      createdAt: new Date().toISOString(),
+    };
+
+    const freshUsers = [defaultAdmin];
+    const freshCustomers = [walkInCustomer];
+    const freshPerms = JSON.parse(JSON.stringify(DEFAULT_ROLE_PERMISSIONS));
+
+    saveToStorage('inventory', []);
+    saveToStorage('customers', freshCustomers);
+    saveToStorage('suppliers', []);
+    saveToStorage('orders', []);
+    saveToStorage('followUps', []);
+    saveToStorage('users', freshUsers);
+    saveToStorage('rolePermissions', freshPerms);
+
+    set({
+      inventory: [],
+      customers: freshCustomers,
+      suppliers: [],
+      orders: [],
+      followUps: [],
+      users: freshUsers,
+      rolePermissions: freshPerms,
+    });
+
+    return {
+      success: true,
+      message: 'Master database reset complete. All sheets cleared and default Admin created.',
+      user: defaultAdmin,
       tempPassword,
       resetLink,
     };

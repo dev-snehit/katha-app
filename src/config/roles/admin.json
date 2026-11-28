@@ -77,7 +77,8 @@
       "deny_user": true,
       "edit_user": true,
       "delete_user": true,
-      "manage_role_permissions": true
+      "manage_role_permissions": true,
+      "master_reset": true
     }
   }
 }

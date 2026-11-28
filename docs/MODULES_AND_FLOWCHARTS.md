@@ -119,6 +119,18 @@ flowchart LR
   - **Pending Approval Requests:** Lists both `PENDING_APPROVAL` registrations and `APPROVED` users with a pending `requestedRole` / `requestedName`. Approving applies `requestedRole` and `requestedName`; denying a role-change request clears the request while preserving existing active privileges.
   - **Create User (`/admin/new-user`):** Directly creates an `APPROVED` user in the database with a temporary password and password-setup link emailed via `MailApp`.
   - **Active System Users:** Inline edit (`name`, `role`, `status`) and delete with `AlertDialog` confirmation.
+  - **Master Reset Tab (`master_reset` permission switch):** Dedicated tab in Admin Governance (`UserRequestsView.tsx`), visibility-controlled via the `user_management_page.master_reset` toggle in `RolePermissionsManager` (`owner.json` / `admin.json` / `staff.json` / `customer.json` + `DEFAULT_BACKEND_ROLE_PERMISSIONS`). Executing requires a **Double Confirmation** (`Step 1 of 2` and `Step 2 of 2` danger `AlertDialog`s) and triggers `masterResetDatabase` in `backend/Code.gs`, which atomically clears all managed Google Sheets and `_Db_Index`, re-seeds `Role_Permissions` and `Walk-In Customer`, and inserts a single `APPROVED` `ADMIN` user (`dev.snehit@gmail.com`, mobile `9032447447`) via `repo.insert('Users', ...)` with standard uniqueness & temporary credential generation.
+
+```mermaid
+flowchart LR
+  Switch["Role Controls: master_reset switch"] --> Tab["Admin -> Master Reset Tab"]
+  Tab --> D1["Confirm Step 1 of 2"]
+  D1 --> D2["Final Confirm Step 2 of 2"]
+  D2 --> GS["backend/Code.gs: masterResetDatabase"]
+  GS --> Wipe["Clear all sheets & _Db_Index"]
+  Wipe --> Seed["Seed Walk-In Customer + Role_Permissions"]
+  Seed --> Admin["repo.insert ADMIN: dev.snehit@gmail.com / 9032447447"]
+```
 
 ### Flowchart
 

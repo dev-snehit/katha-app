@@ -226,5 +226,12 @@ describe('Role Specific Permissions & Access Governance', () => {
       expect(created).toBeDefined();
       expect(created?.passwordHash).toBeDefined();
     }, 15000);
+
+    it('configures master_reset switch for OWNER/ADMIN (true) and STAFF/CUSTOMER (false)', () => {
+      expect(isFunctionalityEnabled(DEFAULT_ROLE_PERMISSIONS, 'OWNER', 'user_management_page', 'master_reset')).toBe(true);
+      expect(isFunctionalityEnabled(DEFAULT_ROLE_PERMISSIONS, 'ADMIN', 'user_management_page', 'master_reset')).toBe(true);
+      expect(isFunctionalityEnabled(DEFAULT_ROLE_PERMISSIONS, 'STAFF', 'user_management_page', 'master_reset')).toBe(false);
+      expect(isFunctionalityEnabled(DEFAULT_ROLE_PERMISSIONS, 'CUSTOMER', 'user_management_page', 'master_reset')).toBe(false);
+    });
   });
 });

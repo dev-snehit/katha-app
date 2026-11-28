@@ -56,6 +56,16 @@ const FLOWS: FlowDef[] = [
       { labelEn: 'Top-Right Toast', labelTe: 'నోటిఫికేషన్ టోస్ట్', detailEn: 'Reconcile ID/version or friendly EN/TE error', detailTe: 'సేవ్ నిర్ధారణ లేదా లోపం', color: 'bg-emerald-50 border-emerald-200 text-emerald-900' },
     ],
   },
+  {
+    id: 'master_reset',
+    titleEn: 'Master Reset (Admin)',
+    titleTe: 'మాస్టర్ రీసెట్ (అడ్మిన్)',
+    steps: [
+      { labelEn: 'Permission Switch', labelTe: 'అనుమతి స్విచ్', detailEn: 'Toggle master_reset in Role Controls', detailTe: 'రోల్ కంట్రోల్స్‌లో master_reset', color: 'bg-slate-50 border-slate-200 text-slate-900' },
+      { labelEn: 'Double Confirmation', labelTe: 'రెండు సార్లు నిర్ధారణ', detailEn: 'Step 1 & Step 2 Danger AlertDialogs', detailTe: 'దశ 1 & దశ 2 హెచ్చరికలు', color: 'bg-rose-50 border-rose-200 text-rose-900' },
+      { labelEn: 'Wipe & Seed Admin', labelTe: 'క్లీన్ & డిఫాల్ట్ అడ్మిన్', detailEn: 'Clear sheets + dev.snehit@gmail.com (ADMIN)', detailTe: 'షీట్స్ క్లియర్ + dev.snehit@gmail.com', color: 'bg-emerald-50 border-emerald-200 text-emerald-900' },
+    ],
+  },
 ];
 
 export const FlowchartModal: React.FC<FlowchartModalProps> = ({ isOpen, onClose, language }) => {

@@ -149,4 +149,42 @@ describe('UI Views Part 1: DashboardView, ExportCenterView, RolePermissionsManag
     fireEvent.click(screen.getByText('Create User'));
     expect(screen.getByText(/Create User in Database/i)).toBeInTheDocument();
   });
+
+  it('supports Master Reset tab with double confirmation and role-switch visibility control', async () => {
+    const { rerender } = render(<UserRequestsView />);
+    const resetTab = screen.getByText('Master Reset');
+    fireEvent.click(resetTab);
+
+    expect(screen.getByText(/Master Database Reset/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Master Reset Database'));
+
+    // Step 1 of 2 confirmation
+    expect(await screen.findByText(/Confirm Master Reset \(Step 1 of 2\)/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Yes, Continue (1/2)'));
+
+    // Step 2 of 2 confirmation
+    expect(await screen.findByText(/Final Confirmation — Irreversible \(Step 2 of 2\)/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Execute Master Reset'));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Master Reset Completed!/i)).toBeInTheDocument();
+    });
+
+    const stateUsers = useAppStore.getState().users;
+    expect(stateUsers).toHaveLength(1);
+    expect(stateUsers[0].email).toBe('dev.snehit@gmail.com');
+    expect(stateUsers[0].phone).toBe('9032447447');
+    expect(stateUsers[0].role).toBe('ADMIN');
+    expect(stateUsers[0].status).toBe('APPROVED');
+
+    // Verify permission switch hides the Master Reset tab when disabled for ADMIN
+    const customPerms = JSON.parse(JSON.stringify(DEFAULT_ROLE_PERMISSIONS));
+    customPerms.ADMIN.user_management_page.functionalities.master_reset = false;
+    useAppStore.setState({
+      currentUser: { ...INITIAL_ADMIN_USER, role: 'ADMIN' },
+      rolePermissions: customPerms,
+    });
+    rerender(<UserRequestsView />);
+    expect(screen.queryByText('Master Reset')).toBeNull();
+  });
 });

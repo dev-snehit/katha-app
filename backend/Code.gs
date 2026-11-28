@@ -899,8 +899,9 @@ var DEFAULT_BACKEND_ROLE_PERMISSIONS = {
     stock_page: { enabled: true, functionalities: { view_stock: true, add_product: true, edit_product: true, delete_product: true, unpack_bag: true } },
     customers_page: { enabled: true, functionalities: { view_customers: true, add_customer: true, edit_customer: true, delete_customer: true } },
     suppliers_page: { enabled: true, functionalities: { view_suppliers: true, add_supplier: true, edit_supplier: true, delete_supplier: true } },
+    followups_page: { enabled: true, functionalities: { view_followups: true, add_followup: true, edit_followup: true, delete_followup: true } },
     reports_page: { enabled: true, functionalities: { view_reports: true, export_data: true, generate_statement: true } },
-    user_management_page: { enabled: true, functionalities: { view_users: true, approve_user: true, deny_user: true, edit_user: true, delete_user: true, manage_role_permissions: true } }
+    user_management_page: { enabled: true, functionalities: { view_users: true, approve_user: true, deny_user: true, edit_user: true, delete_user: true, manage_role_permissions: true, master_reset: true } }
   },
   ADMIN: {
     dashboard_page: { enabled: true, functionalities: { view_dashboard: true, view_kpi_metrics: true, view_order_funnel_chart: true, view_inventory_health: true, view_credit_risk_table: true, view_recent_activity: true, quick_actions: true } },
@@ -908,8 +909,9 @@ var DEFAULT_BACKEND_ROLE_PERMISSIONS = {
     stock_page: { enabled: true, functionalities: { view_stock: true, add_product: true, edit_product: true, delete_product: true, unpack_bag: true } },
     customers_page: { enabled: true, functionalities: { view_customers: true, add_customer: true, edit_customer: true, delete_customer: true } },
     suppliers_page: { enabled: true, functionalities: { view_suppliers: true, add_supplier: true, edit_supplier: true, delete_supplier: true } },
+    followups_page: { enabled: true, functionalities: { view_followups: true, add_followup: true, edit_followup: true, delete_followup: true } },
     reports_page: { enabled: true, functionalities: { view_reports: true, export_data: true, generate_statement: true } },
-    user_management_page: { enabled: true, functionalities: { view_users: true, approve_user: true, deny_user: true, edit_user: true, delete_user: true, manage_role_permissions: true } }
+    user_management_page: { enabled: true, functionalities: { view_users: true, approve_user: true, deny_user: true, edit_user: true, delete_user: true, manage_role_permissions: true, master_reset: true } }
   },
   STAFF: {
     dashboard_page: { enabled: true, functionalities: { view_dashboard: true, view_kpi_metrics: true, view_order_funnel_chart: true, view_inventory_health: true, view_credit_risk_table: false, view_recent_activity: true, quick_actions: true } },
@@ -917,8 +919,9 @@ var DEFAULT_BACKEND_ROLE_PERMISSIONS = {
     stock_page: { enabled: true, functionalities: { view_stock: true, add_product: false, edit_product: false, delete_product: false, unpack_bag: true } },
     customers_page: { enabled: true, functionalities: { view_customers: true, add_customer: true, edit_customer: false, delete_customer: false } },
     suppliers_page: { enabled: true, functionalities: { view_suppliers: true, add_supplier: false, edit_supplier: false, delete_supplier: false } },
+    followups_page: { enabled: true, functionalities: { view_followups: true, add_followup: true, edit_followup: true, delete_followup: false } },
     reports_page: { enabled: true, functionalities: { view_reports: true, export_data: false, generate_statement: true } },
-    user_management_page: { enabled: false, functionalities: { view_users: false, approve_user: false, deny_user: false, edit_user: false, delete_user: false, manage_role_permissions: false } }
+    user_management_page: { enabled: false, functionalities: { view_users: false, approve_user: false, deny_user: false, edit_user: false, delete_user: false, manage_role_permissions: false, master_reset: false } }
   },
   CUSTOMER: {
     dashboard_page: { enabled: false, functionalities: { view_dashboard: false, view_kpi_metrics: false, view_order_funnel_chart: false, view_inventory_health: false, view_credit_risk_table: false, view_recent_activity: false, quick_actions: false } },
@@ -926,8 +929,9 @@ var DEFAULT_BACKEND_ROLE_PERMISSIONS = {
     stock_page: { enabled: true, functionalities: { view_stock: true, add_product: false, edit_product: false, delete_product: false, unpack_bag: false } },
     customers_page: { enabled: false, functionalities: { view_customers: false, add_customer: false, edit_customer: false, delete_customer: false } },
     suppliers_page: { enabled: false, functionalities: { view_suppliers: false, add_supplier: false, edit_supplier: false, delete_supplier: false } },
+    followups_page: { enabled: false, functionalities: { view_followups: false, add_followup: false, edit_followup: false, delete_followup: false } },
     reports_page: { enabled: false, functionalities: { view_reports: false, export_data: false, generate_statement: false } },
-    user_management_page: { enabled: false, functionalities: { view_users: false, approve_user: false, deny_user: false, edit_user: false, delete_user: false, manage_role_permissions: false } }
+    user_management_page: { enabled: false, functionalities: { view_users: false, approve_user: false, deny_user: false, edit_user: false, delete_user: false, manage_role_permissions: false, master_reset: false } }
   }
 };
 
@@ -2012,6 +2016,127 @@ function doPost(e) {
           suppliers: suppliers.length,
           orders: orders.length
         }
+      });
+    }
+
+    if (action === 'masterResetDatabase') {
+      if (!checkBackendPermission(ss, userRole, 'user_management_page', 'master_reset')) {
+        return createResponse({ status: 'error', code: ERROR_CODES.FORBIDDEN, message: 'Permission denied: master_reset is disabled for role ' + userRole });
+      }
+      var reqUser = body.user || {};
+      var resetTempPass = body.tempPassword || '';
+      var resetSetupLink = body.resetLink || '';
+      var defaultAdminEmail = normalizeEmailValue(reqUser.email || 'dev.snehit@gmail.com');
+      var defaultAdminPhone = normalizePhoneValue(reqUser.phone || '9032447447');
+      var defaultAdminName = (reqUser.name || 'Administrator').toString().trim();
+
+      var savedAdmin = null;
+      repo.withLock(function() {
+        // 1. Clear all managed tables (preserving row 1 headers)
+        var tableNames = getManagedTableNames();
+        for (var ti = 0; ti < tableNames.length; ti++) {
+          var tName = tableNames[ti];
+          var tSheet = ss.getSheetByName(tName);
+          if (tSheet) {
+            ensureSheetHeaders(tSheet, DB_SCHEMA[tName].columns);
+            if (tSheet.getLastRow() > 1) {
+              tSheet.getRange(2, 1, tSheet.getLastRow() - 1, Math.max(tSheet.getLastColumn(), DB_SCHEMA[tName].columns.length)).clearContent();
+            }
+          }
+        }
+
+        // 2. Clear _Db_Index so PK/UK uniqueness starts completely fresh
+        var idxSheet = getIndexSheet(ss);
+        if (idxSheet && idxSheet.getLastRow() > 1) {
+          idxSheet.getRange(2, 1, idxSheet.getLastRow() - 1, idxSheet.getLastColumn()).clearContent();
+        }
+
+        // 3. Re-seed default Role_Permissions
+        var permSheet = ss.getSheetByName('Role_Permissions');
+        if (permSheet) {
+          var permNow = new Date().toISOString();
+          ['OWNER', 'ADMIN', 'STAFF', 'CUSTOMER'].forEach(function(r) {
+            permSheet.appendRow([r, JSON.stringify(DEFAULT_BACKEND_ROLE_PERMISSIONS[r]), 'SYSTEM', 1, permNow, permNow, false]);
+          });
+        }
+
+        // 4. Re-seed deterministic Walk-In Customer so counter-cash orders never fail FK
+        var custSheet = ss.getSheetByName('Master_Customers');
+        if (custSheet) {
+          var walkInNow = new Date().toISOString();
+          custSheet.appendRow([
+            '00000000-0000-0000-0000-000000000002',
+            'Walk-In Customer',
+            'వాక్-ఇన్ కస్టమర్',
+            '0000000000',
+            'Counter Cash Sale',
+            'కౌంటర్ నగదు అమ్మకం',
+            'Counter',
+            'కౌంటర్',
+            0,
+            1,
+            walkInNow,
+            walkInNow,
+            false
+          ]);
+        }
+
+        // 5. Insert single default Approved ADMIN user following original user creation & uniqueness checks
+        savedAdmin = repo.insert('Users', {
+          name: defaultAdminName,
+          email: defaultAdminEmail,
+          phone: defaultAdminPhone,
+          role: 'ADMIN',
+          status: 'APPROVED',
+          createdAt: new Date().toISOString(),
+          passwordHash: reqUser.passwordHash || '',
+          requestedRole: '',
+          requestedName: '',
+          mustResetPassword: true
+        });
+
+        // 6. Log Master Reset audit event
+        var auditSheet = ss.getSheetByName('Audit_Logs');
+        if (auditSheet) {
+          auditSheet.appendRow([
+            Utilities.getUuid(),
+            new Date().toISOString(),
+            userEmail || defaultAdminEmail,
+            'MASTER_RESET',
+            'Users',
+            savedAdmin.id,
+            'Database wiped and reset with default ADMIN: ' + defaultAdminEmail
+          ]);
+        }
+      });
+
+      if (ENABLE_EMAIL_DELIVERY && defaultAdminEmail) {
+        try {
+          var resetEmailBody = 'Hello ' + defaultAdminName + ',\n\n' +
+            'Kaatha Wholesale database has undergone a Master Reset and your default ADMIN account has been created.\n\n' +
+            'Role: ADMIN\n' +
+            'Email: ' + defaultAdminEmail + '\n' +
+            'Mobile: ' + defaultAdminPhone + '\n';
+          if (resetTempPass) resetEmailBody += 'Temporary Password: ' + resetTempPass + '\n\n';
+          if (resetSetupLink) resetEmailBody += 'Direct Password Setup Link:\n' + resetSetupLink + '\n\n';
+          resetEmailBody += 'Regards,\nKaatha Wholesale Enterprise';
+          MailApp.sendEmail({
+            to: defaultAdminEmail,
+            subject: 'Kaatha Wholesale - Master Reset & Default Admin Credentials',
+            body: resetEmailBody
+          });
+        } catch (mailErr) {
+          console.warn('MailApp masterResetDatabase error:', mailErr);
+        }
+      }
+
+      return createResponse({
+        status: 'success',
+        message: 'Master reset completed. All sheets cleared and default Admin created.',
+        id: savedAdmin ? savedAdmin.id : '',
+        userId: savedAdmin ? savedAdmin.id : '',
+        version: savedAdmin ? savedAdmin.version : 1,
+        user: savedAdmin
       });
     }
 

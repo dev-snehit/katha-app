@@ -367,6 +367,13 @@ export const PERMISSION_PAGES_META: PageMeta[] = [
         descriptionEn: 'Allow configuring the global feature access boolean JSON for all roles',
         descriptionTe: 'అన్ని రోల్స్ కొరకు ఫీచర్ అనుమతుల JSON ను నిర్వహించే అధికారం',
       },
+      {
+        key: 'master_reset',
+        labelEn: 'Master Reset Database',
+        labelTe: 'మాస్టర్ డేటాబేస్ రీసెట్',
+        descriptionEn: 'Allow viewing and executing the Master Reset tab to wipe all Google Sheets data and re-seed default Admin',
+        descriptionTe: 'గూగుల్ షీట్‌లలోని డేటా అంతా క్లియర్ చేసి డిఫాల్ట్ అడ్మిన్‌ను సృష్టించే మాస్టర్ రీసెట్ ట్యాబ్‌ను చూసే అధికారం',
+      },
     ],
   },
 ];

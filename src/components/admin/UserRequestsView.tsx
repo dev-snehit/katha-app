@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAppStore, normalizeEmail, normalizePhone } from '../../store/useAppStore';
 import { User, Role, UserStatus } from '../../contracts';
-import { ShieldCheck, UserCheck, UserX, Clock, Plus, Pencil, Trash2, Sparkles, CheckCircle2, AlertCircle, Users, Sliders, Copy, Check, KeyRound, Mail } from 'lucide-react';
+import { ShieldCheck, UserCheck, UserX, Clock, Plus, Pencil, Trash2, Sparkles, CheckCircle2, AlertCircle, Users, Sliders, Copy, Check, KeyRound, Mail, RotateCcw, AlertTriangle } from 'lucide-react';
 import { useModalDismiss } from '../../hooks/useModalDismiss';
 import { useRouter } from '../../lib/router';
 import { AlertDialog, DialogType } from '../ui/AlertDialog';
@@ -16,6 +16,7 @@ export const UserRequestsView: React.FC = () => {
     registerUser, 
     updateUser, 
     deleteUser, 
+    masterResetDatabase,
     startActionLoading,
     stopActionLoading,
     hasFunctionalityAccess,
@@ -23,7 +24,14 @@ export const UserRequestsView: React.FC = () => {
   } = useAppStore();
   const { route, navigate } = useRouter();
   const isTe = language === 'TE';
-  const [adminSubTab, setAdminSubTab] = useState<'users' | 'permissions'>('users');
+  const [adminSubTab, setAdminSubTab] = useState<'users' | 'permissions' | 'reset'>('users');
+  const [masterResetResult, setMasterResetResult] = useState<{
+    user: User;
+    tempPassword?: string;
+    resetLink?: string;
+  } | null>(null);
+  const [masterResetError, setMasterResetError] = useState<string | null>(null);
+  const [copiedMasterCreds, setCopiedMasterCreds] = useState(false);
 
   // Create User Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -351,10 +359,150 @@ export const UserRequestsView: React.FC = () => {
             <span>{isTe ? 'రోల్ నిర్దిష్ట నియంత్రణలు' : 'Role Specific Controls'}</span>
           </button>
         )}
+
+        {hasFunctionalityAccess('user_management_page', 'master_reset') && (
+          <button
+            onClick={() => setAdminSubTab('reset')}
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+              adminSubTab === 'reset'
+                ? 'bg-rose-600 text-white shadow-sm'
+                : 'bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200'
+            }`}
+          >
+            <RotateCcw className="w-4 h-4" />
+            <span>{isTe ? 'మాస్టర్ రీసెట్' : 'Master Reset'}</span>
+          </button>
+        )}
       </div>
 
       {adminSubTab === 'permissions' ? (
         <RolePermissionsManager />
+      ) : adminSubTab === 'reset' && hasFunctionalityAccess('user_management_page', 'master_reset') ? (
+        <div className="bg-white rounded-2xl border border-rose-200 shadow-sm p-6 space-y-5">
+          <div className="flex items-start gap-3">
+            <div className="w-11 h-11 rounded-2xl bg-rose-100 text-rose-700 flex items-center justify-center shrink-0">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+            <div>
+              <h2 className="text-lg font-extrabold text-slate-900">
+                {isTe ? 'మాస్టర్ డేటాబేస్ రీసెట్ (గూగుల్ షీట్స్ క్లీనప్)' : 'Master Database Reset (Clean Slate)'}
+              </h2>
+              <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                {isTe
+                  ? 'ఈ చర్య గూగుల్ షీట్స్‌లోని అన్ని ఆర్డర్లు, స్టాక్, కస్టమర్లు, సప్లయర్లు, ఫాలో-అప్స్, ఆడిట్ లాగ్‌లు మరియు యూజర్లను పూర్తిగా క్లియర్ చేస్తుంది. ఆ తర్వాత dev.snehit@gmail.com (మొబైల్: 9032447447) తో ఒకే ఒక ఆమోదించబడిన ADMIN ఖాతాను సృష్టిస్తుంది.'
+                  : 'This action permanently erases all rows across Orders, Order Items, Stock, Customers, Suppliers, Follow-Ups, Audit Logs, and Users in Google Sheets, then creates a single approved ADMIN account following standard user uniqueness and onboarding rules.'}
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs">
+            <div>
+              <span className="font-bold text-slate-500 block">{isTe ? 'డిఫాల్ట్ అడ్మిన్ ఇమెయిల్' : 'Default Admin Email'}</span>
+              <span className="font-mono font-bold text-slate-900">dev.snehit@gmail.com</span>
+            </div>
+            <div>
+              <span className="font-bold text-slate-500 block">{isTe ? 'మొబైల్ నంబర్' : 'Mobile Number'}</span>
+              <span className="font-mono font-bold text-slate-900">9032447447</span>
+            </div>
+            <div>
+              <span className="font-bold text-slate-500 block">{isTe ? 'రోల్ & స్థితి' : 'Role & Status'}</span>
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800">
+                ADMIN • APPROVED
+              </span>
+            </div>
+          </div>
+
+          {masterResetError && (
+            <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{masterResetError}</span>
+            </div>
+          )}
+
+          {masterResetResult && (
+            <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 space-y-2.5 text-xs">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 font-extrabold text-emerald-900">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <span>{isTe ? 'మాస్టర్ రీసెట్ పూర్తయింది!' : 'Master Reset Completed!'}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const text = `Kaatha Wholesale Default Admin\nEmail: ${masterResetResult.user.email}\nMobile: ${masterResetResult.user.phone}\nRole: ${masterResetResult.user.role}\nTemporary Password: ${masterResetResult.tempPassword || ''}\nSetup Link: ${masterResetResult.resetLink || ''}`;
+                    navigator.clipboard?.writeText(text);
+                    setCopiedMasterCreds(true);
+                    setTimeout(() => setCopiedMasterCreds(false), 2000);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-[11px]"
+                >
+                  {copiedMasterCreds ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copiedMasterCreds ? (isTe ? 'కాపీ అయింది' : 'Copied') : (isTe ? 'వివరాలు కాపీ చేయి' : 'Copy Details')}</span>
+                </button>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-emerald-950 font-mono bg-white/80 p-3 rounded-xl border border-emerald-200">
+                <div><strong>Email:</strong> {masterResetResult.user.email}</div>
+                <div><strong>Mobile:</strong> {masterResetResult.user.phone}</div>
+                <div><strong>Temp Password:</strong> {masterResetResult.tempPassword}</div>
+                <div className="truncate"><strong>Setup Link:</strong> {masterResetResult.resetLink}</div>
+              </div>
+            </div>
+          )}
+
+          <div className="pt-2">
+            <button
+              type="button"
+              onClick={() => {
+                setMasterResetError(null);
+                requestConfirmation({
+                  title: isTe ? 'మాస్టర్ రీసెట్ నిర్ధారణ (దశ 1 / 2)' : 'Confirm Master Reset (Step 1 of 2)',
+                  message: isTe
+                    ? 'మీరు గూగుల్ షీట్స్‌లోని మొత్తం డేటాను (ఆర్డర్లు, స్టాక్, కస్టమర్లు, సప్లయర్లు, యూజర్లు) పూర్తిగా క్లియర్ చేయాలనుకుంటున్నారా?'
+                    : 'Are you sure you want to wipe ALL data in Google Sheets (Orders, Stock, Customers, Suppliers, Follow-Ups, and Users)?',
+                  type: 'danger',
+                  actionText: isTe ? 'అవును, కొనసాగండి (1/2)' : 'Yes, Continue (1/2)',
+                  cancelText: isTe ? 'రద్దు' : 'Cancel',
+                  onAction: () => {
+                    setTimeout(() => {
+                      requestConfirmation({
+                        title: isTe ? 'తుది నిర్ధారణ — వెనక్కి తీసుకోలేరు (దశ 2 / 2)' : 'Final Confirmation — Irreversible (Step 2 of 2)',
+                        message: isTe
+                          ? 'ఇది చివరి హెచ్చరిక: మొత్తం డేటాబేస్ క్లియర్ చేయబడి, dev.snehit@gmail.com (9032447447) తో ఒకే ఒక ADMIN ఖాతా సృష్టించబడుతుంది. కొనసాగాలా?'
+                          : 'FINAL WARNING: Everything in the database will be permanently deleted and replaced with a single APPROVED ADMIN user (dev.snehit@gmail.com / 9032447447). Proceed with Master Reset?',
+                        type: 'danger',
+                        actionText: isTe ? 'మాస్టర్ రీసెట్ అమలు చేయి' : 'Execute Master Reset',
+                        cancelText: isTe ? 'వద్దు, ఆపు' : 'Abort',
+                        onAction: async () => {
+                          startActionLoading(
+                            isTe ? 'మాస్టర్ డేటాబేస్ రీసెట్ అవుతోంది...' : 'Executing Master Database Reset...'
+                          );
+                          try {
+                            const res = await masterResetDatabase();
+                            if (res.success && res.user) {
+                              setMasterResetResult({
+                                user: res.user,
+                                tempPassword: res.tempPassword,
+                                resetLink: res.resetLink,
+                              });
+                            } else {
+                              setMasterResetError(res.message);
+                            }
+                          } finally {
+                            stopActionLoading();
+                          }
+                        },
+                      });
+                    }, 0);
+                  },
+                });
+              }}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-rose-600 hover:bg-rose-700 text-white text-xs font-extrabold shadow-sm shadow-rose-600/20 active:scale-95 transition-all"
+            >
+              <RotateCcw className="w-4 h-4" />
+              <span>{isTe ? 'మాస్టర్ రీసెట్ డేటాబేస్' : 'Master Reset Database'}</span>
+            </button>
+          </div>
+        </div>
       ) : (
         <>
           {/* Pending Requests Section */}
