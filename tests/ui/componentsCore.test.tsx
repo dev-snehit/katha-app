@@ -91,7 +91,7 @@ describe('UI Components: AlertDialog, Navbar, SettingsModal & AuthView', () => {
     }
 
     // Click brand logo & tabs
-    fireEvent.click(screen.getByLabelText('Kaatha CRM Home'));
+    fireEvent.click(screen.getByLabelText('Kaatha App Home'));
     expect(setActiveTab).toHaveBeenCalledWith('dashboard');
 
     fireEvent.click(screen.getAllByText('Orders')[0]);

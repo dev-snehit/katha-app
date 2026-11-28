@@ -1,16 +1,14 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { useRouter } from '../../lib/router';
 import { getLocalizedText } from '../../lib/bilingualHelper';
 import { Order, Product, Customer } from '../../contracts';
-import { FlowchartModal } from '../ui/FlowchartModal';
 import { 
   TrendingUp, 
   Truck, 
   Package, 
   Users, 
   Building2, 
-  GitBranch,
   AlertTriangle, 
   CheckCircle2, 
   Clock, 
@@ -43,7 +41,6 @@ export const DashboardView: React.FC = () => {
 
   const { navigate } = useRouter();
   const isTe = language === 'TE';
-  const [isFlowchartOpen, setIsFlowchartOpen] = useState(false);
 
   // --- 1. Commercial Financial Metrics ---
   const totalSupplierPayables = suppliers.reduce((sum, s) => sum + (s.payableAmount || 0), 0);
@@ -172,15 +169,6 @@ export const DashboardView: React.FC = () => {
               title={isTe ? 'ఎక్సెల్ రిపోర్టులు' : 'Download Reports'}
             >
               <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
-            </button>
-
-            <button
-              onClick={() => setIsFlowchartOpen(true)}
-              className="inline-flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-100 font-bold text-xs px-3.5 py-2.5 rounded-xl border border-slate-700 shadow-sm transition-all active:scale-95"
-              title={isTe ? 'యాక్షన్ ఫ్లోచార్ట్‌లు' : 'Action Flowcharts'}
-            >
-              <GitBranch className="w-3.5 h-3.5 text-amber-400" />
-              <span>{isTe ? 'ఫ్లోచార్ట్' : 'Flowcharts'}</span>
             </button>
           </div>
         )}
@@ -646,12 +634,6 @@ export const DashboardView: React.FC = () => {
         )}
 
       </div>
-
-      <FlowchartModal
-        isOpen={isFlowchartOpen}
-        onClose={() => setIsFlowchartOpen(false)}
-        language={language}
-      />
     </div>
   );
 };

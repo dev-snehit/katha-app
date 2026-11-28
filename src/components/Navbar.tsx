@@ -15,7 +15,6 @@ import {
   ShieldCheck, 
   Settings, 
   Globe,
-  Sparkles,
   LogOut,
   RefreshCw,
   CheckCircle2,
@@ -144,8 +143,8 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
                 navigate(`/${target}`);
               }}
               className="flex items-center gap-2 sm:gap-2.5 shrink-0 text-left cursor-pointer group focus:outline-none"
-              title={language === 'TE' ? 'కాతా హోమ్ పేజీకి వెళ్లండి' : 'Go to Kaatha Home / Initial Page'}
-              aria-label={language === 'TE' ? 'కాతా CRM హోమ్' : 'Kaatha CRM Home'}
+              title={language === 'TE' ? 'కాతా యాప్ హోమ్ పేజీకి వెళ్లండి' : 'Go to Kaatha App Home'}
+              aria-label={language === 'TE' ? 'కాతా యాప్ హోమ్' : 'Kaatha App Home'}
             >
               <div className="w-8 h-8 sm:w-9 sm:h-9 xl:w-10 xl:h-10 rounded-xl sm:rounded-2xl bg-gradient-to-tr from-[#FF5A36] to-[#FF8155] flex items-center justify-center text-white shadow-md shadow-orange-500/20 shrink-0 transition-transform group-hover:scale-105 active:scale-95">
                 <Flame className="w-4 h-4 sm:w-5 sm:h-5 fill-white" />
@@ -153,10 +152,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
               <div className="flex flex-col justify-center shrink-0">
                 <div className="flex items-center gap-1.5 whitespace-nowrap leading-tight">
                   <span className="text-sm sm:text-base xl:text-lg font-black tracking-tight text-slate-900 whitespace-nowrap group-hover:text-slate-700 transition-colors">
-                    {language === 'TE' ? 'కాతా' : 'Kaatha'} <span className="text-[#FF5A36]">CRM</span>
-                  </span>
-                  <span className="hidden xl:inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full bg-orange-50 text-orange-700 border border-orange-200 whitespace-nowrap">
-                    <Sparkles className="w-2.5 h-2.5" /> Mandi OS
+                    {language === 'TE' ? 'కాతా' : 'Kaatha'} <span className="text-[#FF5A36]">{language === 'TE' ? 'యాప్' : 'App'}</span>
                   </span>
                 </div>
                 <span className="hidden min-[1680px]:block text-[10px] xl:text-[11px] text-slate-400 font-medium whitespace-nowrap truncate max-w-[260px] leading-tight">
@@ -165,8 +161,9 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
               </div>
             </button>
 
-            {/* Desktop Pill Navigation (Visible on lg: 1024px+ displays with all available options) */}
-            <nav className="hidden lg:flex items-center p-1 bg-slate-100/90 rounded-full border border-slate-200/80 space-x-0.5 xl:space-x-1 shrink-0">
+            {/* Desktop Pill Navigation (Visible on lg: 1024px+ displays with smooth horizontal scroll on tighter lg widths) */}
+            <nav className="hidden lg:flex flex-1 justify-center min-w-0 mx-2">
+              <div className="flex items-center p-1 bg-slate-100/90 rounded-full border border-slate-200/80 space-x-0.5 xl:space-x-1 overflow-x-auto no-scrollbar max-w-full">
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = activeTab === item.id;
@@ -196,6 +193,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
                   </button>
                 );
               })}
+              </div>
             </nav>
 
             {/* Right Controls: Database Sync Pill, Settings, Language, User Profile & Sign Out */}
@@ -298,9 +296,9 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
           </div>
         </div>
 
-        {/* Responsive Top Navigation Strip for Smaller Screens (< lg: tablets and mobile) */}
-        <div className="lg:hidden border-t border-slate-200/80 bg-slate-50/90 backdrop-blur-md px-2 sm:px-4 py-1.5">
-          <div className="flex items-center justify-start sm:justify-center gap-1 sm:gap-1.5 overflow-x-auto no-scrollbar scroll-smooth">
+        {/* Responsive Top Navigation Strip for Tablet Screens (md..lg) */}
+        <div className="hidden md:block lg:hidden border-t border-slate-200/80 bg-slate-50/90 backdrop-blur-md px-3 sm:px-4 py-1.5">
+          <div className="flex items-center justify-center gap-1.5 overflow-x-auto no-scrollbar scroll-smooth">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = activeTab === item.id;
@@ -310,7 +308,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
                   onClick={() => setActiveTab(item.id)}
                   title={item.fullTitle}
                   aria-label={item.fullTitle}
-                  className={`relative inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full text-[11px] sm:text-xs font-bold whitespace-nowrap transition-all shrink-0 ${
+                  className={`relative inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all shrink-0 ${
                     isActive
                       ? item.isAdmin
                         ? 'bg-[#FF5A36] text-white shadow-sm'
@@ -334,8 +332,8 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
         </div>
       </header>
 
-      {/* MOBILE BOTTOM NAVIGATION BAR (Thumb Reach for Handheld Phones) */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-slate-200 px-1 py-1 flex items-center justify-around shadow-lg">
+      {/* MOBILE BOTTOM NAVIGATION BAR (Thumb Reach for Handheld Phones < md) */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 px-2 py-1.5 flex items-center justify-between gap-1 overflow-x-auto no-scrollbar shadow-lg">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;
@@ -343,21 +341,21 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenS
             <button
               key={item.id}
               onClick={() => setActiveTab(item.id)}
-              className={`flex flex-col items-center gap-0.5 py-1 px-1.5 rounded-xl text-[9px] sm:text-[10px] font-bold transition-colors shrink-0 ${
+              className={`flex flex-col items-center gap-0.5 py-1 px-2.5 rounded-xl text-[10px] font-bold transition-colors shrink-0 min-w-[56px] ${
                 isActive
-                  ? item.isAdmin ? 'text-[#FF5A36]' : 'text-slate-900 font-black'
+                  ? item.isAdmin ? 'text-[#FF5A36] bg-orange-50/70' : 'text-slate-900 font-black bg-slate-100/80'
                   : 'text-slate-500 hover:text-slate-700'
               }`}
             >
               <div className="relative">
-                <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
+                <Icon className="w-4 h-4" />
                 {typeof item.badge === 'number' && item.badge > 0 && (
                   <span className="absolute -top-1 -right-2 px-1 py-0.1 rounded-full text-[8px] font-black bg-[#FF5A36] text-white">
                     {item.badge}
                   </span>
                 )}
               </div>
-              <span className="truncate max-w-[50px]">{item.label}</span>
+              <span className="whitespace-nowrap">{item.label}</span>
             </button>
           );
         })}

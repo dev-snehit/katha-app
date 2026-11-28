@@ -13,6 +13,7 @@ import { AlertDialog } from '../ui/AlertDialog';
 export const StockRegistryView: React.FC = () => {
   const { 
     inventory, 
+    suppliers,
     language, 
     currentUser, 
     unpackProduct, 
@@ -52,7 +53,10 @@ export const StockRegistryView: React.FC = () => {
   const [stockSearch, setStockSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
   const [stockSort, setStockSort] = useState<'NAME_ASC' | 'STOCK_ASC' | 'PRICE_DESC'>('NAME_ASC');
+  const todayStr = new Date().toISOString().split('T')[0];
   const [brandOrMill, setBrandOrMill] = useState('');
+  const [billNumber, setBillNumber] = useState('');
+  const [purchaseDate, setPurchaseDate] = useState(todayStr);
   const [innerBagWeightKg, setInnerBagWeightKg] = useState('');
   const [innerBagsPerOuter, setInnerBagsPerOuter] = useState('');
   const [stockPhysicalOuter, setStockPhysicalOuter] = useState('');
@@ -78,6 +82,8 @@ export const StockRegistryView: React.FC = () => {
       setCategory('');
       setCategoryTe('');
       setBrandOrMill('');
+      setBillNumber('');
+      setPurchaseDate(todayStr);
       setInnerBagWeightKg('');
       setInnerBagsPerOuter('');
       setStockPhysicalOuter('');
@@ -96,6 +102,8 @@ export const StockRegistryView: React.FC = () => {
         setCategory(prod.category || '');
         setCategoryTe(prod.categoryTe || '');
         setBrandOrMill(prod.brandOrMill || '');
+        setBillNumber(prod.billNumber || '');
+        setPurchaseDate(prod.purchaseDate ? prod.purchaseDate.slice(0, 10) : todayStr);
         setInnerBagWeightKg(String(prod.innerBagWeightKg || ''));
         setInnerBagsPerOuter(String(prod.innerBagsPerOuter || ''));
         setStockPhysicalOuter(String(prod.stockPhysicalOuter || ''));
@@ -150,11 +158,12 @@ export const StockRegistryView: React.FC = () => {
     setFormError('');
     setFieldErrors({});
 
+    const isKnownSupplier = suppliers.some((s) => s.businessName === brandOrMill.trim());
     const validation = validatePurchaseRecord({
       name,
       nameTe,
       category,
-      brandOrMill,
+      brandOrMill: isKnownSupplier ? 'Verified Supplier' : brandOrMill,
       innerBagWeightKg,
       innerBagsPerOuter,
       stockPhysicalOuter,
@@ -183,7 +192,10 @@ export const StockRegistryView: React.FC = () => {
         name: name.trim(),
         nameTe: nameTe.trim(),
         category,
+        categoryTe: categoryTe.trim(),
         brandOrMill: brandOrMill.trim(),
+        billNumber: billNumber.trim() || undefined,
+        purchaseDate: purchaseDate || todayStr,
         innerBagWeightKg: innerWt,
         innerBagsPerOuter: innerCount,
         outerBagTotalKg,
@@ -221,6 +233,8 @@ export const StockRegistryView: React.FC = () => {
         category,
         categoryTe: categoryTe.trim(),
         brandOrMill: brandOrMill.trim(),
+        billNumber: billNumber.trim() || undefined,
+        purchaseDate: purchaseDate || todayStr,
         innerBagWeightKg: innerWt,
         innerBagsPerOuter: innerCount,
         outerBagTotalKg,
@@ -774,12 +788,10 @@ export const StockRegistryView: React.FC = () => {
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    {language === 'TE' ? 'బిల్లు / మిల్లు పేరు (Bill Name - కేవలం అక్షరాలు మాత్రమే) *' : 'Bill Name / Mill Name (Alphabets Only) *'}
+                    {language === 'TE' ? 'సప్లయర్ / మిల్లు పేరు *' : 'Supplier / Mill Name *'}
                   </label>
-                  <input
-                    type="text"
+                  <select
                     required
-                    placeholder={language === 'TE' ? 'ఉదా: Sri Lalitha Rice Mill' : 'e.g. Sri Lalitha Rice Mill'}
                     value={brandOrMill}
                     onChange={(e) => {
                       setBrandOrMill(e.target.value);
@@ -787,15 +799,54 @@ export const StockRegistryView: React.FC = () => {
                         setFieldErrors((prev) => { const n = { ...prev }; delete n.brandOrMill; return n; });
                       }
                     }}
-                    className={`w-full text-xs font-medium border rounded-xl p-3 outline-none transition-colors ${
+                    className={`w-full text-xs font-medium border rounded-xl p-3 outline-none transition-colors bg-white ${
                       fieldErrors.brandOrMill 
                         ? 'border-rose-400 bg-rose-50/20 focus:border-rose-500' 
                         : 'border-slate-300 focus:border-orange-500'
                     }`}
-                  />
+                  >
+                    <option value="">{language === 'TE' ? 'సప్లయర్ / మిల్లును ఎంచుకోండి...' : 'Select Supplier / Mill...'}</option>
+                    {suppliers.map((s) => (
+                      <option key={s.id} value={s.businessName}>
+                        {s.businessName}{s.nickname ? ` (${s.nickname})` : ''}
+                      </option>
+                    ))}
+                    {brandOrMill && !suppliers.some((s) => s.businessName === brandOrMill) && (
+                      <option value={brandOrMill}>{brandOrMill}</option>
+                    )}
+                  </select>
                   {fieldErrors.brandOrMill && (
                     <p className="text-[11px] font-semibold text-rose-600 mt-1">{fieldErrors.brandOrMill}</p>
                   )}
+                </div>
+              </div>
+
+              {/* Purchase Bill / Invoice Number & Action Date */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    {language === 'TE' ? 'బిల్లు / ఇన్వాయిస్ నంబర్ (ఐచ్ఛికం)' : 'Bill / Invoice Number (Optional)'}
+                  </label>
+                  <input
+                    type="text"
+                    placeholder={language === 'TE' ? 'ఉదా: INV-2026-001' : 'e.g. INV-2026-001'}
+                    value={billNumber}
+                    onChange={(e) => setBillNumber(e.target.value)}
+                    className="w-full text-xs font-medium border border-slate-300 rounded-xl p-3 outline-none focus:border-orange-500 font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    {language === 'TE' ? 'కొనుగోలు తేదీ (Purchase Date) *' : 'Purchase Date *'}
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    max={todayStr}
+                    value={purchaseDate}
+                    onChange={(e) => setPurchaseDate(e.target.value)}
+                    className="w-full text-xs font-medium border border-slate-300 rounded-xl p-3 outline-none focus:border-orange-500"
+                  />
                 </div>
               </div>
 

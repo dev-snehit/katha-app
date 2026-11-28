@@ -92,12 +92,6 @@ describe('UI Views Part 1: DashboardView, ExportCenterView, RolePermissionsManag
     expect(screen.getAllByText('Sona Masoori').length).toBeGreaterThan(0);
     expect(screen.getByText(/Supplier Payables/i)).toBeInTheDocument();
 
-    // Open Visual Flowcharts modal
-    fireEvent.click(screen.getByText(/Flowcharts/i));
-    expect(screen.getByText(/System Action Flowcharts/i)).toBeInTheDocument();
-    fireEvent.click(screen.getByText('3-Stage Order + Payment'));
-    expect(screen.getByText(/Select Cash \/ Credit \/ UPI/i)).toBeInTheDocument();
-
     // Quick action button click navigates cleanly
     const newOrderBtn = screen.getByText('New Order');
     fireEvent.click(newOrderBtn);

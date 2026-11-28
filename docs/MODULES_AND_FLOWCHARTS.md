@@ -1,6 +1,7 @@
-# Kaatha Wholesale — Modules, Functionalities & Flowcharts
+# Kaatha App (Kaatha Wholesale) — Modules, Functionalities & Flowcharts
 
 > **Maintenance Rule:** Any code change to a module listed below **must** be accompanied by an update to the corresponding section and flowchart in this document.
+> **Shell & UI Notes:** Branded as **Kaatha App** (`Navbar.tsx`, `router.ts`) with a responsive single-row desktop pill bar (`lg+`), tablet top strip (`md..lg`), and scrollable mobile bottom nav (`< md`), plus a compact viewport-centered `fixed inset-0` `<Loader2>` overlay (`App.tsx`). `PendingOrdersView` supports `orderDate` (default today, past dates allowed); `StockRegistryView` supports selecting `brandOrMill` from the `suppliers` dropdown, optional `billNumber` (Bill/Invoice Number), and `purchaseDate` (default today, past dates allowed).
 
 ---
 

@@ -70,6 +70,7 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
     if (route.subView === 'new') {
       setEditingOrder(null);
       setSelectedCustomerId('');
+      setOrderDate(todayStr);
       setItemRows([{ rowId: 'row-1', productId: '', unitType: 'OUTER_BAG', quantity: '', unitPrice: '' }]);
       setHamaliPerBag('');
       setTransportCharges('');
@@ -83,6 +84,7 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
       if (order) {
         setEditingOrder(order);
         setSelectedCustomerId(order.customerId);
+        setOrderDate(order.orderDate ? order.orderDate.slice(0, 10) : todayStr);
         if (order.items && order.items.length > 0) {
           setItemRows(
             order.items.map((it, idx) => ({
@@ -166,7 +168,9 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
   };
 
   // New Order Form State (ZERO AUTO-FILL)
+  const todayStr = new Date().toISOString().split('T')[0];
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
+  const [orderDate, setOrderDate] = useState(todayStr);
   const [itemRows, setItemRows] = useState<FormItemRow[]>([
     { rowId: 'row-1', productId: '', unitType: 'OUTER_BAG', quantity: '', unitPrice: '' }
   ]);
@@ -508,6 +512,7 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
         customerName: customer.name,
         customerNameTe: customer.nameTe,
         customerPhone: customer.phone,
+        orderDate: orderDate ? new Date(`${orderDate}T12:00:00`).toISOString() : editingOrder.orderDate,
         totalOuterBags: finalTotalOuterBags,
         totalInnerBags: finalTotalInnerBags,
         totalWeightKg: finalTotalWeightKg,
@@ -548,7 +553,7 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
         customerName: customer.name,
         customerNameTe: customer.nameTe,
         customerPhone: customer.phone,
-        orderDate: new Date().toISOString(),
+        orderDate: orderDate ? new Date(`${orderDate}T12:00:00`).toISOString() : new Date().toISOString(),
         status: 'PENDING_REVIEW',
         totalOuterBags: finalTotalOuterBags,
         totalInnerBags: finalTotalInnerBags,
@@ -1039,29 +1044,44 @@ export const PendingOrdersView: React.FC<PendingOrdersViewProps> = ({ setActiveT
             <form onSubmit={handleCreateOrder} className="flex-1 flex flex-col min-h-0">
               <div className="flex-1 overflow-y-auto no-scrollbar pr-1 space-y-4">
               
-              {/* Customer Selector (Zero auto-fill) */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  {isTe ? 'కస్టమర్ *' : 'Customer *'}
-                </label>
-                <select
-                  required
-                  value={selectedCustomerId}
-                  onChange={(e) => setSelectedCustomerId(e.target.value)}
-                  className="w-full text-sm border border-slate-200 rounded-2xl p-3 outline-none focus:border-orange-500 bg-slate-50/50 font-medium min-h-[46px]"
-                >
-                  <option value="">{isTe ? 'కస్టమర్‌ను ఎంచుకోండి...' : 'Select Customer...'}</option>
-                  {!customers.some((c) => c.id === WALK_IN_CUSTOMER_ID) && (
-                    <option value={WALK_IN_CUSTOMER_ID}>
-                      {isTe ? 'వాక్-ఇన్ కస్టమర్ (కౌంటర్ నగదు)' : 'Walk-In Customer (Counter Cash)'}
-                    </option>
-                  )}
-                  {customers.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {getLocalizedText(c, 'name', language)} ({c.phone})
-                    </option>
-                  ))}
-                </select>
+              {/* Customer Selector & Order Date */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    {isTe ? 'కస్టమర్ *' : 'Customer *'}
+                  </label>
+                  <select
+                    required
+                    value={selectedCustomerId}
+                    onChange={(e) => setSelectedCustomerId(e.target.value)}
+                    className="w-full text-sm border border-slate-200 rounded-2xl p-3 outline-none focus:border-orange-500 bg-slate-50/50 font-medium min-h-[46px]"
+                  >
+                    <option value="">{isTe ? 'కస్టమర్‌ను ఎంచుకోండి...' : 'Select Customer...'}</option>
+                    {!customers.some((c) => c.id === WALK_IN_CUSTOMER_ID) && (
+                      <option value={WALK_IN_CUSTOMER_ID}>
+                        {isTe ? 'వాక్-ఇన్ కస్టమర్ (కౌంటర్ నగదు)' : 'Walk-In Customer (Counter Cash)'}
+                      </option>
+                    )}
+                    {customers.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {getLocalizedText(c, 'name', language)} ({c.phone})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    {isTe ? 'ఆర్డర్ తేదీ *' : 'Order / Sale Date *'}
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    max={todayStr}
+                    value={orderDate}
+                    onChange={(e) => setOrderDate(e.target.value)}
+                    className="w-full text-sm border border-slate-200 rounded-2xl p-3 outline-none focus:border-orange-500 bg-slate-50/50 font-medium min-h-[46px]"
+                  />
+                </div>
               </div>
 
               {/* DYNAMIC COMMODITY ROWS BUILDER WITH EDITABLE SALE VALUE */}

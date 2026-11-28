@@ -124,6 +124,8 @@ export const ProductSchema = z.object({
   categoryTe: z.string().optional(),
   brandOrMill: z.string().optional(),
   brandOrMillTe: z.string().optional(),
+  billNumber: z.string().optional(),
+  purchaseDate: z.string().optional(),
   innerBagWeightKg: z.number().positive(),
   innerBagsPerOuter: z.number().int().positive(),
   outerBagTotalKg: z.number().positive(),

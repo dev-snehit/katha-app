@@ -438,11 +438,11 @@ export function updateDocumentTitle(route: RouteInfo, language: 'EN' | 'TE'): vo
       break;
 
     default:
-      titlePart = isTe ? 'మండి మేనేజర్' : 'Mandi OS';
+      titlePart = isTe ? 'హోల్‌సేల్' : 'Wholesale';
       break;
   }
 
-  const appName = isTe ? 'కాతా CRM' : 'Kaatha CRM';
+  const appName = isTe ? 'కాతా యాప్' : 'Kaatha App';
   document.title = titlePart ? `${appName} | ${titlePart}` : appName;
 }
 
