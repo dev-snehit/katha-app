@@ -9,6 +9,7 @@ export interface SyncResponse {
   success: boolean;
   message?: string;
   error?: string;
+  code?: string;
   timestamp?: string;
   details?: any;
 }
@@ -53,7 +54,8 @@ export async function pushToGoogleSheet(
     return {
       success: data.status === 'success' || data.status === 'ok',
       message: data.message || 'Synchronized with Backend Database',
-      error: data.error,
+      error: data.error || (data.status === 'error' ? data.message : undefined),
+      code: data.code,
       details: data
     };
   } catch (err: any) {
@@ -101,7 +103,10 @@ export async function pingGoogleSheet(backendUrl: string): Promise<SyncResponse>
   }
 }
 
-export async function pullFromGoogleSheet(backendUrl: string): Promise<SyncResponse & { data?: any }> {
+export async function pullFromGoogleSheet(
+  backendUrl: string,
+  authToken?: string | null
+): Promise<SyncResponse & { data?: any }> {
   if (!backendUrl || !backendUrl.trim().startsWith('http')) {
     return {
       success: false,
@@ -111,7 +116,18 @@ export async function pullFromGoogleSheet(backendUrl: string): Promise<SyncRespo
 
   try {
     // 1. Try CORS-safe POST first (avoids preflight issues with text/plain body)
-    const postRes = await pushToGoogleSheet(backendUrl, 'getData');
+    const postRes = await pushToGoogleSheet(
+      backendUrl,
+      'getData',
+      authToken ? { authToken } : {}
+    );
+    if (postRes.code === 'TOKEN_EXPIRED' || postRes.code === 'UNAUTHORIZED') {
+      return {
+        success: false,
+        code: postRes.code,
+        error: postRes.error || postRes.message || 'Session expired'
+      };
+    }
     if (postRes.success && postRes.details?.data) {
       return {
         success: true,

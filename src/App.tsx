@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Clock, LogOut, ShieldAlert } from 'lucide-react';
 import { Navbar } from './components/Navbar';
 import { DashboardView } from './components/dashboard/DashboardView';
 import { PendingOrdersView } from './components/orders/PendingOrdersView';
@@ -11,6 +11,7 @@ import { UserRequestsView } from './components/admin/UserRequestsView';
 import { SettingsModal } from './components/settings/SettingsModal';
 import { AuthView } from './components/auth/AuthView';
 import { useAppStore } from './store/useAppStore';
+import { getJwtRemainingSeconds } from './lib/jwt';
 import { 
   useRouter, 
   updateDocumentTitle, 
@@ -22,10 +23,15 @@ import {
 export default function App() {
   const { route, navigate, goBack } = useRouter();
   const [lastActiveTab, setLastActiveTab] = useState<string>('dashboard');
+  const [sessionWarningSeconds, setSessionWarningSeconds] = useState<number | null>(null);
+  const [isRefreshingSession, setIsRefreshingSession] = useState(false);
   const { 
     language, 
     isAuthenticated, 
     currentUser, 
+    authToken,
+    logout,
+    refreshSessionToken,
     connectAndHydrateServer, 
     isConnectingServer, 
     actionLoading,
@@ -99,6 +105,57 @@ export default function App() {
       }
     }
   }, [isAuthenticated, currentUser, route]);
+
+  // Strict 1-hour JWT expiration monitor & 5-minute pre-expiry warning (no passive activity extension)
+  useEffect(() => {
+    if (!isAuthenticated || !currentUser) {
+      setSessionWarningSeconds(null);
+      return;
+    }
+
+    const evaluateTokenExpiry = () => {
+      const remaining = getJwtRemainingSeconds(authToken);
+      if (!authToken || remaining <= 0) {
+        setSessionWarningSeconds(null);
+        logout('Your session has expired. Please sign in again.');
+        navigate('/login', { replace: true });
+        return;
+      }
+      if (remaining <= 300) {
+        setSessionWarningSeconds(remaining);
+      } else {
+        setSessionWarningSeconds(null);
+      }
+    };
+
+    evaluateTokenExpiry();
+    const intervalId = window.setInterval(evaluateTokenExpiry, 1000);
+    return () => window.clearInterval(intervalId);
+  }, [isAuthenticated, currentUser, authToken, logout, navigate]);
+
+  const handleStaySignedIn = async () => {
+    setIsRefreshingSession(true);
+    const res = await refreshSessionToken();
+    setIsRefreshingSession(false);
+    if (res.success) {
+      setSessionWarningSeconds(null);
+    } else {
+      navigate('/login', { replace: true });
+    }
+  };
+
+  const handleSignOutNow = () => {
+    setSessionWarningSeconds(null);
+    clearIntendedRoute();
+    logout();
+    navigate('/login', { replace: true });
+  };
+
+  const formatCountdown = (totalSeconds: number) => {
+    const mins = Math.floor(totalSeconds / 60);
+    const secs = totalSeconds % 60;
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  };
 
   // Authentication Gate: Require sign in if no active persistent authenticated session exists
   if (!isAuthenticated || !currentUser) {
@@ -243,6 +300,59 @@ export default function App() {
         isOpen={isSettingsOpen}
         onClose={handleCloseSettings}
       />
+
+      {/* 5-Minute Pre-Expiry Session Warning Modal */}
+      {sessionWarningSeconds !== null && sessionWarningSeconds > 0 && (
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="session-expiry-title"
+        >
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl max-w-sm w-full p-6 border border-slate-100 text-center relative">
+            <div className="w-14 h-14 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center mx-auto mb-4 shadow-sm">
+              <ShieldAlert className="w-7 h-7" />
+            </div>
+
+            <h3 id="session-expiry-title" className="text-lg font-black text-slate-900 tracking-tight mb-2">
+              {language === 'TE' ? 'సెషన్ త్వరలో ముగుస్తుంది' : 'Session Expiring Soon'}
+            </h3>
+
+            <p className="text-xs text-slate-600 leading-relaxed mb-4 font-medium">
+              {language === 'TE'
+                ? 'భద్రతా కారణాల దృష్ట్యా మీ 1-గంట లాగిన్ సెషన్ త్వరలో ముగుస్తుంది. కొనసాగడానికి "లాగిన్‌లో ఉండండి" పై క్లిక్ చేయండి.'
+                : 'For your security, your 1-hour session is about to expire. Click "Stay Signed In" to renew your session or sign out now.'}
+            </p>
+
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-sm font-black mb-6">
+              <Clock className="w-4 h-4 text-amber-600" />
+              <span>{formatCountdown(sessionWarningSeconds)}</span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleSignOutNow}
+                disabled={isRefreshingSession}
+                className="flex-1 py-2.5 px-3 rounded-full text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors border border-slate-200 inline-flex items-center justify-center gap-1.5"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>{language === 'TE' ? 'ఇప్పుడే లాగౌట్' : 'Sign Out Now'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleStaySignedIn}
+                disabled={isRefreshingSession}
+                className="flex-1 py-2.5 px-3 rounded-full text-xs font-black text-white bg-[#FF5A36] hover:bg-[#e84b28] shadow-md transition-all active:scale-95 disabled:opacity-60"
+              >
+                {isRefreshingSession
+                  ? (language === 'TE' ? 'నవీకరిస్తోంది...' : 'Renewing...')
+                  : (language === 'TE' ? 'లాగిన్‌లో ఉండండి' : 'Stay Signed In')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

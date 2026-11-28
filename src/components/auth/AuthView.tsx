@@ -30,7 +30,9 @@ export const AuthView: React.FC = () => {
     resetPasswordWithToken, 
     users, 
     language, 
-    setLanguage 
+    setLanguage,
+    sessionExpiredMessage,
+    clearSessionExpiredMessage
   } = useAppStore();
 
   const { route, navigate } = useRouter();
@@ -117,6 +119,7 @@ export const AuthView: React.FC = () => {
     e.preventDefault();
     setLoginError(null);
     setLoginSuccess(null);
+    clearSessionExpiredMessage();
     const result = await login(loginEmail, loginPassword);
     
     if (result.mustResetPassword && result.user) {
@@ -387,6 +390,17 @@ export const AuthView: React.FC = () => {
           {/* Mode: LOGIN */}
           {mode === 'LOGIN' && (
             <form onSubmit={handleLoginSubmit} className="space-y-4">
+              {sessionExpiredMessage && !loginError && !loginSuccess && (
+                <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-start gap-2.5">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
+                  <span>
+                    {language === 'TE'
+                      ? 'మీ సెషన్ గడువు ముగిసింది. దయచేసి మళ్లీ లాగిన్ అవ్వండి.'
+                      : sessionExpiredMessage}
+                  </span>
+                </div>
+              )}
+
               {loginSuccess && (
                 <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-start gap-2.5">
                   <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-600" />

@@ -15,6 +15,7 @@ import {
 import { pushToGoogleSheet, pullFromGoogleSheet, lockRemoteSheets } from '../lib/syncService';
 import { DEFAULT_SERVER_URL } from '../config/backend';
 import { hashPassword, generateTemporaryPassword } from '../lib/crypto';
+import { isJwtExpired } from '../lib/jwt';
 import { 
   DEFAULT_ROLE_PERMISSIONS, 
   isPageEnabled, 
@@ -27,7 +28,12 @@ export type SyncStatus = 'IDLE' | 'SYNCING' | 'SYNCED' | 'ERROR' | 'UNLINKED';
 export interface AppState {
   // Current user & authentication session
   currentUser: User | null;
+  authToken: string | null;
   isAuthenticated: boolean;
+  sessionExpiredMessage: string | null;
+  clearSessionExpiredMessage: () => void;
+  refreshSessionToken: () => Promise<{ success: boolean; message?: string }>;
+  checkSessionExpiry: () => void;
   users: User[];
   login: (email: string, password: string) => Promise<{ success: boolean; message: string; user?: User; mustResetPassword?: boolean }>;
   resetPassword: (userId: string, newPassword: string) => Promise<{ success: boolean; message: string }>;
@@ -48,7 +54,7 @@ export interface AppState {
     message: string;
     user?: User;
   }>;
-  logout: () => void;
+  logout: (expiredReason?: string) => void;
   
   // Active Language
   language: SupportedLanguage;
@@ -191,12 +197,29 @@ const hasRootAdmin = storedUsers.some(
 const initialUsers = hasRootAdmin ? storedUsers : [INITIAL_ADMIN_USER, ...storedUsers];
 
 const initialBackendUrl = loadFromStorage<string>('backendUrl', '') || DEFAULT_SERVER_URL;
-const initialCurrentUser = loadFromStorage<User | null>('currentUser', null);
+const rawStoredUser = loadFromStorage<User | null>('currentUser', null);
+const rawStoredToken = loadFromStorage<string | null>('authToken', null);
+const hasValidInitialSession = Boolean(rawStoredUser && rawStoredToken && !isJwtExpired(rawStoredToken));
+
+if (rawStoredUser && !hasValidInitialSession) {
+  saveToStorage('currentUser', null);
+  saveToStorage('authToken', null);
+}
+
+const initialCurrentUser = hasValidInitialSession ? rawStoredUser : null;
+const initialAuthToken = hasValidInitialSession ? rawStoredToken : null;
+const initialSessionExpiredMessage =
+  rawStoredUser && !hasValidInitialSession
+    ? 'Your session has expired. Please sign in again.'
+    : null;
 
 export const useAppStore = create<AppState>((set, get) => ({
-  // Authentication: Session is persisted in localStorage until manual logout
+  // Authentication: Strictly backed by 1-hour HS256 JWT persisted in localStorage
   currentUser: initialCurrentUser,
-  isAuthenticated: !!initialCurrentUser,
+  authToken: initialAuthToken,
+  isAuthenticated: hasValidInitialSession,
+  sessionExpiredMessage: initialSessionExpiredMessage,
+  clearSessionExpiredMessage: () => set({ sessionExpiredMessage: null }),
   users: initialUsers,
 
   // Role Permissions
@@ -208,69 +231,93 @@ export const useAppStore = create<AppState>((set, get) => ({
       cleanEmail += '.com';
     }
     const cleanPass = password.trim();
-    let user = get().users.find((u) => {
-      const uEmail = u.email.toLowerCase();
-      return (
-        uEmail === cleanEmail ||
-        ((cleanEmail === 'dev.snehit@gmail.com' || cleanEmail === 'dev.snehit@gmail') &&
-          (uEmail === 'dev.snehit@gmail.com' || uEmail === 'dev.snehit@gmail'))
-      );
+    const backendUrl = get().backendUrl;
+
+    if (!backendUrl || !backendUrl.trim().startsWith('http')) {
+      return {
+        success: false,
+        message: 'Backend database URL is not configured. Please configure it in Settings before signing in.',
+      };
+    }
+
+    const passwordHash = await hashPassword(cleanPass);
+    const res = await pushToGoogleSheet(backendUrl, 'login', {
+      email: cleanEmail,
+      passwordHash,
     });
 
-    if (!user) {
-      // Refresh from server in case user was registered or approved recently
-      await get().connectAndHydrateServer();
-      user = get().users.find((u) => {
-        const uEmail = u.email.toLowerCase();
-        return (
-          uEmail === cleanEmail ||
-          ((cleanEmail === 'dev.snehit@gmail.com' || cleanEmail === 'dev.snehit@gmail') &&
-            (uEmail === 'dev.snehit@gmail.com' || uEmail === 'dev.snehit@gmail'))
-        );
-      });
-    }
-
-    if (!user) {
-      return { success: false, message: 'No registered account found with this email address.' };
-    }
-
-    if (user.status === 'PENDING_APPROVAL') {
-      return { 
-        success: false, 
-        message: 'Your account is pending approval by an administrator. Please check back shortly.' 
+    if (!res.success) {
+      return {
+        success: false,
+        message:
+          res.details?.message ||
+          res.error ||
+          'Unable to reach authentication server. Please check your connection and try again.',
       };
     }
 
-    if (user.status === 'DENIED') {
-      return { 
-        success: false, 
-        message: 'Access has been denied for this account. Contact your administrator.' 
+    // Mandatory password reset on temporary credentials (pre-JWT)
+    if (res.details?.mustResetPassword && res.details?.user) {
+      const resetUser = res.details.user as User;
+      const existingIdx = get().users.findIndex(
+        (u) => u.id === resetUser.id || u.email.toLowerCase() === resetUser.email.toLowerCase()
+      );
+      const nextUsers =
+        existingIdx >= 0
+          ? get().users.map((u, idx) => (idx === existingIdx ? { ...u, ...resetUser } : u))
+          : [...get().users, resetUser];
+      saveToStorage('users', nextUsers);
+      set({ users: nextUsers });
+      return {
+        success: true,
+        mustResetPassword: true,
+        message: res.details.message || 'Please choose a permanent password to continue.',
+        user: resetUser,
       };
     }
 
-    // Verify password via standard cryptographic hash or legacy string
-    const hashedInput = await hashPassword(cleanPass);
-    const passMatches = 
-      (user.passwordHash && (user.passwordHash === hashedInput || user.passwordHash === cleanPass)) ||
-      (user.password && (user.password === cleanPass || user.password === hashedInput)) ||
-      (user.email.toLowerCase() === INITIAL_ADMIN_USER.email.toLowerCase() && (cleanPass === 'admin' || hashedInput === INITIAL_ADMIN_USER.passwordHash));
+    const token = res.details?.token as string | undefined;
+    const serverUser = res.details?.user as User | undefined;
 
-    if (!passMatches) {
-      return { success: false, message: 'Invalid password. Please verify and try again.' };
-    }
-
-    // Force password reset if user is on temporary credentials
-    if (user.mustResetPassword) {
-      return { 
-        success: true, 
-        mustResetPassword: true, 
-        message: 'Please choose a permanent password to continue.', 
-        user 
+    if (!token || !serverUser || isJwtExpired(token)) {
+      return {
+        success: false,
+        message: 'Authentication server returned an invalid or expired session token.',
       };
     }
 
-    saveToStorage('currentUser', user);
-    set({ currentUser: user, isAuthenticated: true });
+    if (serverUser.status === 'PENDING_APPROVAL') {
+      return {
+        success: false,
+        message: 'Your account is pending approval by an administrator. Please check back shortly.',
+      };
+    }
+
+    if (serverUser.status === 'DENIED') {
+      return {
+        success: false,
+        message: 'Access has been denied for this account. Contact your administrator.',
+      };
+    }
+
+    const existingIdx = get().users.findIndex(
+      (u) => u.id === serverUser.id || u.email.toLowerCase() === serverUser.email.toLowerCase()
+    );
+    const nextUsers =
+      existingIdx >= 0
+        ? get().users.map((u, idx) => (idx === existingIdx ? { ...u, ...serverUser } : u))
+        : [...get().users, serverUser];
+
+    saveToStorage('users', nextUsers);
+    saveToStorage('authToken', token);
+    saveToStorage('currentUser', serverUser);
+    set({
+      users: nextUsers,
+      authToken: token,
+      currentUser: serverUser,
+      isAuthenticated: true,
+      sessionExpiredMessage: null,
+    });
 
     // Retain and re-apply base font size upon every login
     applyBaseFontSize(get().baseFontSize);
@@ -278,7 +325,45 @@ export const useAppStore = create<AppState>((set, get) => ({
     // Establish live server connection and hydrate latest database on login
     get().connectAndHydrateServer();
 
-    return { success: true, message: `Welcome back, ${user.name}!`, user };
+    return { success: true, message: `Welcome back, ${serverUser.name}!`, user: serverUser };
+  },
+
+  refreshSessionToken: async () => {
+    const { backendUrl, authToken } = get();
+    if (!backendUrl || !authToken) {
+      get().logout('Your session has expired. Please sign in again.');
+      return { success: false, message: 'Your session has expired. Please sign in again.' };
+    }
+
+    const res = await pushToGoogleSheet(backendUrl, 'refreshToken', { authToken });
+    const freshToken = res.details?.token as string | undefined;
+
+    if (res.success && freshToken && !isJwtExpired(freshToken)) {
+      const freshUser = (res.details?.user as User | undefined) || get().currentUser;
+      saveToStorage('authToken', freshToken);
+      if (freshUser) {
+        saveToStorage('currentUser', freshUser);
+      }
+      set({
+        authToken: freshToken,
+        currentUser: freshUser || null,
+        sessionExpiredMessage: null,
+      });
+      return { success: true };
+    }
+
+    get().logout('Your session has expired. Please sign in again.');
+    return {
+      success: false,
+      message: res.error || res.details?.message || 'Your session has expired. Please sign in again.',
+    };
+  },
+
+  checkSessionExpiry: () => {
+    const { isAuthenticated, authToken } = get();
+    if (isAuthenticated && (!authToken || isJwtExpired(authToken))) {
+      get().logout('Your session has expired. Please sign in again.');
+    }
   },
 
   resetPassword: async (userId: string, newPassword: string) => {
@@ -292,18 +377,22 @@ export const useAppStore = create<AppState>((set, get) => ({
     );
     saveToStorage('users', updated);
     const updatedUser = updated.find((u) => u.id === userId);
-    if (updatedUser && updatedUser.status === 'APPROVED') {
-      saveToStorage('currentUser', updatedUser);
-      set({ users: updated, currentUser: updatedUser, isAuthenticated: true });
-    } else {
-      saveToStorage('currentUser', null);
-      set({ users: updated, currentUser: null, isAuthenticated: false });
-    }
+    set({ users: updated });
+
     if (updatedUser) {
-      get().triggerSync('resetPassword', { email: updatedUser.email, newPasswordHash: newHash });
+      await get().triggerSync('resetPassword', { email: updatedUser.email, newPasswordHash: newHash });
+      if (updatedUser.status === 'APPROVED') {
+        // Perform backend login to obtain a valid 1-hour JWT after resetting temp password
+        const loginRes = await get().login(updatedUser.email, cleanPass);
+        if (loginRes.success) {
+          return { success: true, message: 'Password successfully updated.' };
+        }
+      }
     }
-    get().connectAndHydrateServer();
-    return { success: true, message: 'Password successfully updated.' };
+    saveToStorage('currentUser', null);
+    saveToStorage('authToken', null);
+    set({ currentUser: null, authToken: null, isAuthenticated: false });
+    return { success: true, message: 'Password successfully updated. Please sign in.' };
   },
 
   forgotPassword: async (email: string) => {
@@ -420,9 +509,15 @@ export const useAppStore = create<AppState>((set, get) => ({
     return { success: true, message: 'Password successfully updated. Please sign in.', user: updatedUser };
   },
 
-  logout: () => {
+  logout: (expiredReason?: string) => {
     saveToStorage('currentUser', null);
-    set({ currentUser: null, isAuthenticated: false });
+    saveToStorage('authToken', null);
+    set({
+      currentUser: null,
+      authToken: null,
+      isAuthenticated: false,
+      sessionExpiredMessage: expiredReason ?? null,
+    });
   },
 
   language: loadFromStorage<SupportedLanguage>('lang', 'EN'),
@@ -470,7 +565,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   triggerSync: async (action: string, payload: Record<string, any> = {}) => {
-    const { backendUrl } = get();
+    const { backendUrl, authToken } = get();
     if (!backendUrl) {
       set({ syncStatus: 'UNLINKED' });
       return;
@@ -479,12 +574,21 @@ export const useAppStore = create<AppState>((set, get) => ({
     const user = get().currentUser;
     const enrichedPayload = {
       ...payload,
+      ...(authToken ? { authToken } : {}),
       userRole: payload?.userRole || user?.role || 'STAFF',
       userId: payload?.userId || user?.id,
     };
 
     set({ syncStatus: 'SYNCING', syncError: null });
     const res = await pushToGoogleSheet(backendUrl, action, enrichedPayload);
+    if (res.code === 'TOKEN_EXPIRED' || res.code === 'UNAUTHORIZED') {
+      get().logout('Your session has expired. Please sign in again.');
+      set({
+        syncStatus: 'ERROR',
+        syncError: res.error || 'Session expired',
+      });
+      return;
+    }
     if (res.success) {
       set({
         syncStatus: 'SYNCED',
@@ -500,7 +604,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   syncAllToGoogleSheets: async () => {
-    const { backendUrl, inventory, customers, suppliers, orders, users } = get();
+    const { backendUrl, authToken, inventory, customers, suppliers, orders, users } = get();
     if (!backendUrl) {
       set({ syncStatus: 'UNLINKED', syncError: 'Database Webhook URL not configured.' });
       return false;
@@ -509,12 +613,22 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ isConnectingServer: true, syncStatus: 'SYNCING', syncError: null });
     try {
       const res = await pushToGoogleSheet(backendUrl, 'syncAll', {
+        ...(authToken ? { authToken } : {}),
         products: inventory,
         customers,
         suppliers,
         orders,
         users
       });
+
+      if (res.code === 'TOKEN_EXPIRED' || res.code === 'UNAUTHORIZED') {
+        get().logout('Your session has expired. Please sign in again.');
+        set({
+          syncStatus: 'ERROR',
+          syncError: res.error || 'Session expired',
+        });
+        return false;
+      }
 
       if (res.success) {
         set({
@@ -536,13 +650,21 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   connectAndHydrateServer: async () => {
-    const backendUrl = get().backendUrl;
+    const { backendUrl, authToken } = get();
     if (!backendUrl) return false;
 
     set({ isConnectingServer: true, syncStatus: 'SYNCING', syncError: null });
 
     try {
-      const res = await pullFromGoogleSheet(backendUrl);
+      const res = await pullFromGoogleSheet(backendUrl, authToken);
+      if (res.code === 'TOKEN_EXPIRED' || res.code === 'UNAUTHORIZED') {
+        get().logout('Your session has expired. Please sign in again.');
+        set({
+          syncStatus: 'ERROR',
+          syncError: res.error || 'Session expired',
+        });
+        return false;
+      }
       if (res.success && res.data) {
         const {
           Master_Products = [],

@@ -45,7 +45,7 @@ flowchart TD
 | :--- | :--- |
 | **App Shell & Routing** | `src/App.tsx`, `src/lib/router.ts`, `src/components/Navbar.tsx` |
 | **State & Persistence** | `src/store/useAppStore.ts`, `src/contracts/index.ts`, `src/config/backend.ts` |
-| **Authentication & Users** | `src/components/auth/AuthView.tsx`, `src/lib/crypto.ts`, `src/components/admin/UserRequestsView.tsx` |
+| **Authentication & Users** | `src/components/auth/AuthView.tsx`, `src/lib/crypto.ts`, `src/lib/jwt.ts`, `src/components/admin/UserRequestsView.tsx` |
 | **Role Permissions** | `src/config/roles/roles.json`, `owner.json`, `admin.json`, `staff.json`, `customer.json`, `src/lib/permissions.ts`, `src/components/admin/RolePermissionsManager.tsx` |
 | **Business Dashboard** | `src/components/dashboard/DashboardView.tsx` |
 | **Orders & Dispatch** | `src/components/orders/PendingOrdersView.tsx`, `src/lib/stockEngine.ts` |

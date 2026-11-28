@@ -1,16 +1,126 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { useAppStore } from '../src/store/useAppStore';
 import { pushToGoogleSheet, pingGoogleSheet, pullFromGoogleSheet } from '../src/lib/syncService';
 import { hashPassword, generateTemporaryPassword } from '../src/lib/crypto';
+import { decodeJwtPayload, getJwtRemainingSeconds, isJwtExpired } from '../src/lib/jwt';
 
 import { INITIAL_ADMIN_USER } from '../src/contracts';
 
+function makeMockJwt(payload: Record<string, any>, expiresInSec = 3600): string {
+  const b64u = (obj: Record<string, any>) =>
+    Buffer.from(JSON.stringify(obj), 'utf8').toString('base64url');
+  const iat = Math.floor(Date.now() / 1000);
+  const exp = iat + expiresInSec;
+  return `${b64u({ alg: 'HS256', typ: 'JWT' })}.${b64u({ ...payload, iat, exp })}.mock_hs256_sig`;
+}
+
+function installMockAuthBackendFetch() {
+  const originalFetch = global.fetch;
+  global.fetch = vi.fn().mockImplementation(async (_url: any, options: any) => {
+    const body = options?.body ? JSON.parse(options.body) : {};
+    const action = body.action;
+    const state = useAppStore.getState();
+
+    if (action === 'login') {
+      let cleanEmail = (body.email || '').toLowerCase().trim();
+      if (cleanEmail.endsWith('@gmail')) cleanEmail += '.com';
+      const user = state.users.find((u) => {
+        const uEmail = u.email.toLowerCase();
+        return (
+          uEmail === cleanEmail ||
+          ((cleanEmail === 'dev.snehit@gmail.com' || cleanEmail === 'dev.snehit@gmail') &&
+            (uEmail === 'dev.snehit@gmail.com' || uEmail === 'dev.snehit@gmail'))
+        );
+      });
+      if (!user) {
+        return {
+          ok: true,
+          json: async () => ({ status: 'error', code: 'UNAUTHORIZED', message: 'No registered account found with this email address.' }),
+        };
+      }
+      if (user.status === 'PENDING_APPROVAL') {
+        return {
+          ok: true,
+          json: async () => ({ status: 'error', code: 'PENDING_APPROVAL', message: 'Your account is pending approval by an administrator. Please check back shortly.' }),
+        };
+      }
+      if (user.status === 'DENIED') {
+        return {
+          ok: true,
+          json: async () => ({ status: 'error', code: 'DENIED', message: 'Access has been denied for this account. Contact your administrator.' }),
+        };
+      }
+      const expectedHash = user.passwordHash || (user.password ? await hashPassword(user.password) : INITIAL_ADMIN_USER.passwordHash);
+      if (body.passwordHash !== expectedHash) {
+        return {
+          ok: true,
+          json: async () => ({ status: 'error', code: 'INVALID_CREDENTIALS', message: 'Invalid password. Please verify and try again.' }),
+        };
+      }
+      if (user.mustResetPassword) {
+        return {
+          ok: true,
+          json: async () => ({ status: 'success', mustResetPassword: true, user, message: 'Please choose a permanent password to continue.' }),
+        };
+      }
+      const token = makeMockJwt({ sub: user.id, email: user.email, role: user.role, status: user.status }, 3600);
+      return {
+        ok: true,
+        json: async () => ({ status: 'success', token, user }),
+      };
+    }
+
+    if (action === 'refreshToken') {
+      const payload = decodeJwtPayload(body.authToken);
+      if (!payload || isJwtExpired(body.authToken)) {
+        return {
+          ok: true,
+          json: async () => ({ status: 'error', code: 'TOKEN_EXPIRED', message: 'Your session has expired. Please sign in again.' }),
+        };
+      }
+      const user = state.users.find((u) => u.id === payload.sub || u.email === payload.email);
+      if (!user || user.status !== 'APPROVED') {
+        return {
+          ok: true,
+          json: async () => ({ status: 'error', code: 'UNAUTHORIZED', message: 'User account is no longer active.' }),
+        };
+      }
+      const freshToken = makeMockJwt({ sub: user.id, email: user.email, role: user.role, status: user.status }, 3600);
+      return {
+        ok: true,
+        json: async () => ({ status: 'success', token: freshToken, user }),
+      };
+    }
+
+    if (action === 'getData') {
+      return {
+        ok: true,
+        json: async () => ({ status: 'success', data: {} }),
+      };
+    }
+
+    return {
+      ok: true,
+      json: async () => ({ status: 'success', message: 'ok' }),
+    };
+  });
+  return originalFetch;
+}
+
 describe('Authentication & Session Gate', () => {
+  let originalFetch: typeof global.fetch;
+
   beforeEach(() => {
+    originalFetch = installMockAuthBackendFetch();
     useAppStore.getState().logout();
     useAppStore.setState({
+      backendUrl: 'https://script.google.com/macros/s/mock-auth/exec',
       users: [INITIAL_ADMIN_USER]
     });
+  });
+
+  afterEach(() => {
+    global.fetch = originalFetch;
   });
 
   it('starts in unauthenticated state upon app initialization', () => {
@@ -455,6 +565,21 @@ describe('Google Sheets Live Sync Engine', () => {
 });
 
 describe('Registration Reset Redirect & Role Re-Request Flows', () => {
+  let originalFetch: typeof global.fetch;
+
+  beforeEach(() => {
+    originalFetch = installMockAuthBackendFetch();
+    useAppStore.getState().logout();
+    useAppStore.setState({
+      backendUrl: 'https://script.google.com/macros/s/mock-auth/exec',
+      users: [INITIAL_ADMIN_USER],
+    });
+  });
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
   it('does not auto-login PENDING_APPROVAL user after resetting password via token link and blocks login until approved', async () => {
     const store = useAppStore.getState();
     store.logout();
@@ -595,5 +720,91 @@ describe('Registration Reset Redirect & Role Re-Request Flows', () => {
     expect(updated.name).toBe('Kiran Rao M');
     expect(updated.status).toBe('PENDING_APPROVAL');
     expect(updated.password).toBe(origPass);
+  });
+});
+
+describe('HS256 JWT Session Lifecycle & Pre-Expiry Warning', () => {
+  let originalFetch: typeof global.fetch;
+
+  beforeEach(() => {
+    originalFetch = installMockAuthBackendFetch();
+    useAppStore.getState().logout();
+    useAppStore.setState({
+      backendUrl: 'https://script.google.com/macros/s/mock-auth/exec',
+      users: [INITIAL_ADMIN_USER],
+    });
+  });
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
+  it('blocks login strictly when backend URL is unconfigured or backend is unreachable', async () => {
+    useAppStore.setState({ backendUrl: '' });
+    const noUrlRes = await useAppStore.getState().login('dev.snehit@gmail.com', 'admin');
+    expect(noUrlRes.success).toBe(false);
+    expect(noUrlRes.message).toContain('not configured');
+    expect(useAppStore.getState().isAuthenticated).toBe(false);
+    expect(useAppStore.getState().authToken).toBeNull();
+
+    useAppStore.setState({ backendUrl: 'https://script.google.com/macros/s/unreachable/exec' });
+    global.fetch = vi.fn().mockRejectedValue(new Error('Network offline'));
+    const offlineRes = await useAppStore.getState().login('dev.snehit@gmail.com', 'admin');
+    expect(offlineRes.success).toBe(false);
+    expect(offlineRes.message).toContain('Network offline');
+    expect(useAppStore.getState().isAuthenticated).toBe(false);
+  });
+
+  it('persists authToken in localStorage on login and forces logout when token is expired or backend returns TOKEN_EXPIRED', async () => {
+    const loginRes = await useAppStore.getState().login('dev.snehit@gmail.com', 'admin');
+    expect(loginRes.success).toBe(true);
+    expect(useAppStore.getState().authToken).toBeTruthy();
+    expect(localStorage.getItem('katha_wholesale_authToken')).toBeTruthy();
+
+    // Simulate expired JWT on periodic check
+    const expiredToken = makeMockJwt({ sub: INITIAL_ADMIN_USER.id, email: INITIAL_ADMIN_USER.email, role: 'ADMIN' }, -30);
+    useAppStore.setState({ authToken: expiredToken });
+    useAppStore.getState().checkSessionExpiry();
+
+    expect(useAppStore.getState().isAuthenticated).toBe(false);
+    expect(useAppStore.getState().authToken).toBeNull();
+    expect(useAppStore.getState().currentUser).toBeNull();
+    expect(useAppStore.getState().sessionExpiredMessage).toContain('expired');
+
+    // Re-login and simulate backend TOKEN_EXPIRED response on protected triggerSync
+    await useAppStore.getState().login('dev.snehit@gmail.com', 'admin');
+    expect(useAppStore.getState().isAuthenticated).toBe(true);
+
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ status: 'error', code: 'TOKEN_EXPIRED', message: 'Session token has expired.' }),
+    });
+
+    await useAppStore.getState().triggerSync('saveProduct', { product: { id: 'p-1' } });
+    expect(useAppStore.getState().isAuthenticated).toBe(false);
+    expect(useAppStore.getState().authToken).toBeNull();
+    expect(useAppStore.getState().sessionExpiredMessage).toContain('expired');
+  });
+
+  it('detects 5-minute pre-expiry window and renews 1-hour JWT on explicit refreshSessionToken()', async () => {
+    const warningToken = makeMockJwt({ sub: INITIAL_ADMIN_USER.id, email: INITIAL_ADMIN_USER.email, role: 'ADMIN' }, 240); // 4 minutes left
+    useAppStore.setState({
+      currentUser: INITIAL_ADMIN_USER,
+      authToken: warningToken,
+      isAuthenticated: true,
+    });
+
+    const remainingBefore = getJwtRemainingSeconds(useAppStore.getState().authToken);
+    expect(remainingBefore).toBeGreaterThan(0);
+    expect(remainingBefore).toBeLessThanOrEqual(300);
+
+    const refreshRes = await useAppStore.getState().refreshSessionToken();
+    expect(refreshRes.success).toBe(true);
+
+    const renewedToken = useAppStore.getState().authToken;
+    expect(renewedToken).toBeTruthy();
+    expect(renewedToken).not.toBe(warningToken);
+    expect(getJwtRemainingSeconds(renewedToken)).toBeGreaterThan(3500);
+    expect(useAppStore.getState().isAuthenticated).toBe(true);
   });
 });

@@ -4,12 +4,16 @@
 
 ---
 
-## 1. Authentication, Registration, Password Reset & Role Re-Request
+## 1. Authentication, HS256 JWT Session Gate, Password Reset & Role Re-Request
 
-**Files:** `src/components/auth/AuthView.tsx`, `src/store/useAppStore.ts`, `src/lib/crypto.ts`, `src/contracts/index.ts`, `backend/Code.gs`
+**Files:** `src/components/auth/AuthView.tsx`, `src/store/useAppStore.ts`, `src/lib/crypto.ts`, `src/lib/jwt.ts`, `src/App.tsx`, `src/contracts/index.ts`, `backend/Code.gs`
 
 ### Capabilities
-- **Session Gate:** All protected routes require `isAuthenticated && currentUser` persisted in `localStorage` (`katha_wholesale_currentUser`) until explicit logout.
+- **Strict Backend HS256 JWT Authentication:**
+  - `login()` strictly requires the backend API (`backend/Code.gs` `login` action) to validate `email` + SHA-256 `passwordHash` against the `Users` sheet, enforce `status === 'APPROVED'`, and issue an **HS256 JWT** signed with a server-only secret stored in `PropertiesService.getScriptProperties()` (`JWT_SECRET`, auto-generated if missing).
+  - The JWT carries `sub`, `email`, `role`, `status`, `iat`, and `exp = iat + 3600` (strict 1-hour expiration).
+  - Frontend persists `authToken` (`katha_wholesale_authToken`) alongside `currentUser` in `localStorage`. On app boot and via a 1-second interval in `App.tsx`, `isJwtExpired()` / `getJwtRemainingSeconds()` inspects the `exp` claim.
+  - **5-Minute Pre-Expiry Warning & Forced Logout:** Passive mouse/keyboard activity never extends the session. At 5 minutes (`<= 300s`) remaining, `App.tsx` displays a bilingual **Session Expiring Soon** modal with a live `MM:SS` countdown and two choices: **"Stay Signed In"** (calls `refreshSessionToken()` -> backend `refreshToken` action to issue a fresh 1-hour JWT) or **"Sign Out Now"**. Reaching `00:00` or receiving `TOKEN_EXPIRED` / `UNAUTHORIZED` from the backend immediately forces `logout()` and redirects to `/login` with an expiration banner.
 - **SHA-256 Password Hashing:** All passwords are hashed client-side using Web Crypto (`hashPassword()` in `src/lib/crypto.ts`).
 - **New User Registration (`Request Access`):**
   - Validates Full Name (min 2 chars), Email, and 10-digit Indian mobile number (`^[6-9]\d{9}$`).
@@ -29,26 +33,28 @@
 
 ```mermaid
 flowchart TD
-    Start(["User Opens AuthView"]) --> Choice{"Select Action"}
+    Start(["User Opens AuthView / App"]) --> BootCheck{"Stored authToken Valid & Non-Expired?"}
+    BootCheck -- No --> ShowLogin["Clear session -> Render AuthView (/login)"]
+    BootCheck -- Yes --> ActiveTimer["App.tsx 1-Hour Countdown Timer (No Passive Extension)"]
 
-    Choice -- "Sign In" --> LoginCheck["login(email, password)"]
-    LoginCheck --> Found{"User Exists?"}
-    Found -- No --> Hydrate["connectAndHydrateServer() & Retry"]
-    Hydrate --> Found2{"Found?"}
-    Found2 -- No --> ErrNoUser["Show: No registered account found"]
-    Found2 -- Yes --> StatusGate
-    Found -- Yes --> StatusGate{"User Status?"}
-    StatusGate -- PENDING_APPROVAL --> ErrPending["Block Login: Pending admin approval"]
-    StatusGate -- DENIED --> ErrDenied["Block Login: Access denied"]
-    StatusGate -- APPROVED --> PassCheck{"Password Hash Matches?"}
-    PassCheck -- No --> ErrPass["Show: Invalid password"]
-    PassCheck -- Yes --> MustReset{"mustResetPassword?"}
-    MustReset -- Yes --> ForceReset["Show RESET_REQUIRED Form"]
-    MustReset -- No --> EnterApp["Set currentUser & isAuthenticated=true -> Redirect to Intended Route"]
+    ShowLogin --> Choice{"Select Action"}
+    Choice -- "Sign In" --> BackendLogin["POST backend/Code.gs action=login (email, passwordHash)"]
+    BackendLogin --> NetCheck{"Backend Reachable?"}
+    NetCheck -- No --> ErrOffline["Block Login: Server unreachable / unconfigured"]
+    NetCheck -- Yes --> StatusGate{"User Status & Password?"}
+    StatusGate -- "PENDING_APPROVAL / DENIED / Invalid" --> ErrAuth["Block Login with Error"]
+    StatusGate -- "mustResetPassword == true" --> ForceReset["Show RESET_REQUIRED Form"]
+    StatusGate -- "APPROVED + Valid" --> IssueJWT["Backend signs 1-hr HS256 JWT -> Store authToken & currentUser -> Enter App"]
+
+    ActiveTimer --> RemCheck{"Remaining Time?"}
+    RemCheck -- "<= 0s" --> ForceLogout["logout() -> Redirect /login with Session Expired banner"]
+    RemCheck -- "1s - 300s" --> WarnModal["Show 5-Min Pre-Expiry Modal (Live Countdown)"]
+    WarnModal -- "Stay Signed In" --> RefreshJWT["POST action=refreshToken -> Issue fresh 1-hr JWT"]
+    WarnModal -- "Sign Out Now" --> ForceLogout
 
     Choice -- "Request Access" --> RegSubmit["handleRegisterSubmit()"]
     RegSubmit --> MatchCheck{"Email / Phone Match Existing User?"}
-    MatchCheck -- "Conflict (Different Account / Mismatched Phone)" --> ErrConflict["Show Validation Error"]
+    MatchCheck -- "Conflict" --> ErrConflict["Show Validation Error"]
     MatchCheck -- "Brand New User" --> NewUser["Create User (PENDING_APPROVAL) + Temp Password + Reset Link -> Sync to DB"]
     MatchCheck -- "Existing APPROVED User" --> RoleReq["Store requestedRole & requestedName; Keep active role, APPROVED status & password"]
     MatchCheck -- "Existing PENDING/DENIED User" --> ReReq["Update role, name, status=PENDING_APPROVAL; Preserve existing password"]
@@ -222,6 +228,7 @@ flowchart TD
 
 ### Capabilities
 - **CORS-Safe Transport (`syncService.ts`):** Sends `POST` requests with `Content-Type: text/plain;charset=utf-8` and `redirect: 'follow'` to Google Apps Script Web App URL to avoid CORS preflight failures.
+- **JWT-Authenticated Mutations:** Every protected `doPost` action attaches `authToken`; `backend/Code.gs` verifies the HS256 signature and `exp` via `verifyJwt()`, derives `userRole` from the verified JWT payload (never trusting raw client role strings), and returns `TOKEN_EXPIRED` / `UNAUTHORIZED` if invalid/expired—triggering immediate forced `logout()` on the client.
 - **Hydration & Deduplication:** `connectAndHydrateServer()` fetches all sheets (`getData`), normalizes emails/phones, deduplicates user records, and synchronizes active user status/role.
 - **Settings & Font Scaling (`SettingsModal.tsx`):** Configure backend webhook URL, test connection (`pingGoogleSheet`), trigger manual 1-click Sync All, and adjust persistent `baseFontSize` (`12px`–`20px`).
 - **UI Standards:** Zero native `alert()`/`confirm()` calls (`AlertDialog.tsx`), `Esc` & overlay-click modal dismissal (`useModalDismiss.ts`), full-screen action spinners (`actionLoading`), and strict EN/TE isolation.

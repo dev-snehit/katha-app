@@ -14,7 +14,7 @@ function setupDatabase() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   
   const tables = {
-    'Users': ['id', 'name', 'email', 'phone', 'role', 'status', 'createdAt', 'passwordHash', 'requestedRole', 'requestedName'],
+    'Users': ['id', 'name', 'email', 'phone', 'role', 'status', 'createdAt', 'passwordHash', 'requestedRole', 'requestedName', 'mustResetPassword'],
     'User_Registrations': ['id', 'name', 'email', 'phone', 'requested_role', 'status', 'registered_at', 'temp_password_sent'],
     'Master_Products': ['id', 'name_en', 'name_te', 'category', 'brand_en', 'brand_te', 'inner_wt_kg', 'inner_count', 'outer_wt_kg', 'stock_physical', 'stock_reserved', 'price_bag', 'cost_bag', 'retail_price_bag'],
     'Master_Customers': ['id', 'name_en', 'name_te', 'phone', 'business_en', 'business_te', 'address_en', 'address_te', 'current_due'],
@@ -56,9 +56,16 @@ function setupDatabase() {
       '9999999999',
       'ADMIN',
       'APPROVED',
-      new Date().toISOString()
+      new Date().toISOString(),
+      '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918',
+      '',
+      '',
+      false
     ]);
   }
+
+  // Ensure JWT signing secret is initialized in ScriptProperties
+  getJwtSecret();
 
   // Pre-seed default Role_Permissions if empty
   const permSheet = ss.getSheetByName('Role_Permissions');
@@ -227,6 +234,115 @@ function getOrInitRolePermissions(ss) {
   return map;
 }
 
+function getJwtSecret() {
+  var props = PropertiesService.getScriptProperties();
+  var secret = props.getProperty('JWT_SECRET');
+  if (!secret) {
+    secret = Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '');
+    props.setProperty('JWT_SECRET', secret);
+  }
+  return secret;
+}
+
+function base64UrlEncode(input) {
+  var bytes = typeof input === 'string'
+    ? Utilities.newBlob(input).getBytes()
+    : input;
+  return Utilities.base64EncodeWebSafe(bytes).replace(/=+$/, '');
+}
+
+function base64UrlDecodeString(str) {
+  var pad = str.length % 4;
+  var padded = str + (pad === 2 ? '==' : pad === 3 ? '=' : '');
+  var bytes = Utilities.base64DecodeWebSafe(padded);
+  return Utilities.newBlob(bytes).getDataAsString('UTF-8');
+}
+
+function signJwt(payloadObj) {
+  var header = { alg: 'HS256', typ: 'JWT' };
+  var iat = Math.floor(Date.now() / 1000);
+  var exp = iat + 3600; // Strict 1-hour expiration
+  var fullPayload = Object.assign({}, payloadObj, { iat: iat, exp: exp });
+
+  var headerB64 = base64UrlEncode(JSON.stringify(header));
+  var payloadB64 = base64UrlEncode(JSON.stringify(fullPayload));
+  var signingInput = headerB64 + '.' + payloadB64;
+
+  var sigBytes = Utilities.computeHmacSha256Signature(signingInput, getJwtSecret());
+  var sigB64 = base64UrlEncode(sigBytes);
+  return signingInput + '.' + sigB64;
+}
+
+function verifyJwt(token) {
+  if (!token || typeof token !== 'string') {
+    return { valid: false, code: 'UNAUTHORIZED', error: 'Missing authentication token' };
+  }
+  var parts = token.trim().split('.');
+  if (parts.length !== 3) {
+    return { valid: false, code: 'UNAUTHORIZED', error: 'Malformed authentication token' };
+  }
+  try {
+    var signingInput = parts[0] + '.' + parts[1];
+    var expectedSigBytes = Utilities.computeHmacSha256Signature(signingInput, getJwtSecret());
+    var expectedSigB64 = base64UrlEncode(expectedSigBytes);
+
+    if (parts[2].length !== expectedSigB64.length) {
+      return { valid: false, code: 'UNAUTHORIZED', error: 'Invalid token signature' };
+    }
+    var mismatch = 0;
+    for (var i = 0; i < parts[2].length; i++) {
+      mismatch |= parts[2].charCodeAt(i) ^ expectedSigB64.charCodeAt(i);
+    }
+    if (mismatch !== 0) {
+      return { valid: false, code: 'UNAUTHORIZED', error: 'Invalid token signature' };
+    }
+
+    var payload = JSON.parse(base64UrlDecodeString(parts[1]));
+    var nowSec = Math.floor(Date.now() / 1000);
+    if (!payload.exp || nowSec >= Number(payload.exp)) {
+      return { valid: false, code: 'TOKEN_EXPIRED', error: 'Your session has expired. Please sign in again.' };
+    }
+
+    return { valid: true, payload: payload };
+  } catch (e) {
+    return { valid: false, code: 'UNAUTHORIZED', error: 'Invalid authentication token' };
+  }
+}
+
+function findUserRowByEmailOrId(ss, email, id) {
+  var userSheet = ss.getSheetByName('Users');
+  if (!userSheet || userSheet.getLastRow() <= 1) return null;
+  var data = userSheet.getDataRange().getValues();
+  var cleanEmail = (email || '').toString().trim().toLowerCase();
+  if (cleanEmail.endsWith('@gmail')) cleanEmail += '.com';
+
+  for (var i = 1; i < data.length; i++) {
+    var rowId = (data[i][0] || '').toString();
+    var rowEmail = (data[i][2] || '').toString().trim().toLowerCase();
+    if (rowEmail.endsWith('@gmail')) rowEmail += '.com';
+
+    if ((id && rowId === id) || (cleanEmail && rowEmail === cleanEmail)) {
+      return {
+        rowIndex: i + 1,
+        user: {
+          id: rowId,
+          name: (data[i][1] || '').toString(),
+          email: (data[i][2] || '').toString(),
+          phone: (data[i][3] || '').toString(),
+          role: (data[i][4] || 'STAFF').toString(),
+          status: (data[i][5] || 'PENDING_APPROVAL').toString(),
+          createdAt: (data[i][6] || new Date().toISOString()).toString(),
+          passwordHash: (data[i][7] || '').toString(),
+          requestedRole: (data[i][8] || '').toString() || undefined,
+          requestedName: (data[i][9] || '').toString() || undefined,
+          mustResetPassword: data[i][10] === true || data[i][10] === 'true'
+        }
+      };
+    }
+  }
+  return null;
+}
+
 function checkBackendPermission(ss, userRole, pageKey, funcKey) {
   if (!userRole) return false;
   if (userRole === 'OWNER') return true; // Owner has full uninhibited permissions
@@ -299,7 +415,6 @@ function doPost(e) {
 
     const body = JSON.parse(e.postData.contents);
     const action = body.action;
-    const userRole = body.userRole || body.role || 'STAFF';
     const ss = SpreadsheetApp.getActiveSpreadsheet();
 
     if (action === 'ping') {
@@ -311,7 +426,130 @@ function doPost(e) {
       });
     }
 
+    // --- Authentication: Login (issues HS256 1-hour JWT) ---
+    if (action === 'login') {
+      const email = (body.email || '').toString().trim().toLowerCase();
+      const passwordHash = (body.passwordHash || '').toString().trim();
+      if (!email || !passwordHash) {
+        return createResponse({ status: 'error', code: 'INVALID_CREDENTIALS', message: 'Email and password are required.' });
+      }
+
+      const found = findUserRowByEmailOrId(ss, email, null);
+      if (!found) {
+        return createResponse({ status: 'error', code: 'UNAUTHORIZED', message: 'No registered account found with this email address.' });
+      }
+
+      const u = found.user;
+      if (u.status === 'PENDING_APPROVAL') {
+        return createResponse({
+          status: 'error',
+          code: 'PENDING_APPROVAL',
+          message: 'Your account is pending approval by an administrator. Please check back shortly.'
+        });
+      }
+      if (u.status === 'DENIED') {
+        return createResponse({
+          status: 'error',
+          code: 'DENIED',
+          message: 'Access has been denied for this account. Contact your administrator.'
+        });
+      }
+
+      const rootAdminHash = '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918';
+      const isRootAdmin = u.email.toLowerCase() === 'dev.snehit@gmail.com' || u.email.toLowerCase() === 'dev.snehit@gmail';
+      const storedHash = u.passwordHash || (isRootAdmin ? rootAdminHash : '');
+      if (!storedHash || storedHash !== passwordHash) {
+        return createResponse({ status: 'error', code: 'INVALID_CREDENTIALS', message: 'Invalid password. Please verify and try again.' });
+      }
+
+      const safeUser = {
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        phone: u.phone,
+        role: u.role,
+        status: u.status,
+        createdAt: u.createdAt,
+        requestedRole: u.requestedRole,
+        requestedName: u.requestedName,
+        mustResetPassword: u.mustResetPassword
+      };
+
+      if (u.mustResetPassword) {
+        return createResponse({
+          status: 'success',
+          mustResetPassword: true,
+          user: safeUser,
+          message: 'Please choose a permanent password to continue.'
+        });
+      }
+
+      const token = signJwt({
+        sub: u.id,
+        email: u.email,
+        role: u.role,
+        status: u.status
+      });
+
+      return createResponse({
+        status: 'success',
+        token: token,
+        user: safeUser,
+        message: 'Authenticated successfully'
+      });
+    }
+
+    // --- Authentication: Explicit Token Refresh ---
+    if (action === 'refreshToken') {
+      const verification = verifyJwt(body.authToken);
+      if (!verification.valid) {
+        return createResponse({ status: 'error', code: verification.code, message: verification.error });
+      }
+
+      const found = findUserRowByEmailOrId(ss, verification.payload.email, verification.payload.sub);
+      if (!found || found.user.status !== 'APPROVED') {
+        return createResponse({
+          status: 'error',
+          code: 'UNAUTHORIZED',
+          message: 'User account is no longer active or approved.'
+        });
+      }
+
+      const u = found.user;
+      const freshToken = signJwt({
+        sub: u.id,
+        email: u.email,
+        role: u.role,
+        status: u.status
+      });
+
+      return createResponse({
+        status: 'success',
+        token: freshToken,
+        user: {
+          id: u.id,
+          name: u.name,
+          email: u.email,
+          phone: u.phone,
+          role: u.role,
+          status: u.status,
+          createdAt: u.createdAt,
+          requestedRole: u.requestedRole,
+          requestedName: u.requestedName,
+          mustResetPassword: u.mustResetPassword
+        },
+        message: 'Session token refreshed'
+      });
+    }
+
     if (action === 'getData') {
+      // If an authToken is supplied, verify it so expired/tampered sessions are caught immediately
+      if (body.authToken) {
+        const getAuth = verifyJwt(body.authToken);
+        if (!getAuth.valid) {
+          return createResponse({ status: 'error', code: getAuth.code, message: getAuth.error });
+        }
+      }
       const result = {};
       const sheetNames = ['Users', 'Master_Products', 'Master_Customers', 'Master_Suppliers', 'Master_Orders_Sales', 'Pending_Orders', 'Master_Purchases', 'Role_Permissions'];
       
@@ -331,6 +569,21 @@ function doPost(e) {
       }
       result['rolePermissions'] = getOrInitRolePermissions(ss);
       return createResponse({ status: 'success', data: result });
+    }
+
+    // Public/pre-auth actions do not require a session JWT; all other mutations require a valid HS256 JWT
+    const publicActions = ['registerUser', 'forgotPassword', 'resetPassword'];
+    let userRole = 'STAFF';
+    if (publicActions.indexOf(action) === -1) {
+      const authCheck = verifyJwt(body.authToken);
+      if (!authCheck.valid) {
+        return createResponse({
+          status: 'error',
+          code: authCheck.code,
+          message: authCheck.error
+        });
+      }
+      userRole = authCheck.payload.role || 'STAFF';
     }
 
     if (action === 'lockSheets') {
@@ -692,7 +945,10 @@ function doPost(e) {
           user.role,
           'APPROVED',
           new Date().toISOString(),
-          user.passwordHash || ''
+          user.passwordHash || '',
+          '',
+          '',
+          true
         ];
 
         if (foundIdx !== -1) {
@@ -801,7 +1057,8 @@ function doPost(e) {
             new Date().toISOString(),
             user.passwordHash || '',
             user.requestedRole || '',
-            user.requestedName || ''
+            user.requestedName || '',
+            Boolean(user.mustResetPassword)
           ];
 
           if (foundIdx !== -1) {
@@ -896,6 +1153,7 @@ function doPost(e) {
         for (let i = 1; i < uData.length; i++) {
           if (uData[i][2] && uData[i][2].toString().toLowerCase() === email.toLowerCase()) {
             userSheet.getRange(i + 1, 8).setValue(newPasswordHash);
+            userSheet.getRange(i + 1, 11).setValue(false);
             return createResponse({ status: 'success', message: 'Password hash successfully updated' });
           }
         }

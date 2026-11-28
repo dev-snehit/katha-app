@@ -95,8 +95,18 @@
 - **User Prompt / Request:** Provide dedicated role configuration `.json` files in the repo to define and extend roles and permissions.
 - **Changes & Enhancements:** Created `src/config/roles/roles.json`, `owner.json`, `admin.json`, `staff.json`, and `customer.json`, and wired them into `src/lib/permissions.ts`.
 
-### #16 — Comprehensive Module Documentation, Flowcharts & Automated Sync Rules (`pending commit`)
+### #16 — Comprehensive Module Documentation, Flowcharts & Automated Sync Rules (`e9f67f0`)
 - **Date:** 2026-11-28
 - **User Prompt / Request:** Prepare detailed documentation and proper flowcharts for every functionality in the code; set up a workflow so every future change updates relevant docs; track commits, changes, prompts, and enhancements sequentially without modifying any application code.
 - **Changes & Enhancements:** Created `docs/README.md`, `docs/MODULES_AND_FLOWCHARTS.md`, `docs/CHANGE_LOG_AND_PROMPTS.md`, `.agents/rules/documentation-sync.md`, and `AGENTS.md`.
 - **Files Touched:** `docs/README.md`, `docs/MODULES_AND_FLOWCHARTS.md`, `docs/CHANGE_LOG_AND_PROMPTS.md`, `.agents/rules/documentation-sync.md`, `AGENTS.md`
+
+### #17 — HS256 JWT Session Authentication, 1-Hour Expiry & 5-Minute Pre-Expiry Warning (`pending commit`)
+- **Date:** 2026-11-28
+- **User Prompt / Request:** Implement HS256 JWT-based session authentication with a 1-hour expiration, 5-minute pre-expiry warning dialog ("Stay Signed In" / "Sign Out Now"), forced logout on expiry/tampering, strict backend login, and synchronized documentation.
+- **Changes & Enhancements:**
+  - Added server-only `JWT_SECRET` in `PropertiesService.getScriptProperties()`, `signJwt()`, `verifyJwt()`, `login`, and `refreshToken` actions in `backend/Code.gs`, verifying `authToken` on all protected `doPost` mutations and deriving `userRole` from verified JWT claims.
+  - Added `src/lib/jwt.ts`, `authToken` persistence in `localStorage`, strict backend `login()`, `refreshSessionToken()`, `checkSessionExpiry()`, and `TOKEN_EXPIRED`/`UNAUTHORIZED` forced logout handling in `useAppStore.ts` and `syncService.ts`.
+  - Added strict 1-hour countdown monitor and bilingual 5-minute pre-expiry warning modal in `src/App.tsx`, plus expired-session banner in `src/components/auth/AuthView.tsx`.
+  - Updated `tests/authAndSync.test.ts` with backend JWT mocks and unit tests for offline/unconfigured login failure, expired/tampered JWT forced logout, and 5-minute pre-expiry `refreshSessionToken()` renewal.
+- **Files Touched:** `backend/Code.gs`, `src/lib/jwt.ts`, `src/lib/syncService.ts`, `src/store/useAppStore.ts`, `src/App.tsx`, `src/components/auth/AuthView.tsx`, `tests/authAndSync.test.ts`, `docs/README.md`, `docs/MODULES_AND_FLOWCHARTS.md`, `docs/CHANGE_LOG_AND_PROMPTS.md`
