@@ -36,10 +36,10 @@
 ```mermaid
 flowchart TD
     Start(["User Opens AuthView / App"]) --> BootCheck{"Stored authToken Valid & Non-Expired?"}
-    BootCheck -- No --> ShowLogin["Clear session -> Render AuthView (/login)"]
+    BootCheck -- No --> ShowLogin["Clear session -> Render AuthView (/login or /register)"]
     BootCheck -- Yes --> ActiveTimer["App.tsx 1-Hour Countdown Timer (No Passive Extension)"]
 
-    ShowLogin --> Choice{"Select Action"}
+    ShowLogin --> Choice{"Select Action (/login or /register)"}
     Choice -- "Sign In" --> BackendLogin["POST backend/Code.gs action=login (email, passwordHash)"]
     BackendLogin --> NetCheck{"Backend Reachable?"}
     NetCheck -- No --> ErrOffline["Block Login: Server unreachable / unconfigured"]
@@ -54,10 +54,10 @@ flowchart TD
     WarnModal -- "Stay Signed In" --> RefreshJWT["POST action=refreshToken -> Issue fresh 1-hr JWT"]
     WarnModal -- "Sign Out Now" --> ForceLogout
 
-    Choice -- "Request Access" --> RegSubmit["handleRegisterSubmit()"]
+    Choice -- "Request Access (/register)" --> RegSubmit["handleRegisterSubmit()"]
     RegSubmit --> MatchCheck{"Email / Phone Match Existing User?"}
     MatchCheck -- "Conflict" --> ErrConflict["Show Validation Error"]
-    MatchCheck -- "Brand New User" --> NewUser["Create User (PENDING_APPROVAL) + Temp Password + Reset Link -> Sync to DB"]
+    MatchCheck -- "Brand New User" --> NewUser["Create User (PENDING_APPROVAL) + Temp Password + Reset Link -> Show Link & Notice On-Screen (Email Hold)"]
     MatchCheck -- "Existing APPROVED User" --> RoleReq["Store requestedRole & requestedName; Keep active role, APPROVED status & password"]
     MatchCheck -- "Existing PENDING/DENIED User" --> ReReq["Update role, name, status=PENDING_APPROVAL; Preserve existing password"]
 
@@ -240,12 +240,15 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-    AppMount["App Mount / Login / Manual Sync"] --> GetData["GET backendUrl?action=getData"]
+    AppMount["App Mount / Login / Manual Sync"] --> GetData["POST/GET backendUrl action=getData (+ authToken)"]
     GetData --> Hydrate["Hydrate Users, Inventory, Customers, Suppliers, Orders, Role_Permissions"]
-    Hydrate --> ActiveCheck{"Current User Status on Server?"}
-    ActiveCheck -- DENIED --> ForceLogout["logout() -> Redirect to /login"]
+    Hydrate --> ActiveCheck{"Current User Status & JWT Valid?"}
+    ActiveCheck -- "DENIED / TOKEN_EXPIRED" --> ForceLogout["logout() -> Redirect to /login"]
     ActiveCheck -- APPROVED --> UpdateSession["Update currentUser & UI State"]
-    Mutation["User Mutation (Order / Stock / User / Permissions)"] --> LocalUpdate["Update Zustand + LocalStorage"]
-    LocalUpdate --> Push["POST text/plain to backendUrl (triggerSync)"]
-    Push --> CodeGS["backend/Code.gs: Check Role Permission -> Update Sheet -> Return JSON"]
+    Mutation["User Mutation (Order / Stock / User / Permissions)"] --> LocalUpdate["Update Zustand + LocalStorage + Start actionLoading Spinner"]
+    LocalUpdate --> Push["POST text/plain to backendUrl with authToken (triggerSync)"]
+    Push --> CodeGS["backend/Code.gs: verifyJwt() -> Check Role Permission -> Update Sheet"]
+    CodeGS -- "TOKEN_EXPIRED / UNAUTHORIZED" --> ForceLogout
+    CodeGS -- "Success" --> ToastOK["Stop Spinner -> Top-Right Success Toast (ToastContainer)"]
+    CodeGS -- "Error / Network Fail" --> ToastErr["Stop Spinner -> Top-Right Friendly Error Toast (ToastContainer)"]
 ```

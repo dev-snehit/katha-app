@@ -129,7 +129,7 @@
 - **Changes & Enhancements:** Relocated the "Forgot Password?" button below the password input (right-aligned) in `src/components/auth/AuthView.tsx` and added `aria-label` on the password visibility toggle.
 - **Files Touched:** `src/components/auth/AuthView.tsx`, `docs/CHANGE_LOG_AND_PROMPTS.md`
 
-### #20 — Single-Command Hard Validation, Email Delivery Hold, DB Save Spinners, Top-Right Toasts & `/login` + `/register` Routing (`pending commit`)
+### #20 — Single-Command Hard Validation, Email Delivery Hold, DB Save Spinners, Top-Right Toasts & `/login` + `/register` Routing (`a53eec4`)
 - **Date:** 2026-11-28
 - **User Prompt / Request:** Add a single `npm` script for instant full validation (`typecheck`, `lint`, `format:check`, `build`, `tests`), temporarily disable sending emails while preserving reset-link functionality until SMTP is configured, show loading spinners and clear error messages on DB saves, add top-right toast notifications for backend save confirmations/errors, and redirect unauthenticated/logged-out sessions to `/login` while syncing Sign In / Request Access tabs with `/login` and `/register` URLs.
 - **Changes & Enhancements:**
@@ -140,8 +140,14 @@
   - Added unit, backend, and UI tests in `tests/authAndSync.test.ts`, `tests/backend/codeGs.test.ts`, and `tests/ui/componentsCore.test.tsx`.
 - **Files Touched:** `package.json`, `backend/Code.gs`, `src/components/ui/ToastContainer.tsx`, `src/store/useAppStore.ts`, `src/App.tsx`, `src/components/auth/AuthView.tsx`, `tests/rolePermissions.test.ts`, `tests/authAndSync.test.ts`, `tests/backend/codeGs.test.ts`, `tests/ui/componentsCore.test.tsx`, `docs/README.md`, `docs/MODULES_AND_FLOWCHARTS.md`, `docs/CHANGE_LOG_AND_PROMPTS.md`
 
-### #21 — Show Temporary Password Notice Only After Valid Form Submission (`pending commit`)
+### #21 — Show Temporary Password Notice Only After Valid Form Submission (`a53eec4`)
 - **Date:** 2026-11-28
 - **User Prompt / Request:** Show the temporary sign-in password notification only after the user submits the Request Access form with valid form data, rather than displaying it all the time.
 - **Changes & Enhancements:** Gated the amber temporary-password notice in `src/components/auth/AuthView.tsx` on `regSuccess` and added assertions in `tests/ui/componentsCore.test.tsx` verifying it is hidden before valid submission and visible afterward.
 - **Files Touched:** `src/components/auth/AuthView.tsx`, `tests/ui/componentsCore.test.tsx`, `docs/CHANGE_LOG_AND_PROMPTS.md`
+
+### #22 — Documentation & Flowchart Sync Audit (`docs-only`)
+- **Date:** 2026-11-28
+- **User Prompt / Request:** Check whether everything is documented properly and all flowcharts are up to date.
+- **Changes & Enhancements:** Updated the Mermaid flowcharts in Section 1 (Authentication, `/login` & `/register` URL sync, on-screen setup link & email delivery hold) and Section 9 (JWT `authToken` enforcement on all `triggerSync` requests, `actionLoading` spinner, `TOKEN_EXPIRED` forced logout, and top-right `ToastContainer` success/error notifications) in `docs/MODULES_AND_FLOWCHARTS.md`, and recorded commit `a53eec4` in `docs/CHANGE_LOG_AND_PROMPTS.md`. Zero application code modified.
+- **Files Touched:** `docs/MODULES_AND_FLOWCHARTS.md`, `docs/CHANGE_LOG_AND_PROMPTS.md`
